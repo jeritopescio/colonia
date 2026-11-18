@@ -1,6 +1,6 @@
 # Colonia
 
-La app de la colonia de verano: misiones con foto, figuritas, el altar playero de cada uno (con kiosco) y la foto del 8/12 que armamos entre todos.
+La app de la colonia de verano: misiones con foto, figuritas, el altarcito playero de cada uno (con kiosco) y la foto del 8/12 que armamos entre todos.
 
 - **Cómo se usa:** es una web que se instala en el celu. En iPhone, desde Safari: Compartir → Agregar a inicio. En Android, desde Chrome: ⋮ → Instalar app.
 - **Quién sos:** cada celu elige una vez quién es y lo recuerda.

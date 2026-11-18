@@ -280,6 +280,12 @@ window.ARTE = (function () {
       <g transform="translate(31 7)">${[0, 72, 144, 216, 288].map((a) => `<circle cx="${f(4 * Math.cos(a * Math.PI / 180))}" cy="${f(4 * Math.sin(a * Math.PI / 180))}" r="3.2" fill="${k}" stroke-width="1.2"/>`).join('')}<circle r="2.2" fill="#ffe39a" stroke-width="1.2"/></g>`],
   };
 
+  // Cosas que solo existen como arte de IA: acá va su lado mayor, en la misma escala que los dibujos.
+  Object.entries({ heineken: 46, marihuana: 112, lobo: 160, estudiantes: 160, reposeraarg: 118, guitarra: 128, buzo: 82, tejos: 84,
+    moto: 176, ps5: 72, fogata: 88, caipirinha: 96, salvavidas: 72, mangrullo: 215, kayak: 186, yate: 172, ballena: 118, sirena: 62,
+    delfin: 84, delfinrosa: 84, sombrero: 70, rabas: 74, papas: 68, neoprene: 112, antorchas: 124 })
+    .forEach(([id, m]) => { ITEMS[id] = [m, m, null]; });
+
   // Cartelito con el nombre del altar (no se compra).
   // Arte hecho con IA (img/altar). Si una cosa no lo tiene, se usa su dibujo en SVG.
   const IMG = window.ARTE_IMG || {}, V = window.ARTE_IMG_V || 1;
@@ -301,7 +307,7 @@ window.ARTE = (function () {
       <text x="${f(w / 2 + 2)}" y="20" text-anchor="middle" font-family="Patrick Hand, sans-serif" font-size="14" fill="${INK}" stroke="none">${name}</text></g></svg>`;
   }
 
-  const has = (id) => !!ITEMS[id];
+  const has = (id) => !!ITEMS[id] && (!!IMG[id] || !!ITEMS[id][2]);
   // Con arte de IA se respeta su forma, y su lado mayor mide lo mismo que el del dibujo original.
   const size = (id) => {
     const it = ITEMS[id], g = IMG[id];
@@ -313,6 +319,7 @@ window.ARTE = (function () {
     const it = ITEMS[id];
     if (!it) return '';
     if (IMG[id]) return pintura(id, k, cls);
+    if (!it[2]) return '';
     return `<svg viewBox="0 0 ${it[0]} ${it[1]}" class="art ${cls}" aria-hidden="true"><g filter="url(#crayon)" stroke="${INK}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">${it[2](k || '#f6a38f')}</g></svg>`;
   }
   // Para meter un dibujo adentro de otro SVG (la foto).

@@ -1,9 +1,10 @@
 /* Sonidos de Colonia: todo sintetizado con Web Audio, sin archivos.
-   plop = agarrar algo del altar. trtss = cae en la arena.
+   plop = agarrar algo del altarcito. trtss = cae en la arena. chap = cae al agua.
+   si / no = botones: cortitos y secos. si va en el medio; no es un "prp" grave.
    monedas = escalas rápidas en mayor, cada nota con su novena arriba, y un acorde mayor con 9na al final. */
 window.SONIDO = (function () {
   const AC = window.AudioContext || window.webkitAudioContext;
-  let ctx = null, out = null, noise = null, pend = null;
+  let ctx = null, out = null, seco = null, noise = null, pend = null;
   if (navigator.audioSession) { try { navigator.audioSession.type = 'ambient'; } catch (e) { /* no pasa nada */ } } // no corta la música y respeta el silencio
 
   function init() {
@@ -12,6 +13,7 @@ window.SONIDO = (function () {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16; comp.ratio.value = 5; comp.attack.value = 0.002; comp.release.value = 0.12;
     out = ctx.createGain(); out.gain.value = 0.55;
+    seco = ctx.createGain(); seco.gain.value = 0.55; seco.connect(comp); // sin eco
     // un eco cortito para que las monedas brillen
     const wet = ctx.createGain(); wet.gain.value = 0.16;
     const delay = ctx.createDelay(0.4); delay.delayTime.value = 0.095;
@@ -47,7 +49,7 @@ window.SONIDO = (function () {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(out);
+    s.connect(f); f.connect(g); g.connect(seco);
     s.start(t, Math.random() * 0.8, dur + 0.02);
   }
 
@@ -62,7 +64,7 @@ window.SONIDO = (function () {
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.75, t + 0.012);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
-      o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.15);
+      o.connect(g); g.connect(seco); o.start(t); o.stop(t + 0.15);
     });
   }
 
@@ -73,6 +75,49 @@ window.SONIDO = (function () {
       grain(t, 0.045, v * 0.9, 'lowpass', 520, 0.7); // el golpe sordo
       [0, 0.03, 0.058, 0.084].forEach((d, i) => grain(t + d, 0.03, v * (0.8 - i * 0.14), 'bandpass', 1900 + i * 420 + Math.random() * 300, 1.3));
       grain(t + 0.095, 0.2 + 0.1 * fuerza, v * 0.34, 'highpass', 4800, 0.6);
+    });
+  }
+
+  // Caer al agua: un bloop y unas gotas.
+  function chap(fuerza = 0.5) {
+    run(() => {
+      const t = ctx.currentTime + 0.002, v = 0.25 + 0.4 * Math.min(1, fuerza);
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(330, t); o.frequency.exponentialRampToValueAtTime(115, t + 0.09);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+      o.connect(g); g.connect(seco); o.start(t); o.stop(t + 0.12);
+      grain(t + 0.02, 0.09, v * 0.5, 'bandpass', 1500, 0.8);
+      grain(t + 0.06, 0.13, v * 0.28, 'highpass', 3600, 0.6);
+    });
+  }
+
+  // Botón que dice que sí: un toquecito de tono medio, 55 ms.
+  function si() {
+    run(() => {
+      const t = ctx.currentTime + 0.001;
+      [[1, 'triangle', 0.42, 0.055], [2, 'sine', 0.1, 0.032]].forEach(([m, type, a, d]) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = type; o.frequency.setValueAtTime(490 * m, t); o.frequency.exponentialRampToValueAtTime(610 * m, t + 0.035);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+        o.connect(g); g.connect(seco); o.start(t); o.stop(t + d + 0.01);
+      });
+    });
+  }
+
+  // Botón que dice que no: "prp", grave y con tres golpecitos, menos de 110 ms.
+  function no() {
+    run(() => {
+      const t = ctx.currentTime + 0.001;
+      const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'square'; o.frequency.setValueAtTime(96, t); o.frequency.exponentialRampToValueAtTime(68, t + 0.1);
+      f.type = 'lowpass'; f.frequency.value = 430; f.Q.value = 0.8;
+      g.gain.setValueAtTime(0.0001, t);
+      [[0, 0.62], [0.033, 0.46], [0.066, 0.52]].forEach(([d, a]) => {
+        g.gain.exponentialRampToValueAtTime(a, t + d + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.05, t + d + 0.027);
+      });
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.105);
+      o.connect(f); f.connect(g); g.connect(seco); o.start(t); o.stop(t + 0.115);
     });
   }
 
@@ -112,5 +157,5 @@ window.SONIDO = (function () {
     }, true);
   }
 
-  return { plop, trtss, monedas };
+  return { plop, trtss, chap, si, no, monedas };
 })();

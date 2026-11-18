@@ -93,51 +93,79 @@ window.DATA = (function () {
     'regalo': { t: 'Regalaste algo', c: 5 },
   };
 
-  // Kiosco: todo lo que se compra va al altar playero de cada uno.
-  // side R = refugio (va de fondo y no se mueve; la carpa reemplaza a la sombrilla), A = tierno, B = oscuro.
-  // col = color inicial si se puede cambiar; sin col, el color es fijo (las mascotas son como son).
+  // Kiosco: todo lo que se compra va al altarcito playero de cada uno.
+  // side R = refugio (va de fondo y no se mueve; la carpa reemplaza a la sombrilla).
+  // z = zona: 'mar' (flota o salta en el agua), 'fondo' (atrás de la arena); sin z, en la arena.
+  // anim = 'salta', 'cola' o 'flota'. col = color inicial si se puede pintar; sin col, el color es fijo.
   const SHOP = [
-    { id: 'sombrilla', n: 'Sombrilla', p: 40, lv: 1, side: 'R', col: '#f6a38f' },
-    { id: 'carpa', n: 'Carpa de balneario', p: 110, lv: 2, side: 'R', col: '#a9d6f0' },
+    { id: 'sombrilla', n: 'Sombrilla', p: 40, lv: 1, side: 'R', col: '#f6a38f', d: 'Sombra portátil. Se clava con fe y se vuela con el primer viento.' },
+    { id: 'carpa', n: 'Carpa de balneario', p: 110, lv: 2, side: 'R', col: '#a9d6f0', d: 'Lujo de balneario: sombra propia y derecho a mirar feo al que pasa.' },
+    { id: 'mangrullo', n: 'Mangrullo', p: 180, lv: 3, z: 'fondo', d: 'Desde acá arriba se ve todo: el mar, los bañistas y quién no trajo nada para el mate.' },
 
-    { id: 'estrella', n: 'Estrella de mar', p: 8, lv: 1, side: 'A', col: '#f6a38f' },
-    { id: 'caracoles', n: 'Caracoles', p: 8, lv: 1, side: 'A', col: '#f7b3c6' },
-    { id: 'protector', n: 'Protector', p: 10, lv: 1, side: 'A', col: '#ffe39a' },
-    { id: 'lentes', n: 'Lentes de sol', p: 12, lv: 1, side: 'A', col: '#f7b3c6' },
-    { id: 'sandia', n: 'Sandía', p: 12, lv: 1, side: 'A' },
-    { id: 'librito', n: 'Librito', p: 15, lv: 1, side: 'A', col: '#b6e5cd' },
-    { id: 'balde', n: 'Balde y palita', p: 15, lv: 1, side: 'A', col: '#a9d6f0' },
-    { id: 'futbol', n: 'Pelota de fútbol', p: 15, lv: 1, side: 'A' },
-    { id: 'voley', n: 'Pelota de vóley', p: 15, lv: 1, side: 'A', col: '#ffe39a' },
-    { id: 'toalla', n: 'Toalla', p: 20, lv: 1, side: 'A', col: '#cfc0f0' },
-    { id: 'mate', n: 'Mate y termo', p: 25, lv: 1, side: 'A', col: '#b6e5cd' },
-    { id: 'reposera', n: 'Reposera', p: 45, lv: 1, side: 'A', col: '#f6a38f' },
-    { id: 'basquet', n: 'Pelota de básquet', p: 18, lv: 2, side: 'A' },
-    { id: 'liebre', n: 'Liebre', p: 40, lv: 2, side: 'A' },
-    { id: 'heladerita', n: 'Heladerita con sanguchitos', p: 55, lv: 2, side: 'A', col: '#a9d6f0' },
-    { id: 'tulio', n: 'Tulio', sub: 'el salchicha de Pachi', p: 55, lv: 2, side: 'A' },
-    { id: 'tony', n: 'Tony', sub: 'el gato de Jero y Viqui', p: 55, lv: 2, side: 'A' },
-    { id: 'feluchis', n: 'Feluchis', sub: 'la gata de Jose', p: 55, lv: 2, side: 'A' },
-    { id: 'pompi', n: 'Pompi', sub: 'el gato de Juani', p: 55, lv: 2, side: 'A' },
-    { id: 'renu', n: 'Renu', sub: 'la perrita de Nachote', p: 55, lv: 2, side: 'A' },
-    { id: 'leda', n: 'Leda', sub: 'la perra de Rochi', p: 55, lv: 2, side: 'A' },
-    { id: 'zorrito', n: 'Zorrito', p: 45, lv: 3, side: 'A' },
-    { id: 'tabla', n: 'Tabla de surf', p: 70, lv: 3, side: 'A', col: '#f7b3c6' },
-    { id: 'corona', n: 'Corona enterrada', p: 150, lv: 5, side: 'A', col: '#f7b3c6' },
+    { id: 'yate', n: 'Yate', p: 600, lv: 5, z: 'mar', anim: 'flota', d: 'Anclado frente a tu altarcito. Nadie sabe cómo pagaste esto.' },
+    { id: 'ballena', n: 'Ballenita', p: 200, lv: 4, z: 'mar', anim: 'salta', d: 'Salta justo cuando mirás para otro lado.' },
+    { id: 'sirena', n: 'Cola de sirena', p: 160, lv: 4, z: 'mar', anim: 'cola', d: 'Solo se le ve la cola. Mejor no preguntar.' },
+    { id: 'delfin', n: 'Delfín', p: 120, lv: 3, z: 'mar', anim: 'salta', d: 'Sale, saluda y se va. Mejor que muchos invitados.' },
+    { id: 'delfinrosa', n: 'Delfín rosa', p: 150, lv: 3, z: 'mar', anim: 'salta', d: 'Rarísimo y muy consciente de eso.' },
 
-    { id: 'birra', n: 'Birra', p: 15, lv: 1, side: 'B', col: '#ffe39a' },
-    { id: 'dados', n: 'Dados', p: 15, lv: 1, side: 'B', col: '#fffaf1' },
-    { id: 'puchos', n: 'Atado de puchos', p: 20, lv: 1, side: 'B' },
-    { id: 'naipes', n: 'Mazo para el truco', p: 20, lv: 1, side: 'B' },
-    { id: 'porro', n: 'Porro', p: 30, lv: 2, side: 'B' },
-    { id: 'vino', n: 'Vino', p: 35, lv: 2, side: 'B' },
-    { id: 'cuchillo', n: 'Cuchillito', p: 30, lv: 3, side: 'B', col: '#f7b3c6' },
-    { id: 'calavera', n: 'Calaverita', p: 45, lv: 4, side: 'B', col: '#f6a38f' },
+    { id: 'estrella', n: 'Estrella de mar', p: 8, lv: 1, col: '#f6a38f', d: 'Cinco puntas, cero apuro. Lleva tres días cruzando la misma duna.' },
+    { id: 'caracoles', n: 'Caracoles', p: 8, lv: 1, col: '#f7b3c6', d: 'Si te los acercás al oído, alguien te pide que le pases el protector.' },
+    { id: 'protector', n: 'Protector', p: 10, lv: 1, col: '#ffe39a', d: 'Factor 50. Se pasa una vez y se recuerda cuando ya es tarde.' },
+    { id: 'lentes', n: 'Lentes de sol', p: 12, lv: 1, col: '#f7b3c6', d: 'Para mirar a cualquiera sin que se note. Se nota.' },
+    { id: 'heineken', n: 'Lata de Heineken', p: 12, lv: 1, d: 'La lata verde. Transpira más que vos.' },
+    { id: 'balde', n: 'Balde y palita', p: 15, lv: 1, col: '#a9d6f0', d: 'Obras públicas de orilla. El mar las inaugura y las demuele.' },
+    { id: 'sandia', n: 'Sandía', p: 12, lv: 1, d: 'Se come con las manos y termina en el codo.' },
+    { id: 'librito', n: 'Librito', p: 15, lv: 1, col: '#b6e5cd', d: 'Viajó a todas las playas. Sigue en la página doce.' },
+    { id: 'futbol', n: 'Pelota de fútbol', p: 15, lv: 1, d: 'Dos ojotas hacen un arco. El que la patea al mar la va a buscar.' },
+    { id: 'voley', n: 'Pelota de vóley', p: 15, lv: 1, col: '#ffe39a', d: 'Red imaginaria, reglas discutidas, amistades en riesgo.' },
+    { id: 'birra', n: 'Birra', p: 15, lv: 1, col: '#ffe39a', d: 'Fría hasta que la apoyás en la arena.' },
+    { id: 'dados', n: 'Dados', p: 15, lv: 1, col: '#fffaf1', d: 'Deciden quién lava los platos. No se apela.' },
+    { id: 'sombrero', n: 'Sombrero de paja', p: 18, lv: 1, col: '#f6a38f', d: 'Paja fina, ala ancha. Se vuela justo cuando te ponés digno.' },
+    { id: 'papas', n: 'Bowl de papas fritas', p: 18, lv: 1, d: 'Baja solo, aunque nadie admite haber comido.' },
+    { id: 'basquet', n: 'Pelota de básquet', p: 18, lv: 2, d: 'No hay aro ni piso firme. Pica una vez y se queda a vivir en la arena.' },
+    { id: 'toalla', n: 'Toalla', p: 20, lv: 1, col: '#cfc0f0', d: 'Territorio soberano. Pisarla con arena es declarar la guerra.' },
+    { id: 'puchos', n: 'Atado de puchos', p: 20, lv: 1, d: 'El último. Eso dijiste el verano pasado.' },
+    { id: 'naipes', n: 'Mazo para el truco', p: 20, lv: 1, d: 'Quien no mienta, que reparta.' },
+    { id: 'mate', n: 'Mate y termo', p: 25, lv: 1, col: '#b6e5cd', d: 'Lavado a la tercera ronda, defendido hasta la última.' },
+    { id: 'buzo', n: 'Buzo', p: 25, lv: 1, col: '#a9d6f0', d: 'Para cuando baja el sol y juraste que no ibas a tener frío.' },
+    { id: 'rabas', n: 'Rabas con limón', p: 28, lv: 1, d: 'La gaviota ya las vio.' },
+    { id: 'tejos', n: 'Tejos', p: 30, lv: 1, col: '#f6a38f', d: 'Deporte nacional de orilla. Se mide con la ojota y se discute igual.' },
+    { id: 'salvavidas', n: 'Salvavidas', p: 30, lv: 1, col: '#f6a38f', d: 'Nadie lo necesita hasta que todos lo quieren.' },
+    { id: 'porro', n: 'Porro', p: 30, lv: 2, d: 'Armado a mano. Se comparte hacia la izquierda.' },
+    { id: 'cuchillo', n: 'Cuchillito', p: 30, lv: 3, col: '#f7b3c6', d: 'Para el salame. Por ahora.' },
+    { id: 'lobo', n: 'Toallón del Lobo', p: 35, lv: 1, d: 'Azul y blanco. Aguanta lo que venga, como siempre.' },
+    { id: 'estudiantes', n: 'Toallón de Estudiantes', p: 35, lv: 1, d: 'Rojo y blanco. Se seca rápido y te lo hace saber.' },
+    { id: 'vino', n: 'Vino', p: 35, lv: 2, d: 'Tinto de playa: con hielo y sin culpa.' },
+    { id: 'reposeraarg', n: 'Reposera argentina', p: 40, lv: 1, col: '#a9d6f0', d: 'La de caño y cintitas. Te deja la espalda rayada de recuerdo.' },
+    { id: 'liebre', n: 'Liebre', p: 40, lv: 2, d: 'Autóctona del bosque esmeralda. Ranchea en tu lugar sin pedir permiso.' },
+    { id: 'reposera', n: 'Reposera', p: 45, lv: 1, col: '#f6a38f', d: 'De madera y con clase. Le aprieta los dedos a quien la abre con soberbia.' },
+    { id: 'zorrito', n: 'Zorrito', p: 45, lv: 3, d: 'Vecino del pinar. Si falta una ojota, ya sabés.' },
+    { id: 'calavera', n: 'Calaverita', p: 45, lv: 4, col: '#f6a38f', d: 'Apareció en la duna. Tiene flor y mejor actitud que vos.' },
+    { id: 'caipirinha', n: 'Tabla de caipirinha', p: 45, lv: 2, d: 'Limas, azúcar y una tabla que no llega entera a la noche.' },
+    { id: 'fogata', n: 'Fogatita', p: 50, lv: 2, d: 'Chiquita y contenida. Todos saben prenderla, ninguno la prende.' },
+    { id: 'heladerita', n: 'Heladerita con sanguchitos', p: 55, lv: 2, col: '#a9d6f0', d: 'Adentro hay sanguchitos de miga y la promesa de que alcanzan.' },
+    { id: 'antorchas', n: 'Antorchas de playa', p: 55, lv: 2, d: 'Ambientan, espantan mosquitos y se creen Hawái.' },
+    { id: 'tulio', n: 'Tulio', sub: 'el salchicha de Pachi', p: 55, lv: 2, d: 'Mide lo que una cuadra y entra en todos lados.' },
+    { id: 'tony', n: 'Tony', sub: 'el gato de Jero y Viqui', p: 55, lv: 2, d: 'Gris, flaco y con ojos de ámbar. Te mira como si le debieras plata.' },
+    { id: 'feluchis', n: 'Feluchis', sub: 'la gata de Jose', p: 55, lv: 2, d: 'Duerme con los ojos apretados y te juzga igual.' },
+    { id: 'pompi', n: 'Pompi', sub: 'el gato de Juani', p: 55, lv: 2, d: 'Naranja, flaco y veloz. Cuando llegás, ya se fue.' },
+    { id: 'renu', n: 'Renu', sub: 'la perrita de Nachote', p: 55, lv: 2, d: 'Olfato de bretona: detecta un asado a tres balnearios.' },
+    { id: 'leda', n: 'Leda', sub: 'la perra de Rochi', p: 55, lv: 2, d: 'Cabeza de huevo, corazón de dulce de leche.' },
+    { id: 'marihuana', n: 'Planta de marihuana', p: 60, lv: 2, d: 'Creció sola, dice. Da sombra, risas y hambre.' },
+    { id: 'neoprene', n: 'Traje de neoprene', p: 60, lv: 2, col: '#a9d6f0', d: 'Entrar cuesta. Salir, más. Surfista al menos de lejos.' },
+    { id: 'tabla', n: 'Tabla de surf', p: 70, lv: 3, col: '#f7b3c6', d: 'Viaja en el techo del Sandero. Surfear es opcional.' },
+    { id: 'guitarra', n: 'Guitarra criolla', p: 80, lv: 2, d: 'Cinco cuerdas sanas. Alguien va a arrancar con la de siempre.' },
+    { id: 'kayak', n: 'Kayak', p: 130, lv: 3, col: '#ffe39a', d: 'Para adentro se rema con ganas. Para afuera, con arrepentimiento.' },
+    { id: 'corona', n: 'Corona enterrada', p: 150, lv: 5, col: '#f7b3c6', d: 'Alguien la enterró antes que vos. Nadie reclamó el trono.' },
+    { id: 'moto', n: 'Moto de agua', p: 320, lv: 4, col: '#e8735a', d: 'Ruido, nafta y envidia. Cara, como todo lo que no necesitás.' },
+    { id: 'ps5', n: 'PS5', p: 400, lv: 4, d: 'En la playa no hay enchufe. Igual la trajiste.' },
   ];
   // Cosas de la tienda vieja: se muestran como lo más parecido de la nueva (nadie pierde lo que compró).
   const ALIAS = { cangrejo: 'estrella', osito: 'liebre', helado: 'sandia', pulpo: 'caracoles', choripan: 'heladerita',
     gatito: 'tony', salchicha: 'tulio', champa: 'vino' };
   const COLORS = ['#f6a38f', '#f7b3c6', '#ffe39a', '#b6e5cd', '#a9d6f0', '#cfc0f0', '#7fb8e6', '#e8735a', '#fffaf1', '#5b4d72'];
+
+  const CARTAS_V = 1; // subir cuando cambien las tarjetas del bucket (cartas/)
 
   // La foto del 8/12: dos autos, la tabla, Tulio y la colonia entera. Se arma con la XP de todos (la meta es secreta)
   // y cada persona aparece cuando llega al nivel 2. El 8/12 aparecen todos igual.
@@ -190,5 +218,5 @@ window.DATA = (function () {
     ],
   };
 
-  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETS, ACH, SHOP, ALIAS, COLORS, FOTO };
+  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V };
 })();

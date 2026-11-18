@@ -164,7 +164,7 @@ window.STORE = (function () {
       return s.me && s.me !== 'nico' ? [{ id: 'demo1', from: 'nico', item: 'birra' }] : [];
     },
 
-    // ---------- altar playero ----------
+    // ---------- altarcito playero ----------
     // Cada cosa tiene una clave: o<n> si la compraste vos, g<id> si te la regalaron.
     // place[clave] = { x, y (0 a 1, el pie de la cosa), c (color), off (guardada en la bolsa) }
     altar(pid) {
