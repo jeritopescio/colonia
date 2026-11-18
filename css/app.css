@@ -177,10 +177,15 @@ h2 { font-size: 1.2rem; }
 .foto.revelada { background: #fff; padding: 8px 8px 30px; border: 2.5px solid var(--ink); border-radius: 6px; transform: rotate(-1deg); box-shadow: 4px 6px 0 rgba(67, 54, 90, .16); }
 .foto .ghost * { fill: none !important; stroke: var(--soft) !important; stroke-dasharray: 4 4; opacity: .7; }
 .foto .ghost image, .foto .ghost text { display: none; }
-.capas { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 10px; border: 2.5px solid var(--ink); background: linear-gradient(var(--sky-top), var(--sky-mid) 55%, var(--sky-hor)); }
-.capas img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.capas img.falta { filter: brightness(0) invert(1); opacity: .5; }
-.foto:not(.revelada) .capas { filter: saturate(.82) sepia(.1); }
+/* modo recortes: todas las capas miden lo mismo que la base y se apoyan abajo (en Hoy se ve recortada, sin cielo) */
+.capas { position: relative; width: 100%; aspect-ratio: var(--ar, 3 / 4); overflow: hidden; border-radius: 10px; border: 2.5px solid var(--ink); background: var(--sand); }
+/* en Hoy: 4:3 centrado en la gente (de los autos a los pies) */
+.capas.chica { aspect-ratio: 4 / 3; }
+.capas.chica img { top: 0; bottom: auto; transform: translateY(-27.5%); }
+.capas img { position: absolute; left: 0; bottom: 0; width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none; }
+.capas.papel img.falta { filter: brightness(0) invert(.97) sepia(.22) drop-shadow(1.5px 0 0 #43365a) drop-shadow(-1.5px 0 0 #43365a) drop-shadow(0 1.5px 0 #43365a) drop-shadow(0 -1.5px 0 #43365a); }
+.capas.fantasma img.falta { filter: grayscale(1) contrast(.3) brightness(1.6); }
+.foto:not(.revelada) .capas { filter: saturate(.85) sepia(.08); }
 .hito { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; }
 .hito .dot { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid var(--ink); display: grid; place-items: center; font-family: var(--display); font-size: .8rem; }
 .hito.done .dot { background: var(--mint); }

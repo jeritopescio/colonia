@@ -33,18 +33,17 @@
     const people = new Set(D.PEOPLE.filter((p) => all || S.levelOf(S.xpOf(p.id)) >= D.FOTO.nivel).map((p) => p.id));
     return { prog, pieces, people };
   }
-  // Con D.FOTO.png = true usa los PNG de nanobanana (todos de 1600×1200, uno por capa, en el bucket: foto/<capa>.png).
-  const CAPAS = ['fondo', 'banderines', 'nachote', 'fox', 'sandero', 'tabla', 'sofi', 'chino', 'grego', 'jose', 'rich', 'nico', 'juli', 'juani', 'jero', 'viqui', 'tulio', 'pachi', 'rochi'];
-  function fotoPNG(st) {
-    const img = (n, cls) => `<img class="${cls || ''}" src="${S.artUrl('foto/' + n + '.png')}" alt="" loading="lazy">`;
-    return `<div class="capas" role="img" aria-label="La foto de la colonia">${CAPAS.map((n) => {
-      if (n === 'fondo') return img(n);
-      if (D.FOTO.slots[n]) return img(n, st.people.has(n) ? '' : 'falta');
-      if (n === 'fox' || n === 'sandero') return img(n, st.pieces.has(n) ? '' : 'falta');
-      return st.pieces.has(n) ? img(n) : '';
-    }).join('')}</div>`;
+  // Modo recortes: la imagen entera de base y cada persona o cosa encima, en orden de atrás para adelante.
+  // Lo desbloqueado se ve tal cual; lo que falta, como silueta en su lugar (así no hay que rellenar lo que queda tapado).
+  function fotoRecortes(st, mini) {
+    const R = D.FOTO.recortes;
+    const locked = (id) => (D.PEOPLE.some((p) => p.id === id) ? !st.people.has(id) : D.FOTO.pieces.some((p) => p.id === id) && !st.pieces.has(id));
+    const v = R.v ? '?v=' + R.v : '';
+    const img = (path, cls) => `<img class="${cls || ''}" src="${S.artUrl(path + v)}" alt="" loading="lazy" draggable="false">`;
+    return `<div class="capas ${R.silueta}${mini ? ' chica' : ''}" style="--ar:${R.ancho}/${R.alto}" role="img" aria-label="La foto de la colonia">
+      ${img(R.base)}${R.capas.map((id) => img('foto/' + id + '.' + (R.ext || 'png'), locked(id) ? 'falta' : '')).join('')}</div>`;
   }
-  const fotoHTML = (st) => `<div class="foto${st.pieces.has('revelado') ? ' revelada' : ''}">${D.FOTO.png ? fotoPNG(st) : ARTE.foto(D, { faces: face, pieces: st.pieces, people: st.people })}</div>`;
+  const fotoHTML = (st, mini) => `<div class="foto${st.pieces.has('revelado') ? ' revelada' : ''}">${D.FOTO.modo === 'recortes' ? fotoRecortes(st, mini) : ARTE.foto(D, { faces: face, pieces: st.pieces, people: st.people })}</div>`;
 
   // ---------- altar playero ----------
   const SAND_TOP = 0.5, SAND_BOT = 0.97;
@@ -353,7 +352,7 @@
         <div class="card"><div class="spread"><div class="eyebrow">Tu libreta</div><span class="small muted">racha: ${S.streak()} ${S.streak() === 1 ? 'día' : 'días'}</span></div>
           <div class="spread"><b style="font-family:var(--display)">${esc(L.n)}</b><span class="small muted">${S.xp} XP${L.next ? ' · faltan ' + (L.next.xp - S.xp) : ''}</span></div>
           <div class="bar"><i style="width:calc(${Math.round(L.pct * 100)}% - 4px)"></i></div></div>
-        <a href="#foto" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">La foto del 8/12</div><b>${Math.round(fst.prog * 100)}%</b></div>${fotoHTML(fst)}
+        <a href="#foto" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">La foto del 8/12</div><b>${Math.round(fst.prog * 100)}%</b></div>${fotoHTML(fst, true)}
           <span class="small muted">Se arma con lo que hacemos entre todos.</span></a>
         <div class="card dark"><div class="eyebrow">Tu misión secreta</div>
           ${S.secretSeen() ? `<div class="list">${mRow(sec, 'No se la muestres a nadie')}</div>` : `<div class="secret-cover"><span class="muted">Solo vos podés verla.${me.trip ? '' : ' Vale desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver mi misión secreta</button></div>`}</div>`;
@@ -546,5 +545,20 @@
   SKY.start();
   render();
   S.ready.then(() => { render(); if (S.me) setTimeout(welcome, 400); });
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Actualización sola: la app instalada queda abierta en segundo plano y vuelve sin recargar.
+  // Al volver a mirarla se fija si hay versión nueva; si la hay, recarga cuando no estás haciendo nada.
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    const hadSW = !!navigator.serviceWorker.controller;
+    let updated = false;
+    const busy = () => dragging || !!pending || !!document.querySelector('.sheet-bg');
+    const reload = () => { if (updated && !busy()) location.reload(); };
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW) { updated = true; reload(); } });
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        else reload();
+      });
+      addEventListener('hashchange', reload);
+    }).catch(() => {});
+  }
 })();

@@ -142,7 +142,20 @@ window.DATA = (function () {
   // La foto del 8/12: dos autos, la tabla, Tulio y la colonia entera. Se arma con la XP de todos (la meta es secreta)
   // y cada persona aparece cuando llega al nivel 2. El 8/12 aparecen todos igual.
   const FOTO = {
-    png: false, // true cuando estén los PNG de nanobanana en el bucket (foto/fondo.png, foto/fox.png, foto/jero.png…)
+    // 'dibujo' = el provisorio en SVG. 'recortes' = la imagen de nanobanana entera de base y, encima, un PNG por persona
+    // o cosa (mismo tamaño que la base, transparente salvo esa persona). Lo que todavía no aparece se ve como silueta.
+    modo: 'recortes',
+    recortes: {
+      ancho: 896, alto: 1200,
+      base: 'foto/base.jpg',
+      ext: 'webp',
+      v: 1, // subir este número cuando se reemplacen las imágenes del bucket
+      // de atrás para adelante (las personas no se pisan entre sí; las cosas ya vienen sin la gente encima)
+      capas: ['sandero', 'fox', 'tabla', 'sofi', 'chino', 'grego',
+        'nico', 'nachote', 'juani', 'jero', 'jose', 'viqui', 'pachi', 'rochi', 'juli', 'rich',
+        'heladerita', 'bolsos', 'tulio'],
+      silueta: 'papel', // 'papel' (recorte crema con borde) o 'fantasma' (la persona lavada, sin revelar)
+    },
     goal: 2600,
     nivel: 1,
     dia: '2026-12-08',
@@ -151,7 +164,8 @@ window.DATA = (function () {
       { id: 'sandero', n: 'El Sandero', at: 0.12 },
       { id: 'tabla', n: 'La tabla', at: 0.25 },
       { id: 'tulio', n: 'Tulio', at: 0.4 },
-      { id: 'banderines', n: 'Banderines', at: 0.7 },
+      { id: 'heladerita', n: 'La heladerita', at: 0.55 },
+      { id: 'bolsos', n: 'El bolso playero', at: 0.7 },
       { id: 'revelado', n: 'Revelado', at: 1 },
     ],
     // Dónde está cada uno (coordenadas sobre 400×300, pie en y). Se puede reacomodar acá.

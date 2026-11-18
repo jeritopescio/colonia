@@ -198,7 +198,8 @@ window.STORE = (function () {
       s.place[k] = Object.assign({}, s.place[k], p);
       save(); pushMe();
     },
-    artUrl(path) { return C.supabaseUrl ? pub(path) : 'img/' + path; },
+    // En la compu (localhost) usa img/ para probar sin subir nada; publicado, el bucket.
+    artUrl(path) { return C.supabaseUrl && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? pub(path) : 'img/' + path; },
     secretSeen() { return s.secretSeen; },
     seeSecret() { s.secretSeen = true; save(); pushMe(); },
 
