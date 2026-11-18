@@ -281,7 +281,19 @@ window.ARTE = (function () {
   };
 
   // Cartelito con el nombre del altar (no se compra).
+  // Arte hecho con IA (img/altar). Si una cosa no lo tiene, se usa su dibujo en SVG.
+  const IMG = window.ARTE_IMG || {}, V = window.ARTE_IMG_V || 1;
+  const dir = (n) => `img/altar/${n}.webp?v=${V}`;
+  function pintura(id, k, cls) {
+    const [w, h, m] = IMG[id];
+    const tinte = m ? `<i style="background:${k || '#f6a38f'};-webkit-mask-image:url(${dir(id + '-m')});mask-image:url(${dir(id + '-m')})"></i>` : '';
+    return `<span class="art ai ${cls}" style="--ar:${w}/${h}" aria-hidden="true"><img src="${dir(id)}" alt="" draggable="false">${tinte}</span>`;
+  }
   function cartel(name) {
+    if (IMG.cartel) {
+      const [w, h] = IMG.cartel, fs = name.length > 7 ? 11 : 14;
+      return `<span class="art ai cartelito" style="--ar:${w}/${h}" aria-hidden="true"><img src="${dir('cartel')}" alt="" draggable="false"><b style="font-size:${fs}px">${name}</b></span>`;
+    }
     const w = Math.max(60, Math.min(110, 14 + name.length * 7.2));
     return `<svg viewBox="0 0 ${f(w + 4)} 58" class="art"><g filter="url(#crayon)" stroke="${INK}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
       <rect x="${f(w / 2)}" y="22" width="5" height="34" rx="2" fill="${WOOD}"/>
@@ -290,10 +302,17 @@ window.ARTE = (function () {
   }
 
   const has = (id) => !!ITEMS[id];
-  const size = (id) => { const it = ITEMS[id]; return { w: it[0], h: it[1] }; };
+  // Con arte de IA se respeta su forma, y su lado mayor mide lo mismo que el del dibujo original.
+  const size = (id) => {
+    const it = ITEMS[id], g = IMG[id];
+    if (!g) return { w: it[0], h: it[1] };
+    const e = Math.max(it[0], it[1]) / Math.max(g[0], g[1]);
+    return { w: g[0] * e, h: g[1] * e };
+  };
   function item(id, k, cls = '') {
     const it = ITEMS[id];
     if (!it) return '';
+    if (IMG[id]) return pintura(id, k, cls);
     return `<svg viewBox="0 0 ${it[0]} ${it[1]}" class="art ${cls}" aria-hidden="true"><g filter="url(#crayon)" stroke="${INK}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">${it[2](k || '#f6a38f')}</g></svg>`;
   }
   // Para meter un dibujo adentro de otro SVG (la foto).
@@ -412,5 +431,5 @@ window.ARTE = (function () {
     </svg>`;
   }
 
-  return { ITEMS, has, size, item, nested, cartel, foto };
+  return { ITEMS, has, size, item, nested, cartel, foto, pintado: !!IMG.fondo, cartelIA: !!IMG.cartel };
 })();

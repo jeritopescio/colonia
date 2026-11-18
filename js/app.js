@@ -72,9 +72,9 @@
     const R = a.refugio;
     const ref = R ? `<div class="it fixed" data-k="${R.k}" data-id="${R.id}" style="${itStyle(R.id, REFUGIO[R.id].x, REFUGIO[R.id].y, 1, true)}">${ARTE.item(R.id, colorOf(R, a.place[R.k]))}</div>` : '';
     const name = person(pid).n;
-    const cw = (Math.max(60, Math.min(110, 14 + name.length * 7.2)) + 4) / 4;
-    return `<div class="altar${editable ? ' edit' : ''}" data-pid="${pid}">
-      <i class="nube" style="left:10%;top:7%;width:22%"></i><i class="nube" style="left:64%;top:14%;width:15%"></i>
+    const cw = ARTE.cartelIA ? 23 : (Math.max(60, Math.min(110, 14 + name.length * 7.2)) + 4) / 4;
+    return `<div class="altar${editable ? ' edit' : ''}${ARTE.pintado ? ' pintado' : ''}" data-pid="${pid}">
+      ${ARTE.pintado ? '' : '<i class="nube" style="left:10%;top:7%;width:22%"></i><i class="nube" style="left:64%;top:14%;width:15%"></i>'}
       ${ref}
       <div class="it fixed cartel" style="left:86%;top:57%;width:${cw}%;z-index:2">${ARTE.cartel(esc(name))}</div>
       ${placed.map(({ it, p }, i) => `<div class="it" data-k="${it.k}" data-id="${it.id}" data-x="${p.x}" data-y="${p.y}" style="${itStyle(it.id, p.x, p.y, i + 3)}">${ARTE.item(it.id, colorOf(it, p))}</div>`).join('')}
