@@ -149,7 +149,7 @@ window.DATA = (function () {
       ancho: 896, alto: 1200,
       base: 'foto/base.jpg',
       ext: 'webp',
-      v: 1, // subir este número cuando se reemplacen las imágenes del bucket
+      v: 2, // subir este número cuando se reemplacen las imágenes del bucket
       // de atrás para adelante (las personas no se pisan entre sí; las cosas ya vienen sin la gente encima)
       capas: ['sandero', 'fox', 'tabla', 'sofi', 'chino', 'grego',
         'nico', 'nachote', 'juani', 'jero', 'jose', 'viqui', 'pachi', 'rochi', 'juli', 'rich',

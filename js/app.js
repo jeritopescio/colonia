@@ -87,29 +87,33 @@
     if (!off.length) return '';
     return `<div class="eyebrow">En la bolsa</div><div class="bolsa">${off.map((it) => `<button data-out="${it.k}" aria-label="Sacar ${esc(shopItem(it.id).n)}">${ARTE.item(it.id, colorOf(it, a.place[it.k]))}</button>`).join('')}</div>`;
   }
-  // Caída con gravedad suave y un rebotecito.
-  function fall(el, from, to, done) {
-    let y = from, v = 0, last = performance.now(), hops = 0, over = false;
-    el.style.top = (from * 100) + '%';
+  // Cae desde h (fracción del alto del altar) hasta donde está parado. Todo con transform: va liso aunque el celu esté ocupado.
+  const PIE = 'translate(-50%, -100%)', GRAVEDAD = 6.5;
+  function polvo(box, x, y) {
+    for (let i = 0; i < 6; i++) {
+      const p = document.createElement('i'), a = Math.PI * (1 + i / 5), r = 12 + Math.random() * 14;
+      p.className = 'polvo'; p.style.left = (x * 100) + '%'; p.style.top = (y * 100) + '%';
+      p.style.setProperty('--dx', (Math.cos(a) * r).toFixed(1) + 'px');
+      p.style.setProperty('--dy', (Math.sin(a) * (r * 0.55)).toFixed(1) + 'px');
+      p.addEventListener('animationend', () => p.remove());
+      box.appendChild(p);
+    }
+  }
+  function caer(el, box, h, done) {
+    const px = h * box.clientHeight;
+    const ms = clamp(Math.sqrt(2 * h / GRAVEDAD) * 1000, 55, 480);
+    let over = false;
     const land = () => {
       if (over) return;
       over = true; clearTimeout(safety);
-      el.style.top = (to * 100) + '%'; el.classList.remove('plop'); void el.offsetWidth; el.classList.add('plop');
+      SONIDO.trtss(clamp(h / 0.3 + 0.15, 0, 1));
+      polvo(box, +el.dataset.x, +el.dataset.y);
+      el.classList.remove('plop'); void el.offsetWidth; el.classList.add('plop');
+      if (h > 0.07) el.animate([{ transform: PIE }, { transform: `${PIE} translate3d(0,${-Math.min(14, px * 0.1)}px,0)`, easing: 'ease-in' }, { transform: PIE }], { duration: 170, easing: 'ease-out' });
       if (done) done();
     };
-    const safety = setTimeout(land, 2500); // si la app queda en segundo plano a mitad de la caída
-    const step = (t) => {
-      if (over) return;
-      const dt = Math.min(0.034, (t - last) / 1000); last = t;
-      v += 3.2 * dt; y += v * dt;
-      if (y >= to) {
-        y = to;
-        if (v > 0.28 && hops < 2) { v = -v * 0.3; hops++; } else { land(); return; }
-      }
-      el.style.top = (y * 100) + '%';
-      requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+    const safety = setTimeout(land, ms + 250); // si la app queda en segundo plano a mitad de la caída
+    el.animate([{ transform: `${PIE} translate3d(0,${-px}px,0)` }, { transform: PIE }], { duration: ms, easing: 'cubic-bezier(.55,.085,.68,.53)' }).onfinish = land;
   }
   function restack(box) {
     [...box.querySelectorAll('.it:not(.fixed)')]
@@ -122,7 +126,7 @@
       if (!fresh.has(el.dataset.k)) return;
       fresh.delete(el.dataset.k);
       el.style.zIndex = 99;
-      fall(el, -0.12, +el.dataset.y, () => restack(box));
+      caer(el, box, +el.dataset.y + 0.12, () => restack(box));
     });
     box.addEventListener('pointerdown', (e) => {
       const el = e.target.closest('.it[data-k]');
@@ -133,33 +137,43 @@
         return;
       }
       e.preventDefault();
-      const r = box.getBoundingClientRect();
-      const sx = e.clientX, sy = e.clientY, x0 = +el.dataset.x, y0 = +el.dataset.y, id = el.dataset.id;
-      let moved = false, gx = x0, gy = y0;
-      const LIFT = 0.035;
+      // Se agranda apenas lo tocás y sigue al dedo desde el primer píxel.
+      const r = box.getBoundingClientRect(), t0 = performance.now();
+      const sx = e.clientX, sy = e.clientY, x0 = +el.dataset.x, y0 = +el.dataset.y, id = el.dataset.id, p0 = persp(y0);
+      const LIFT = 0.04, MOVE = 'onpointerrawupdate' in window ? 'pointerrawupdate' : 'pointermove';
+      let moved = false, ended = false, gx = x0, gy = y0, fy = y0;
       const shadow = document.createElement('i'); shadow.className = 'ground';
+      shadow.style.width = (ARTE.size(id).w / 4 * 0.7) + '%';
+      const paint = () => {
+        el.style.transform = `${PIE} translate3d(${((gx - x0) * r.width).toFixed(1)}px,${((fy - y0) * r.height).toFixed(1)}px,0) scale(${(persp(gy) / p0).toFixed(3)})`;
+        shadow.style.transform = `translate3d(${(gx * r.width).toFixed(1)}px,${(gy * r.height).toFixed(1)}px,0) translate(-50%,-50%) scale(${persp(gy).toFixed(3)})`;
+      };
+      dragging = true;
       el.setPointerCapture(e.pointerId);
+      el.classList.remove('plop'); el.classList.add('held'); el.style.zIndex = 99;
+      box.appendChild(shadow); paint();
+      SONIDO.plop();
       const move = (ev) => {
-        if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 7) return;
-        if (!moved) { moved = true; dragging = true; el.classList.add('lift'); el.style.zIndex = 99; box.appendChild(shadow); }
-        gx = clamp(x0 + (ev.clientX - sx) / r.width, 0.05, 0.95);
-        const ay = clamp(y0 + (ev.clientY - sy) / r.height, 0.04, 0.99);
+        const dx = ev.clientX - sx, dy = ev.clientY - sy, d = Math.hypot(dx, dy);
+        if (d > 6) moved = true;
+        gx = clamp(x0 + dx / r.width, 0.05, 0.95);
+        const ay = clamp(y0 + dy / r.height, 0.04, 0.99);
         gy = clamp(ay, SAND_TOP, SAND_BOT);
-        el.style.left = (gx * 100) + '%';
-        el.style.top = (Math.min(ay, gy - LIFT) * 100) + '%';
-        el.style.width = itWidth(id, gy);
-        shadow.style.left = (gx * 100) + '%'; shadow.style.top = (gy * 100) + '%';
-        shadow.style.width = (ARTE.size(id).w / 4 * persp(gy) * 0.7) + '%';
+        fy = Math.min(ay, gy - LIFT * Math.min(1, d / 26));
+        paint();
       };
       const end = () => {
-        el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', end); el.removeEventListener('pointercancel', end);
-        if (!moved) { itemSheet(pid, el, true); return; }
-        el.classList.remove('lift'); shadow.remove();
+        if (ended) return;
+        ended = true;
+        el.removeEventListener(MOVE, move); el.removeEventListener('pointerup', end); el.removeEventListener('pointercancel', end);
+        shadow.remove(); el.classList.remove('held'); el.style.transform = '';
+        if (!moved && performance.now() - t0 < 230) { dragging = false; restack(box); itemSheet(pid, el, true); return; } // fue un toque
         el.dataset.x = gx; el.dataset.y = gy;
-        fall(el, parseFloat(el.style.top) / 100, gy, () => { restack(box); dragging = false; });
-        S.setPlace(el.dataset.k, { x: +gx.toFixed(4), y: +gy.toFixed(4) });
+        el.style.left = (gx * 100) + '%'; el.style.top = (gy * 100) + '%'; el.style.width = itWidth(id, gy);
+        caer(el, box, Math.max(gy - fy, 0.03), () => { restack(box); dragging = false; });
+        if (moved) S.setPlace(el.dataset.k, { x: +gx.toFixed(4), y: +gy.toFixed(4) });
       };
-      el.addEventListener('pointermove', move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+      el.addEventListener(MOVE, move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
     });
   }
   function itemSheet(pid, el, editable) {
@@ -224,11 +238,11 @@
     $('#toasts').appendChild(t);
     setTimeout(() => t.remove(), ms);
   }
-  function sheet(html, onMount) {
+  function sheet(html, onMount, firme) {
     const bg = document.createElement('div');
     bg.className = 'sheet-bg';
     bg.innerHTML = `<div class="sheet card pop">${html}</div>`;
-    bg.addEventListener('click', (e) => { if (e.target === bg || e.target.closest('[data-close]')) bg.remove(); });
+    bg.addEventListener('click', (e) => { if ((e.target === bg && !firme) || e.target.closest('[data-close]')) bg.remove(); });
     document.body.appendChild(bg);
     onMount && onMount(bg);
     return bg;
@@ -242,13 +256,24 @@
     if (!f || !pending) return;
     const m = pending; pending = null;
     try {
-      const url = await squareImage(f, 480);
-      const res = S.addPhoto(m.id, url, m.xp);
-      showReward(m, url, res);
+      reviewPhoto(m, await squareImage(f, 480));
     } catch (err) {
       toast('<span>No pude leer esa foto. Probá con otra.</span>');
     }
   });
+  // Antes de usarla: la ves y, si no te gustó, la descartás con la cruz o sacás otra.
+  function reviewPhoto(m, url) {
+    sheet(`<div class="revisar">
+      <button class="cruz" data-close aria-label="Descartar esta foto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="eyebrow">¿Va esta?</div>
+      <div class="polaroid"><img src="${url}" alt=""></div>
+      <h2>${esc(m.t)}</h2>
+      <div class="row" style="justify-content:center"><button class="btn ghost" id="otra">Sacar otra</button><button class="btn" id="usar" style="--c:var(--mint)">Usar esta</button></div></div>`,
+    (bg) => {
+      bg.querySelector('#otra').addEventListener('click', () => { bg.remove(); askPhoto(m); });
+      bg.querySelector('#usar').addEventListener('click', () => { bg.remove(); showReward(m, url, S.addPhoto(m.id, url, m.xp)); });
+    }, true);
+  }
   function squareImage(file, size) {
     return new Promise((ok, fail) => {
       const img = new Image();
@@ -266,6 +291,8 @@
   function showReward(m, url, res) {
     const r = res.out[0];
     const serie = res.out.find((o) => o.ach === 'serie');
+    const ganadas = (r ? r.coins : 0) + (serie ? D.ACH.serie.c : 0);
+    if (ganadas) SONIDO.monedas(res.levelUp != null ? ganadas + 30 : ganadas);
     sheet(`<div class="reward" style="display:grid;gap:12px;justify-items:center">
       <div class="eyebrow">¡Figurita nueva!</div>
       <div class="polaroid pop"><img src="${url}" alt=""></div>
@@ -455,6 +482,7 @@
           const done = (to) => {
             const k = S.buy(it, to);
             if (!k) return;
+            SONIDO.monedas(it.p, -1);
             bg.remove();
             if (to) { toast(`<span class="mini">${ARTE.item(it.id, it.col)}</span><span>Le regalaste ${esc(it.n.toLowerCase())} a ${esc(person(to).n)}. Ya está en su altar.</span>`); render(); return; }
             if (typeof k === 'string') fresh.add(k);
@@ -490,7 +518,7 @@
   function welcome() {
     const got = S.dailyCheck();
     got.forEach((k, i) => setTimeout(() => toast(`<span class="chip" style="--c:var(--butter)">+${D.ACH[k].c} <span class="coin"></span></span><span>${esc(D.ACH[k].t)}</span>`), i * 700));
-    if (got.length) setTimeout(render, got.length * 700);
+    if (got.length) { SONIDO.monedas(got.reduce((n, k) => n + D.ACH[k].c, 0)); setTimeout(render, got.length * 700); }
   }
 
   // ---------- navegación ----------

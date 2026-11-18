@@ -152,17 +152,19 @@ h2 { font-size: 1.2rem; }
 .altar .nube { position: absolute; aspect-ratio: 3 / 1; background: #fff; border-radius: 999px; opacity: .9; filter: url(#crayon); }
 .altar .nube::before { content: ""; position: absolute; width: 50%; height: 140%; left: 16%; bottom: 30%; background: inherit; border-radius: 50%; }
 [data-sky-dark="1"] .altar .nube { background: #8c8fb2; opacity: .7; }
-.altar .it { position: absolute; transform: translate(-50%, -100%); isolation: isolate; z-index: 3; }
-.altar .it svg { display: block; width: 100%; height: auto; overflow: visible; }
+.altar .it { position: absolute; transform: translate(-50%, -100%); transform-origin: 50% 100%; isolation: isolate; z-index: 3; }
+.altar .it .art { display: block; width: 100%; height: auto; overflow: visible; transform-origin: 50% 100%; transition: transform .13s ease-in; }
 .altar .it::after { content: ""; position: absolute; left: 16%; right: 16%; bottom: -3px; height: 7px; border-radius: 50%; background: rgba(67, 54, 90, .16); z-index: -1; }
 .altar .it.fixed::after { display: none; }
-.altar.edit .it:not(.fixed) { touch-action: none; cursor: grab; }
-.altar .it.lift { cursor: grabbing; }
-.altar .it.lift::after { opacity: 0; }
-.altar .it.lift svg { transform: rotate(-4deg) scale(1.06); transition: transform .12s; }
-.altar .it.plop svg { animation: plop .32s ease-out; transform-origin: 50% 100%; }
-@keyframes plop { 35% { transform: scale(1.1, .86); } 70% { transform: scale(.97, 1.04); } }
-.altar .ground { position: absolute; height: 9px; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(67, 54, 90, .22); z-index: 98; pointer-events: none; }
+.altar.edit .it:not(.fixed) { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.altar .it.held { cursor: grabbing; will-change: transform; }
+.altar .it.held::after { opacity: 0; }
+.altar .it.held .art { transform: translateY(-5%) scale(1.15) rotate(-2deg); transition: transform .16s cubic-bezier(.3, 1.9, .5, 1); }
+.altar .it.plop .art { animation: plop .3s ease-out; }
+@keyframes plop { 30% { transform: scale(1.12, .84); } 68% { transform: scale(.96, 1.05); } }
+.altar .ground { position: absolute; left: 0; top: 0; height: 9px; border-radius: 50%; background: rgba(67, 54, 90, .24); z-index: 98; pointer-events: none; will-change: transform; }
+.altar .polvo { position: absolute; width: 5px; height: 5px; margin: -3px; border-radius: 50%; background: #e9d3a8; border: 1px solid rgba(67, 54, 90, .28); z-index: 97; pointer-events: none; animation: polvo .36s ease-out forwards; }
+@keyframes polvo { to { transform: translate(var(--dx), var(--dy)) scale(.3); opacity: 0; } }
 .altar .vacio { position: absolute; left: 50%; top: 74%; transform: translate(-50%, -50%); text-align: center; background: rgba(255, 250, 241, .85); border: 2px dashed var(--soft); border-radius: 14px; padding: 6px 12px; z-index: 50; width: max-content; }
 .bolsa { display: flex; gap: 8px; flex-wrap: wrap; }
 .bolsa button { width: 54px; height: 54px; border: 2px dashed var(--soft); border-radius: 12px; background: var(--paper); padding: 6px; display: grid; place-items: center; cursor: pointer; }
@@ -204,6 +206,9 @@ nav.tabs a.on::before { content: ""; position: absolute; inset: 0 8%; background
 .sheet-bg { position: fixed; inset: 0; z-index: 20; background: rgba(43, 37, 64, .42); display: grid; align-items: end; justify-items: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 .sheet { width: min(440px, 100%); }
 .reward { text-align: center; justify-items: center; }
+.revisar { position: relative; display: grid; gap: 12px; justify-items: center; text-align: center; }
+.cruz { position: absolute; top: -6px; right: -6px; width: 46px; height: 46px; padding: 10px; border-radius: 50%; border: 2.5px solid var(--ink); background: var(--rose); cursor: pointer; display: grid; place-items: center; }
+.cruz svg { width: 100%; height: 100%; fill: none; stroke: var(--ink); stroke-width: 3.2; stroke-linecap: round; }
 .polaroid { width: 190px; padding: 10px 10px 30px; background: #fff; border: 2.5px solid var(--ink); border-radius: 6px; transform: rotate(-3deg); box-shadow: 4px 6px 0 rgba(67, 54, 90, .18); }
 .polaroid img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; border-radius: 3px; }
 .pop { animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); }
