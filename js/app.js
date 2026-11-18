@@ -1,6 +1,6 @@
 /* Pantallas de Colonia. Prototipo: datos en el dispositivo, los demás con progreso de ejemplo. */
 (function () {
-  const D = window.DATA, S = window.STORE, SKY = window.SKY;
+  const D = window.DATA, S = window.STORE, SKY = window.SKY, ARTE = window.ARTE;
   const DEMO = !S.live;                                   // datos de ejemplo
   const PROTO = DEMO || /(^|[?&])probar(&|=|$)/.test(location.search); // panel para probar el cielo
   const $ = (q, el = document) => el.querySelector(q);
@@ -9,7 +9,8 @@
   const person = (id) => D.PEOPLE.find((p) => p.id === id);
   const face = (id) => S.faceUrl(id);
   const hash = (str) => { let h = 7; for (const c of str) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
-  let carpaOverride = null;
+  let fotoOverride = null;
+  const NAH = 'Qué hinchahuevos'; // para decirle que no a algo que propone la app
 
   // ---------- íconos dibujados ----------
   const IC = {
@@ -17,34 +18,181 @@
     misiones: '<svg viewBox="0 0 24 24"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>',
     album: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
     tienda: '<svg viewBox="0 0 24 24"><path d="M4 9h16l-1.4 11H5.4z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/></svg>',
-    carpa: '<svg viewBox="0 0 24 24"><path d="M3 10h18M5 10l2-5h10l2 5M5 10v10M19 10v10M9 10v10M15 10v10M3 20h18"/></svg>',
+    altar: '<svg viewBox="0 0 24 24"><path d="M2.5 11.5a9.5 8 0 0 1 19 0z"/><path d="M12 11.5v8.5M7 20.5h10"/></svg>',
+    foto: '<svg viewBox="0 0 24 24"><rect x="4" y="2.5" width="16" height="19" rx="1.5"/><rect x="7" y="5.5" width="10" height="10" rx=".5"/></svg>',
     camara: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>',
   };
-  const TABS = [['hoy', 'Hoy'], ['misiones', 'Misiones'], ['album', 'Álbum'], ['tienda', 'Tienda'], ['carpa', 'Carpa']];
+  const TABS = [['hoy', 'Hoy'], ['misiones', 'Misiones'], ['album', 'Álbum'], ['altar', 'Altar'], ['foto', 'La foto']];
 
-  // ---------- carpa de balneario ----------
-  function carpaSVG(progress) {
-    const n = Math.floor(progress * D.CARPA.pieces.length + 1e-6);
-    const g = (i, body) => `<g class="${i < n ? '' : 'ghost'}">${body}</g>`;
-    const scallops = Array.from({ length: 10 }, (_, i) => `M${60 + i * 20},95 a10,10 0 0 0 20,0`).join(' ');
-    const lights = Array.from({ length: 9 }, (_, i) => { const t = (i + 1) / 10, x = 72 + t * 176, y = 108 + Math.sin(Math.PI * t) * 24; return `<circle cx="${x}" cy="${y}" r="3.6" fill="${['#ffe39a', '#f7b3c6', '#b6e5cd', '#a9d6f0'][i % 4]}" stroke="#43365a" stroke-width="1.5"/>`; }).join('');
-    return `<svg viewBox="0 0 320 230" role="img" aria-label="Carpa de balneario armada al ${Math.round(progress * 100)} por ciento">
-      <g filter="url(#crayon)" stroke="#43365a" stroke-width="2.5" stroke-linejoin="round">
-        <rect x="0" y="196" width="320" height="34" fill="#f4e3c5" stroke="none"/>
-        ${g(0, '<rect x="70" y="95" width="5" height="102" fill="#9b7b62"/><rect x="245" y="95" width="5" height="102" fill="#9b7b62"/><rect x="104" y="95" width="4" height="102" fill="#b89a82"/><rect x="212" y="95" width="4" height="102" fill="#b89a82"/>')}
-        ${g(1, '<polygon points="58,95 262,95 240,52 80,52" fill="url(#rayas)"/>')}
-        ${g(2, `<path d="${scallops}" fill="#f6a38f"/>`)}
-        ${g(3, '<polygon points="75,100 104,100 98,196 75,196" fill="url(#rayas2)"/><polygon points="245,100 216,100 222,196 245,196" fill="url(#rayas2)"/>')}
-        ${g(4, '<path d="M160 52V20" fill="none"/><polygon points="160,20 188,28 160,36" fill="#ffe39a"/>')}
-        ${g(5, '<polygon points="112,196 140,196 150,170 124,170" fill="#b6e5cd"/><path d="M124 170l-10-16" fill="none"/><polygon points="180,196 208,196 218,170 192,170" fill="#b6e5cd"/><path d="M192 170l-10-16" fill="none"/>')}
-        ${g(6, '<path d="M286 198V112" fill="none"/><path d="M254 116 Q286 74 318 116 Z" fill="url(#rayas3)"/>')}
-        ${g(7, '<rect x="150" y="176" width="26" height="20" rx="3" fill="#a9d6f0"/><rect x="148" y="171" width="30" height="7" rx="3" fill="#fffaf1"/>')}
-        ${g(8, `<path d="M72 108 Q160 136 248 108" fill="none"/>${lights}`)}
-        ${g(9, '<rect x="6" y="140" width="58" height="26" rx="4" fill="#fffaf1"/><path d="M35 166v30" fill="none"/><text x="35" y="158" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="11" fill="#43365a" stroke="none">COLONIA</text>')}
-      </g></svg>`;
+  // ---------- la foto del 8/12 ----------
+  const fotoProgress = () => fotoOverride ?? Math.min(1, S.groupXp() / D.FOTO.goal);
+  function fotoState() {
+    const prog = fotoProgress();
+    const pieces = new Set(D.FOTO.pieces.filter((p) => prog >= p.at - 1e-9).map((p) => p.id));
+    const all = SKY.arDate() >= D.FOTO.dia;
+    const people = new Set(D.PEOPLE.filter((p) => all || S.levelOf(S.xpOf(p.id)) >= D.FOTO.nivel).map((p) => p.id));
+    return { prog, pieces, people };
   }
-  const carpaProgress = () => carpaOverride ?? Math.min(1, S.groupXp() / D.CARPA.goal);
+  // Con D.FOTO.png = true usa los PNG de nanobanana (todos de 1600×1200, uno por capa, en el bucket: foto/<capa>.png).
+  const CAPAS = ['fondo', 'banderines', 'nachote', 'fox', 'sandero', 'tabla', 'sofi', 'chino', 'grego', 'jose', 'rich', 'nico', 'juli', 'juani', 'jero', 'viqui', 'tulio', 'pachi', 'rochi'];
+  function fotoPNG(st) {
+    const img = (n, cls) => `<img class="${cls || ''}" src="${S.artUrl('foto/' + n + '.png')}" alt="" loading="lazy">`;
+    return `<div class="capas" role="img" aria-label="La foto de la colonia">${CAPAS.map((n) => {
+      if (n === 'fondo') return img(n);
+      if (D.FOTO.slots[n]) return img(n, st.people.has(n) ? '' : 'falta');
+      if (n === 'fox' || n === 'sandero') return img(n, st.pieces.has(n) ? '' : 'falta');
+      return st.pieces.has(n) ? img(n) : '';
+    }).join('')}</div>`;
+  }
+  const fotoHTML = (st) => `<div class="foto${st.pieces.has('revelado') ? ' revelada' : ''}">${D.FOTO.png ? fotoPNG(st) : ARTE.foto(D, { faces: face, pieces: st.pieces, people: st.people })}</div>`;
 
+  // ---------- altar playero ----------
+  const SAND_TOP = 0.5, SAND_BOT = 0.97;
+  const REFUGIO = { sombrilla: { x: 0.3, y: 0.6 }, carpa: { x: 0.5, y: 0.585 } };
+  const shopItem = (id) => D.SHOP.find((x) => x.id === id) || D.SHOP.find((x) => x.id === D.ALIAS[id]);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const persp = (y) => 0.82 + 0.18 * clamp((y - SAND_TOP) / (SAND_BOT - SAND_TOP), 0, 1);
+  const area = (id) => { const z = ARTE.size(id); return z.w * z.h; };
+  function rnd(seed) { let h = hash(seed); return () => { h = (h + 0x6D2B79F5) >>> 0; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const fresh = new Set(); // cosas recién compradas: caen del cielo
+  let dragging = false;
+
+  function spot(pid, it, place) {
+    const p = place[it.k];
+    if (p && p.x != null) return p;
+    const r = rnd(pid + it.k);
+    return Object.assign({}, p, { x: 0.12 + r() * 0.76, y: SAND_TOP + 0.1 + r() * (SAND_BOT - SAND_TOP - 0.12) });
+  }
+  const itWidth = (id, y) => (ARTE.size(id).w / 4 * (y == null ? 1 : persp(y))).toFixed(2) + '%';
+  const itStyle = (id, x, y, z, flat) => `left:${(x * 100).toFixed(2)}%;top:${(y * 100).toFixed(2)}%;width:${itWidth(id, flat ? null : y)};z-index:${z}`;
+  const colorOf = (it, p) => (p && p.c) || shopItem(it.id).col || null;
+  function altarHTML(pid, editable) {
+    const a = S.altar(pid);
+    const placed = a.items.map((it) => ({ it, p: spot(pid, it, a.place) })).filter((x) => !x.p.off)
+      .sort((u, v) => area(v.it.id) - area(u.it.id) || u.p.y - v.p.y);
+    const R = a.refugio;
+    const ref = R ? `<div class="it fixed" data-k="${R.k}" data-id="${R.id}" style="${itStyle(R.id, REFUGIO[R.id].x, REFUGIO[R.id].y, 1, true)}">${ARTE.item(R.id, colorOf(R, a.place[R.k]))}</div>` : '';
+    const name = person(pid).n;
+    const cw = (Math.max(60, Math.min(110, 14 + name.length * 7.2)) + 4) / 4;
+    return `<div class="altar${editable ? ' edit' : ''}" data-pid="${pid}">
+      <i class="nube" style="left:10%;top:7%;width:22%"></i><i class="nube" style="left:64%;top:14%;width:15%"></i>
+      ${ref}
+      <div class="it fixed cartel" style="left:86%;top:57%;width:${cw}%;z-index:2">${ARTE.cartel(esc(name))}</div>
+      ${placed.map(({ it, p }, i) => `<div class="it" data-k="${it.k}" data-id="${it.id}" data-x="${p.x}" data-y="${p.y}" style="${itStyle(it.id, p.x, p.y, i + 3)}">${ARTE.item(it.id, colorOf(it, p))}</div>`).join('')}
+      ${!a.items.length && !R ? `<div class="vacio">${editable ? 'Tu playa está vacía.<br>Pasá por el kiosco.' : 'Todavía está vacía.'}</div>` : ''}
+    </div>`;
+  }
+  function bolsaHTML() {
+    const a = S.altar();
+    const off = a.items.filter((it) => (a.place[it.k] || {}).off);
+    if (!off.length) return '';
+    return `<div class="eyebrow">En la bolsa</div><div class="bolsa">${off.map((it) => `<button data-out="${it.k}" aria-label="Sacar ${esc(shopItem(it.id).n)}">${ARTE.item(it.id, colorOf(it, a.place[it.k]))}</button>`).join('')}</div>`;
+  }
+  // Caída con gravedad suave y un rebotecito.
+  function fall(el, from, to, done) {
+    let y = from, v = 0, last = performance.now(), hops = 0, over = false;
+    el.style.top = (from * 100) + '%';
+    const land = () => {
+      if (over) return;
+      over = true; clearTimeout(safety);
+      el.style.top = (to * 100) + '%'; el.classList.remove('plop'); void el.offsetWidth; el.classList.add('plop');
+      if (done) done();
+    };
+    const safety = setTimeout(land, 2500); // si la app queda en segundo plano a mitad de la caída
+    const step = (t) => {
+      if (over) return;
+      const dt = Math.min(0.034, (t - last) / 1000); last = t;
+      v += 3.2 * dt; y += v * dt;
+      if (y >= to) {
+        y = to;
+        if (v > 0.28 && hops < 2) { v = -v * 0.3; hops++; } else { land(); return; }
+      }
+      el.style.top = (y * 100) + '%';
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  function restack(box) {
+    [...box.querySelectorAll('.it:not(.fixed)')]
+      .sort((u, v) => area(v.dataset.id) - area(u.dataset.id) || +u.dataset.y - +v.dataset.y)
+      .forEach((el, i) => (el.style.zIndex = i + 3));
+  }
+  function bindAltar(box, editable) {
+    const pid = box.dataset.pid;
+    box.querySelectorAll('.it[data-k]').forEach((el) => {
+      if (!fresh.has(el.dataset.k)) return;
+      fresh.delete(el.dataset.k);
+      el.style.zIndex = 99;
+      fall(el, -0.12, +el.dataset.y, () => restack(box));
+    });
+    box.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest('.it[data-k]');
+      if (!el) return;
+      if (!editable || el.classList.contains('fixed')) {
+        const up = () => { el.removeEventListener('pointerup', up); itemSheet(pid, el, editable); };
+        el.addEventListener('pointerup', up);
+        return;
+      }
+      e.preventDefault();
+      const r = box.getBoundingClientRect();
+      const sx = e.clientX, sy = e.clientY, x0 = +el.dataset.x, y0 = +el.dataset.y, id = el.dataset.id;
+      let moved = false, gx = x0, gy = y0;
+      const LIFT = 0.035;
+      const shadow = document.createElement('i'); shadow.className = 'ground';
+      el.setPointerCapture(e.pointerId);
+      const move = (ev) => {
+        if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 7) return;
+        if (!moved) { moved = true; dragging = true; el.classList.add('lift'); el.style.zIndex = 99; box.appendChild(shadow); }
+        gx = clamp(x0 + (ev.clientX - sx) / r.width, 0.05, 0.95);
+        const ay = clamp(y0 + (ev.clientY - sy) / r.height, 0.04, 0.99);
+        gy = clamp(ay, SAND_TOP, SAND_BOT);
+        el.style.left = (gx * 100) + '%';
+        el.style.top = (Math.min(ay, gy - LIFT) * 100) + '%';
+        el.style.width = itWidth(id, gy);
+        shadow.style.left = (gx * 100) + '%'; shadow.style.top = (gy * 100) + '%';
+        shadow.style.width = (ARTE.size(id).w / 4 * persp(gy) * 0.7) + '%';
+      };
+      const end = () => {
+        el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', end); el.removeEventListener('pointercancel', end);
+        if (!moved) { itemSheet(pid, el, true); return; }
+        el.classList.remove('lift'); shadow.remove();
+        el.dataset.x = gx; el.dataset.y = gy;
+        fall(el, parseFloat(el.style.top) / 100, gy, () => { restack(box); dragging = false; });
+        S.setPlace(el.dataset.k, { x: +gx.toFixed(4), y: +gy.toFixed(4) });
+      };
+      el.addEventListener('pointermove', move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    });
+  }
+  function itemSheet(pid, el, editable) {
+    const k = el.dataset.k, id = el.dataset.id, it = shopItem(id);
+    const a = S.altar(pid);
+    const inst = a.items.concat(a.refugio ? [a.refugio] : []).find((x) => x.k === k) || {};
+    const cur = colorOf(inst.id ? inst : { id }, a.place[k]);
+    const mine = pid === S.me;
+    const from = inst.from ? `${mine ? 'Te lo regaló' : 'Se lo regaló'} ${esc(person(inst.from).n)} ♡` : '';
+    const note = [it.sub ? esc(it.sub) : '', from].filter(Boolean).join(' · ');
+    sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
+      <div class="art-big" id="big">${ARTE.item(id, cur)}</div><h2>${esc(it.n)}</h2>
+      ${note ? `<p class="muted" style="margin:-6px 0 0">${note}</p>` : ''}
+      ${editable && it.col ? `<div class="swatches">${D.COLORS.map((c) => `<button data-c="${c}" class="${c === cur ? 'on' : ''}" style="--c:${c}" aria-label="Pintar"></button>`).join('')}</div>` : ''}
+      <div class="row" style="justify-content:center">${editable && it.side !== 'R' ? '<button class="btn ghost" id="bag">Guardar en la bolsa</button>' : ''}<button class="btn" data-close>Listo</button></div></div>`,
+    (bg) => {
+      bg.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
+        S.setPlace(k, { c: b.dataset.c });
+        bg.querySelectorAll('[data-c]').forEach((x) => x.classList.toggle('on', x === b));
+        bg.querySelector('#big').innerHTML = ARTE.item(id, b.dataset.c);
+        el.innerHTML = ARTE.item(id, b.dataset.c);
+      }));
+      const bag = bg.querySelector('#bag');
+      if (bag) bag.addEventListener('click', () => { S.setPlace(k, { off: 1 }); bg.remove(); render(); });
+    });
+  }
+  function visit(pid) {
+    if (pid === S.me) { go('altar'); return; }
+    const bg = sheet(`<div style="display:grid;gap:12px"><div class="spread"><h2>El altar de ${esc(person(pid).n)}</h2><img class="face" src="${face(pid)}" alt="" style="width:40px;height:40px"></div>
+      ${altarHTML(pid, false)}<button class="btn ghost" data-close>Volver</button></div>`);
+    bindAltar(bg.querySelector('.altar'), false);
+  }
   // ---------- helpers de juego ----------
   function daily() {
     const d = SKY.arDate();
@@ -126,7 +274,7 @@
       ${r ? `<div class="row" style="justify-content:center"><span class="chip" style="--c:var(--mint)">+${r.xp} XP</span><span class="chip" style="--c:var(--butter)">+${r.coins} <span class="coin"></span></span></div>` : '<p class="muted small">Cambiaste la foto de esta misión.</p>'}
       ${res.levelUp != null ? `<p><b>Subiste de nivel:</b> ahora sos ${esc(D.LEVELS[res.levelUp].n)}.</p>` : ''}
       ${serie ? `<p><b>Serie completa:</b> ${esc(D.SERIES.find((x) => x.id === serie.serie).n)}. +${D.ACH.serie.c} monedas y medallita.</p>` : ''}
-      <p class="muted small">Esto también suma a la carpa de todos.</p>
+      <p class="muted small">Esto también suma a la foto de todos.</p>
       <button class="btn" data-close>Seguir</button></div>`);
     render();
   }
@@ -197,7 +345,7 @@
     },
 
     hoy() {
-      const d = daily(), L = level(S.xp), c = countdown(), prog = carpaProgress(), me = person(S.me);
+      const d = daily(), L = level(S.xp), c = countdown(), fst = fotoState(), me = person(S.me);
       const sec = secret();
       screen.innerHTML = `${top()}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
@@ -205,7 +353,7 @@
         <div class="card"><div class="spread"><div class="eyebrow">Tu libreta</div><span class="small muted">racha: ${S.streak()} ${S.streak() === 1 ? 'día' : 'días'}</span></div>
           <div class="spread"><b style="font-family:var(--display)">${esc(L.n)}</b><span class="small muted">${S.xp} XP${L.next ? ' · faltan ' + (L.next.xp - S.xp) : ''}</span></div>
           <div class="bar"><i style="width:calc(${Math.round(L.pct * 100)}% - 4px)"></i></div></div>
-        <a href="#carpa" class="card carpa" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">La carpa de la colonia</div><b>${Math.round(prog * 100)}%</b></div>${carpaSVG(prog)}
+        <a href="#foto" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">La foto del 8/12</div><b>${Math.round(fst.prog * 100)}%</b></div>${fotoHTML(fst)}
           <span class="small muted">Se arma con lo que hacemos entre todos.</span></a>
         <div class="card dark"><div class="eyebrow">Tu misión secreta</div>
           ${S.secretSeen() ? `<div class="list">${mRow(sec, 'No se la muestres a nadie')}</div>` : `<div class="secret-cover"><span class="muted">Solo vos podés verla.${me.trip ? '' : ' Vale desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver mi misión secreta</button></div>`}</div>`;
@@ -253,38 +401,66 @@
         }).join('');
         sheet(`<div style="display:grid;gap:12px"><h2>${esc(m.t)}</h2><div class="strip">${strip}</div>
           ${DEMO ? '<p class="small muted" style="margin:0">En modo demo, las fotos de los demás se muestran con su cara.</p>' : ''}
-          <div class="row" style="justify-content:flex-end">${S.photo(id) ? '' : `<button class="btn" id="go" style="--c:var(--mint)">Subir la mía</button>`}<button class="btn ghost" data-close>Cerrar</button></div></div>`,
+          <div class="row" style="justify-content:flex-end">${S.photo(id) ? '' : `<button class="btn" id="go" style="--c:var(--mint)">Subir la mía</button>`}<button class="btn ghost" data-close>${S.photo(id) ? 'Cerrar' : NAH}</button></div></div>`,
         (bg) => { const g = bg.querySelector('#go'); if (g) g.addEventListener('click', () => { bg.remove(); askPhoto(m); }); });
       }));
     },
 
-    tienda() {
+    altar() {
+      screen.innerHTML = `${top()}
+        <div class="spread"><h1 class="on-sky" style="font-size:1.7rem">Tu altar playero</h1><a class="btn" href="#kiosco" style="--c:var(--butter);text-decoration:none">Kiosco</a></div>
+        <div class="card">${altarHTML(S.me, true)}
+          <p class="small muted" style="margin:0">Arrastrá tus cosas por la arena. Tocá una para pintarla o guardarla en la bolsa.</p>${bolsaHTML()}</div>
+        <div class="card"><div class="eyebrow">Altares de la colonia</div>
+          <div class="faces visit">${D.PEOPLE.filter((p) => p.id !== S.me).map((p) => `<button class="pick" data-v="${p.id}"><img class="face" src="${face(p.id)}" alt=""><span class="small">${esc(p.n)}</span></button>`).join('')}</div></div>`;
+      bindAltar(screen.querySelector('.altar'), true);
+      screen.querySelectorAll('[data-out]').forEach((b) => b.addEventListener('click', () => {
+        S.setPlace(b.dataset.out, { off: 0 });
+        fresh.add(b.dataset.out);
+        render();
+      }));
+      screen.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => visit(b.dataset.v)));
+    },
+
+    kiosco() {
       const L = S.level();
+      const blockedFor = (it, pid) => it.side === 'R' && (it.id === 'sombrilla' ? S.hasRefugio(pid) : S.hasRefugio(pid, 'carpa'));
       const cell = (it) => {
-        const locked = it.lv > L + 1;
+        const locked = it.lv > L + 1, blocked = blockedFor(it, S.me);
         return `<button class="item${locked ? ' locked' : ''}" data-i="${it.id}" ${locked ? 'aria-disabled="true"' : ''}>
-          <span class="ic" style="--c:${it.side === 'A' ? 'var(--paper)' : 'rgba(255,255,255,.08)'}">${it.e}</span>
-          <span>${esc(it.n)}</span><span class="small">${locked ? 'nivel ' + it.lv : it.p + ' <span class="coin"></span>'}</span></button>`;
+          <span class="ic" style="--c:${it.side === 'B' ? 'rgba(255,255,255,.1)' : 'var(--paper)'}">${ARTE.item(it.id, it.col)}</span>
+          <span>${esc(it.n)}</span><span class="small">${locked ? 'nivel ' + it.lv : blocked ? 'ya tenés' : it.p + ' <span class="coin"></span>'}</span></button>`;
       };
-      const mine = S.owned().map((id) => D.SHOP.find((x) => x.id === id).e).join('');
-      const gifts = S.gifts().map((g) => `<div class="row small"><img class="face" src="${face(g.from)}" alt="" style="width:28px;height:28px"> ${esc(person(g.from).n)} te regaló ${D.SHOP.find((x) => x.id === g.item).e} ${esc(D.SHOP.find((x) => x.id === g.item).n.toLowerCase())}</div>`).join('');
-      screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">Kiosco</h1>
-        <div class="card"><div class="eyebrow">Tus cosas</div>${mine ? `<div class="mine">${mine}</div>` : ''}${gifts}${!mine && !gifts ? '<span class="muted">Todavía nada.</span>' : ''}<span class="small muted">Las monedas salen de entrar a la app y cumplir misiones.</span></div>
-        <div class="card"><div class="eyebrow">Lado A</div><div class="shop">${D.SHOP.filter((x) => x.side === 'A').map(cell).join('')}</div></div>
-        <div class="card dark"><div class="eyebrow">Lado B</div><div class="shop">${D.SHOP.filter((x) => x.side === 'B').map(cell).join('')}</div></div>`;
+      const side = (s) => D.SHOP.filter((x) => x.side === s).map(cell).join('');
+      screen.innerHTML = `${top()}
+        <div class="spread"><h1 class="on-sky" style="font-size:1.7rem">Kiosco</h1><a class="btn ghost" href="#altar" style="text-decoration:none">Volver al altar</a></div>
+        <p class="on-sky-soft" style="margin:0">Todo lo que comprás va a tu altar playero. Las monedas salen de entrar a la app y cumplir misiones.</p>
+        <div class="card"><div class="eyebrow">De fondo</div><p class="small muted" style="margin:0">Va atrás de todo y no se mueve. Si tenés la carpa, la sombrilla ya no hace falta.</p><div class="shop">${side('R')}</div></div>
+        <div class="card"><div class="eyebrow">Lado A</div><div class="shop">${side('A')}</div></div>
+        <div class="card dark"><div class="eyebrow">Lado B</div><div class="shop">${side('B')}</div></div>`;
       screen.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => {
-        const it = D.SHOP.find((x) => x.id === b.dataset.i);
+        const it = shopItem(b.dataset.i);
         if (it.lv > S.level() + 1) return toast(`<span>${esc(it.n)} se desbloquea en el nivel ${it.lv}.</span>`);
-        const can = S.coins >= it.p;
-        const others = D.PEOPLE.filter((p) => p.id !== S.me);
+        const can = S.coins >= it.p, mineBlocked = blockedFor(it, S.me);
+        const others = D.PEOPLE.filter((p) => p.id !== S.me && !blockedFor(it, p.id));
         sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
-          <span style="font-size:3rem">${it.e}</span><h2>${esc(it.n)}</h2><span class="chip" style="--c:var(--butter)">${it.p} <span class="coin"></span></span>
-          ${can ? `<div class="row" style="justify-content:center"><button class="btn" id="forMe" style="--c:var(--mint)">Para mí</button><button class="btn" id="gift" style="--c:var(--rose)">Regalar</button></div>
+          <div class="art-big">${ARTE.item(it.id, it.col)}</div><h2>${esc(it.n)}</h2>
+          ${it.sub ? `<p class="muted" style="margin:-6px 0 0">${esc(it.sub)}</p>` : ''}
+          <span class="chip" style="--c:var(--butter)">${it.p} <span class="coin"></span></span>
+          ${mineBlocked ? `<p class="small muted" style="margin:0">Ya tenés ${it.id === 'carpa' ? 'la carpa' : 'tu refugio'}. Se lo podés regalar a alguien.</p>` : ''}
+          ${can ? `<div class="row" style="justify-content:center">${mineBlocked ? '' : '<button class="btn" id="forMe" style="--c:var(--mint)">Para mí</button>'}<button class="btn" id="gift" style="--c:var(--rose)">Regalar</button></div>
             <div id="giftTo" hidden><p class="small muted" style="margin:0 0 8px">¿A quién?</p><div class="faces" style="grid-template-columns:repeat(4,1fr)">${others.map((p) => `<button class="pick" data-to="${p.id}"><img class="face" src="${face(p.id)}" alt="" style="width:52px;height:52px"><span class="small">${esc(p.n)}</span></button>`).join('')}</div></div>`
             : `<p class="muted" style="margin:0">Te faltan ${it.p - S.coins} monedas.</p>`}
-          <button class="btn ghost" data-close>Cerrar</button></div>`,
+          <button class="btn ghost" data-close>${NAH}</button></div>`,
         (bg) => {
-          const done = (to) => { if (S.buy(it, to)) { bg.remove(); toast(to ? `<span style="font-size:1.4rem">${it.e}</span><span>Le regalaste ${esc(it.n.toLowerCase())} a ${esc(person(to).n)}.</span>` : `<span style="font-size:1.4rem">${it.e}</span><span>${esc(it.n)} ya está en tus cosas.</span>`); render(); } };
+          const done = (to) => {
+            const k = S.buy(it, to);
+            if (!k) return;
+            bg.remove();
+            if (to) { toast(`<span class="mini">${ARTE.item(it.id, it.col)}</span><span>Le regalaste ${esc(it.n.toLowerCase())} a ${esc(person(to).n)}. Ya está en su altar.</span>`); render(); return; }
+            if (typeof k === 'string') fresh.add(k);
+            go('altar');
+          };
           const fm = bg.querySelector('#forMe'); if (fm) fm.addEventListener('click', () => done(null));
           const gf = bg.querySelector('#gift'); if (gf) gf.addEventListener('click', () => { bg.querySelector('#giftTo').hidden = false; });
           bg.querySelectorAll('[data-to]').forEach((x) => x.addEventListener('click', () => done(x.dataset.to)));
@@ -292,20 +468,22 @@
       }));
     },
 
-    carpa() {
-      const prog = carpaProgress();
-      const n = Math.floor(prog * D.CARPA.pieces.length + 1e-6);
-      const hitos = D.CARPA.hitos.map((h) => `<div class="hito${prog >= h.at ? ' done' : ''}"><span class="dot">${prog >= h.at ? '✓' : h.fecha.length < 6 ? h.fecha : '★'}</span>
-        <span><b>${esc(h.t)}</b> · ${esc(h.d)}<br><span class="small muted">${prog >= h.at ? 'Desbloqueado' : 'Se desbloquea con la carpa al ' + Math.round(h.at * 100) + '%'}</span></span></div>`).join('');
-      const people = D.PEOPLE.map((p) => { const L = level(S.xpOf(p.id)); return `<div class="mate"><img class="face" src="${face(p.id)}" alt=""><span><b>${esc(p.n)}</b><br><span class="small muted">${esc(L.n)}${p.trip ? '' : ' · a distancia'}</span></span></div>`; }).join('');
-      screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">La carpa</h1>
-        <p class="on-sky-soft" style="margin:0">Cada figurita, de cualquiera, suma. Entre todos armamos la carpa antes de volver a La Plata.</p>
-        <div class="card carpa"><div class="spread"><b style="font-family:var(--display);font-size:1.4rem">${Math.round(prog * 100)}%</b><span class="small muted">${n} de ${D.CARPA.pieces.length} partes</span></div>
-          ${carpaSVG(prog)}
-          <div class="row small">${D.CARPA.pieces.map((p, i) => `<span class="chip" style="--c:${i < n ? 'var(--mint)' : 'var(--paper)'}">${esc(p)}</span>`).join('')}</div></div>
+    foto() {
+      const st = fotoState();
+      const n = D.FOTO.pieces.filter((p) => st.pieces.has(p.id)).length;
+      const hitos = D.FOTO.hitos.map((h) => `<div class="hito${st.prog >= h.at ? ' done' : ''}"><span class="dot">${st.prog >= h.at ? '✓' : h.fecha.length < 6 ? h.fecha : '★'}</span>
+        <span><b>${esc(h.t)}</b> · ${esc(h.d)}<br><span class="small muted">${st.prog >= h.at ? 'Desbloqueado' : 'Se desbloquea con la foto al ' + Math.round(h.at * 100) + '%'}</span></span></div>`).join('');
+      const people = D.PEOPLE.map((p) => `<button class="mate" data-v="${p.id}"><img class="face" src="${face(p.id)}" alt=""${st.people.has(p.id) ? '' : ' style="filter:grayscale(.6);opacity:.75"'}>
+        <span><b>${esc(p.n)}</b><br><span class="small muted">${st.people.has(p.id) ? 'En la foto' : 'Aparece en nivel ' + (D.FOTO.nivel + 1)}${p.trip ? '' : ' · a distancia'}</span></span></button>`).join('');
+      screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">La foto</h1>
+        <p class="on-sky-soft" style="margin:0">La del 8/12, antes de volver a La Plata. Cada figurita de cualquiera suma, y cada uno aparece cuando llega al nivel ${D.FOTO.nivel + 1}.</p>
+        <div class="card"><div class="spread"><b style="font-family:var(--display);font-size:1.4rem">${Math.round(st.prog * 100)}%</b><span class="small muted">${n} de ${D.FOTO.pieces.length} partes</span></div>
+          ${fotoHTML(st)}
+          <div class="row small">${D.FOTO.pieces.map((p) => `<span class="chip" style="--c:${st.pieces.has(p.id) ? 'var(--mint)' : 'var(--paper)'}">${esc(p.n)}</span>`).join('')}</div></div>
         <div class="card"><div class="eyebrow">Lo que destraba</div>${hitos}</div>
-        <div class="card"><div class="eyebrow">La colonia</div><div class="people">${people}</div></div>
+        <div class="card"><div class="eyebrow">La colonia</div><p class="small muted" style="margin:0">Tocá a alguien para visitar su altar.</p><div class="people">${people}</div></div>
         ${DEMO ? '<p class="proto">Modo demo: el progreso de los demás es de ejemplo.</p>' : ''}`;
+      screen.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => visit(b.dataset.v)));
     },
   };
 
@@ -326,7 +504,8 @@
     SCREENS[r]();
     const tabs = $('#tabs');
     tabs.hidden = !S.me || r === 'portada';
-    tabs.innerHTML = TABS.map(([k, l]) => `<a href="#${k}" class="${k === r ? 'on' : ''}" ${k === r ? 'aria-current="page"' : ''}>${IC[k]}<span>${l}</span></a>`).join('');
+    const cur = r === 'kiosco' ? 'altar' : r;
+    tabs.innerHTML = TABS.map(([k, l]) => `<a href="#${k}" class="${k === cur ? 'on' : ''}" ${k === cur ? 'aria-current="page"' : ''}>${IC[k]}<span>${l}</span></a>`).join('');
     const dev = $('#devbtn'); if (dev) dev.hidden = r === 'portada';
   }
   addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
@@ -344,14 +523,14 @@
         <h2>Probar el cielo</h2>
         <label>Hora: <b id="hv">${SKY.fmt(st.minute)}</b><input type="range" id="hr" min="0" max="1439" step="5" value="${Math.round(st.minute)}"></label>
         <label>Clima <select id="kd">${kinds.map((k) => `<option ${SKY.override.kind === k || (!SKY.override.kind && k === 'auto') ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
-        <label>Carpa: <b id="cv">${Math.round(carpaProgress() * 100)}%</b><input type="range" id="cp" min="0" max="100" step="10" value="${Math.round(carpaProgress() * 100)}"></label>
+        <label>La foto: <b id="cv">${Math.round(fotoProgress() * 100)}%</b><input type="range" id="cp" min="0" max="100" step="5" value="${Math.round(fotoProgress() * 100)}"></label>
         <div class="row"><button class="btn ghost" id="now">Volver a la hora real</button><button class="btn ghost" id="reset">Borrar todo y elegir de nuevo</button></div>
         <button class="btn" data-close>Listo</button></div>`,
       (bg) => {
         bg.querySelector('#hr').addEventListener('input', (e) => { SKY.override.minute = +e.target.value; bg.querySelector('#hv').textContent = SKY.fmt(+e.target.value); SKY.paint(); });
         bg.querySelector('#kd').addEventListener('change', (e) => { SKY.override.kind = e.target.value === 'auto' ? null : e.target.value; SKY.paint(); render(); });
-        bg.querySelector('#cp').addEventListener('input', (e) => { carpaOverride = +e.target.value / 100; bg.querySelector('#cv').textContent = e.target.value + '%'; render(); });
-        bg.querySelector('#now').addEventListener('click', () => { SKY.override.minute = null; SKY.override.kind = null; carpaOverride = null; SKY.paint(); render(); bg.remove(); });
+        bg.querySelector('#cp').addEventListener('input', (e) => { fotoOverride = +e.target.value / 100; bg.querySelector('#cv').textContent = e.target.value + '%'; render(); });
+        bg.querySelector('#now').addEventListener('click', () => { SKY.override.minute = null; SKY.override.kind = null; fotoOverride = null; SKY.paint(); render(); bg.remove(); });
         bg.querySelector('#reset').addEventListener('click', () => { S.forget(); bg.remove(); go('quien'); });
       });
     });
@@ -359,9 +538,9 @@
 
   // Cambios de los demás en vivo: se vuelve a dibujar la pantalla (las hojas abiertas no se tocan).
   S.onChange((ev) => {
-    if (ev && ev.gift) { const it = D.SHOP.find((x) => x.id === ev.gift.item); toast(`<span style="font-size:1.4rem">${it ? it.e : '♡'}</span><span>${esc(person(ev.gift.de).n)} te regaló ${esc(it ? it.n.toLowerCase() : 'algo')}.</span>`, 4500); }
+    if (ev && ev.gift) { const it = shopItem(ev.gift.item); toast(`<span class="mini">${it ? ARTE.item(it.id, it.col) : '♡'}</span><span>${esc(person(ev.gift.de).n)} te regaló ${esc(it ? it.n.toLowerCase() : 'algo')}. Ya está en tu altar.</span>`, 4500); }
     if (ev && ev.uploadFailed) toast('<span>No se pudo subir la foto. Queda guardada y se reintenta cuando haya señal.</span>', 4500);
-    if (!document.querySelector('.sheet-bg')) render();
+    if (!document.querySelector('.sheet-bg') && !dragging) render();
   });
 
   SKY.start();

@@ -1,6 +1,6 @@
 /* Colonia: primero la red (para tener siempre la última versión), y si no hay señal, lo guardado. */
-const CACHE = 'colonia-v1';
-const SHELL = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/data.js', 'js/sky.js', 'js/store.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png'];
+const CACHE = 'colonia-v2';
+const SHELL = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/data.js', 'js/sky.js', 'js/arte.js', 'js/store.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

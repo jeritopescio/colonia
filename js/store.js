@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], gifts: [], days: [], ach: {}, secretSeen: false, am: null,
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null,
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -43,7 +43,7 @@ window.STORE = (function () {
     const [j, f, r] = await Promise.all([
       client.from('jugadores').select('id,xp,monedas,datos'),
       client.from('figuritas').select('jugador,mision,foto,creada'),
-      client.from('regalos').select('de,para,item,creado').order('creado'),
+      client.from('regalos').select('id,de,para,item,creado').order('creado'),
     ]);
     if (j.error || f.error || r.error) throw j.error || f.error || r.error;
     s.cache.players = Object.fromEntries(j.data.map((x) => [x.id, x]));
@@ -56,7 +56,7 @@ window.STORE = (function () {
       if (mine.xp >= local.xp) {
         s.xp = mine.xp; s.coins = mine.monedas;
         const d = mine.datos;
-        s.owned = d.owned || []; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = !!d.secretSeen; s.am = d.am || null;
+        s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = !!d.secretSeen; s.am = d.am || null;
       }
     }
     if (s.me) s.cache.figs.filter((x) => x.jugador === s.me).forEach((x) => { if (!String(s.photos[x.mision] || '').startsWith('data:')) s.photos[x.mision] = pub(x.foto); });
@@ -82,7 +82,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am };
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
     }, 400);
@@ -140,7 +140,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = !!row.datos.secretSeen; s.am = row.datos.am || null; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = !!row.datos.secretSeen; s.am = row.datos.am || null; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save();
     },
@@ -160,9 +160,45 @@ window.STORE = (function () {
     },
     owned() { return s.owned; },
     gifts() {
-      if (live) return s.cache.regalos.filter((r) => r.para === s.me).map((r) => ({ from: r.de, item: r.item }));
-      return s.me && s.me !== 'nico' ? [{ from: 'nico', item: 'birra' }] : [];
+      if (live) return s.cache.regalos.filter((r) => r.para === s.me).map((r) => ({ id: r.id, from: r.de, item: r.item }));
+      return s.me && s.me !== 'nico' ? [{ id: 'demo1', from: 'nico', item: 'birra' }] : [];
     },
+
+    // ---------- altar playero ----------
+    // Cada cosa tiene una clave: o<n> si la compraste vos, g<id> si te la regalaron.
+    // place[clave] = { x, y (0 a 1, el pie de la cosa), c (color), off (guardada en la bolsa) }
+    altar(pid) {
+      pid = pid || s.me;
+      const fix = (id) => (D.SHOP.some((x) => x.id === id) ? id : D.ALIAS[id] || 'caracoles');
+      let owned, place, regalos;
+      if (pid === s.me) { owned = s.owned; place = s.place; regalos = api.gifts(); }
+      else {
+        const r = s.cache.players[pid];
+        owned = (r && r.datos && r.datos.owned) || []; place = (r && r.datos && r.datos.place) || {};
+        regalos = s.cache.regalos.filter((g) => g.para === pid).map((g) => ({ id: g.id, from: g.de, item: g.item }));
+      }
+      const items = owned.map((id, i) => ({ k: 'o' + i, id: fix(id) }))
+        .concat(regalos.filter((g) => g.id).map((g) => ({ k: 'g' + g.id, id: fix(g.item), from: g.from })));
+      // Un solo refugio: si hay carpa, la sombrilla no se usa.
+      const hasCarpa = items.some((x) => x.id === 'carpa');
+      let refugio = null;
+      const rest = [];
+      items.forEach((x) => {
+        const sh = D.SHOP.find((y) => y.id === x.id);
+        if (sh.side === 'R') { if (!refugio && (x.id === 'carpa' || !hasCarpa)) refugio = x; }
+        else rest.push(x);
+      });
+      return { refugio, items: rest, place };
+    },
+    hasRefugio(pid, which) {
+      const a = api.altar(pid);
+      return which ? !!(a.refugio && a.refugio.id === which) : !!a.refugio;
+    },
+    setPlace(k, p) {
+      s.place[k] = Object.assign({}, s.place[k], p);
+      save(); pushMe();
+    },
+    artUrl(path) { return C.supabaseUrl ? pub(path) : 'img/' + path; },
     secretSeen() { return s.secretSeen; },
     seeSecret() { s.secretSeen = true; save(); pushMe(); },
 
@@ -191,9 +227,12 @@ window.STORE = (function () {
       if (to && to !== s.me) {
         if (!s.ach.regalo) { s.ach.regalo = 1; s.coins += D.ACH.regalo.c; }
         if (client) client.from('regalos').insert({ de: s.me, para: to, item: item.id }).then(({ error }) => { if (error) console.warn(error); });
-      } else s.owned.push(item.id);
+        save(); pushMe();
+        return true;
+      }
+      s.owned.push(item.id);
       save(); pushMe();
-      return true;
+      return 'o' + (s.owned.length - 1);
     },
 
     // Corre al entrar: entrada del día, racha, noctámbulo y premio matutino (primera persona del día desde las 5).

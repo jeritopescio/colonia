@@ -40,7 +40,7 @@ window.DATA = (function () {
     { id: 'golo-ruta', s: 'previa', t: 'La golosina para la ruta', xp: 20 },
     { id: 'playlist', s: 'previa', t: 'El tema que sumás a la playlist del viaje', xp: 20 },
     { id: 'flor', s: 'flora', t: 'Una flor', xp: 30 },
-    { id: 'perro', s: 'flora', t: 'Un perro de playa', xp: 30 },
+    { id: 'perro', s: 'flora', t: 'Un animalito de playa (vale cualquier ternurita)', xp: 30 },
     { id: 'caracol', s: 'flora', t: 'Un caracol o una almeja', xp: 30 },
     { id: 'pajaro', s: 'flora', t: 'Un pájaro', xp: 30 },
     { id: 'bicho', s: 'flora', t: 'El bicho más raro que veas', xp: 35 },
@@ -66,7 +66,7 @@ window.DATA = (function () {
   };
   const DAILY_POOL = [
     'Algo amarillo', 'Tu almuerzo de hoy', 'Una planta de tu casa', 'Tus zapatillas de hoy',
-    'El cielo desde tu ventana', 'Algo que te recuerde al verano', 'Tu taza favorita', 'Un perro de tu barrio',
+    'El cielo desde tu ventana', 'Algo que te recuerde al verano', 'Tu taza favorita', 'Un animalito de tu barrio (vale cualquier ternurita)',
   ];
 
   const DUO = { id: 'duo-cocina', t: 'Cociná algo con alguien con quien nunca cocinaste', xp: 50 };
@@ -93,35 +93,88 @@ window.DATA = (function () {
     'regalo': { t: 'Regalaste algo', c: 5 },
   };
 
-  // Tienda mega simple. Lado A tierno, lado B oscuro. Íconos provisorios.
+  // Kiosco: todo lo que se compra va al altar playero de cada uno.
+  // side R = refugio (va de fondo y no se mueve; la carpa reemplaza a la sombrilla), A = tierno, B = oscuro.
+  // col = color inicial si se puede cambiar; sin col, el color es fijo (las mascotas son como son).
   const SHOP = [
-    { id: 'cangrejo', n: 'Cangrejito', e: '🦀', p: 15, lv: 1, side: 'A' },
-    { id: 'osito', n: 'Osito', e: '🧸', p: 25, lv: 1, side: 'A' },
-    { id: 'sandia', n: 'Sandía', e: '🍉', p: 10, lv: 1, side: 'A' },
-    { id: 'helado', n: 'Helado', e: '🍦', p: 12, lv: 1, side: 'A' },
-    { id: 'pulpo', n: 'Pulpo de peluche', e: '🐙', p: 35, lv: 2, side: 'A' },
-    { id: 'choripan', n: 'Choripán', e: '🌭', p: 20, lv: 2, side: 'A' },
-    { id: 'gatito', n: 'Gatito negro', e: '🐈‍⬛', p: 45, lv: 3, side: 'A' },
-    { id: 'salchicha', n: 'Perro salchicha', e: '🐕', p: 60, lv: 4, side: 'A' },
-    { id: 'birra', n: 'Birra', e: '🍺', p: 20, lv: 1, side: 'B' },
-    { id: 'puchos', n: 'Atado de puchos', e: '🚬', p: 25, lv: 1, side: 'B' },
-    { id: 'dados', n: 'Dados', e: '🎲', p: 20, lv: 1, side: 'B' },
-    { id: 'naipes', n: 'Mazo para el truco', e: '🃏', p: 30, lv: 2, side: 'B' },
-    { id: 'vino', n: 'Vino', e: '🍷', p: 45, lv: 2, side: 'B' },
-    { id: 'cuchillo', n: 'Cuchillito', e: '🔪', p: 35, lv: 3, side: 'B' },
-    { id: 'calavera', n: 'Calaverita', e: '💀', p: 55, lv: 4, side: 'B' },
-    { id: 'champa', n: 'Champagne', e: '🍾', p: 120, lv: 5, side: 'B' },
-  ];
+    { id: 'sombrilla', n: 'Sombrilla', p: 40, lv: 1, side: 'R', col: '#f6a38f' },
+    { id: 'carpa', n: 'Carpa de balneario', p: 110, lv: 2, side: 'R', col: '#a9d6f0' },
 
-  // La carpa de balneario se arma con la XP de todos. La meta es secreta.
-  const CARPA = {
+    { id: 'estrella', n: 'Estrella de mar', p: 8, lv: 1, side: 'A', col: '#f6a38f' },
+    { id: 'caracoles', n: 'Caracoles', p: 8, lv: 1, side: 'A', col: '#f7b3c6' },
+    { id: 'protector', n: 'Protector', p: 10, lv: 1, side: 'A', col: '#ffe39a' },
+    { id: 'lentes', n: 'Lentes de sol', p: 12, lv: 1, side: 'A', col: '#f7b3c6' },
+    { id: 'sandia', n: 'Sandía', p: 12, lv: 1, side: 'A' },
+    { id: 'librito', n: 'Librito', p: 15, lv: 1, side: 'A', col: '#b6e5cd' },
+    { id: 'balde', n: 'Balde y palita', p: 15, lv: 1, side: 'A', col: '#a9d6f0' },
+    { id: 'futbol', n: 'Pelota de fútbol', p: 15, lv: 1, side: 'A' },
+    { id: 'voley', n: 'Pelota de vóley', p: 15, lv: 1, side: 'A', col: '#ffe39a' },
+    { id: 'toalla', n: 'Toalla', p: 20, lv: 1, side: 'A', col: '#cfc0f0' },
+    { id: 'mate', n: 'Mate y termo', p: 25, lv: 1, side: 'A', col: '#b6e5cd' },
+    { id: 'reposera', n: 'Reposera', p: 45, lv: 1, side: 'A', col: '#f6a38f' },
+    { id: 'basquet', n: 'Pelota de básquet', p: 18, lv: 2, side: 'A' },
+    { id: 'liebre', n: 'Liebre', p: 40, lv: 2, side: 'A' },
+    { id: 'heladerita', n: 'Heladerita con sanguchitos', p: 55, lv: 2, side: 'A', col: '#a9d6f0' },
+    { id: 'tulio', n: 'Tulio', sub: 'el salchicha de Pachi', p: 55, lv: 2, side: 'A' },
+    { id: 'tony', n: 'Tony', sub: 'el gato de Jero y Viqui', p: 55, lv: 2, side: 'A' },
+    { id: 'feluchis', n: 'Feluchis', sub: 'la gata de Jose', p: 55, lv: 2, side: 'A' },
+    { id: 'pompi', n: 'Pompi', sub: 'el gato de Juani', p: 55, lv: 2, side: 'A' },
+    { id: 'renu', n: 'Renu', sub: 'la perrita de Nachote', p: 55, lv: 2, side: 'A' },
+    { id: 'leda', n: 'Leda', sub: 'la perra de Rochi', p: 55, lv: 2, side: 'A' },
+    { id: 'zorrito', n: 'Zorrito', p: 45, lv: 3, side: 'A' },
+    { id: 'tabla', n: 'Tabla de surf', p: 70, lv: 3, side: 'A', col: '#f7b3c6' },
+    { id: 'corona', n: 'Corona enterrada', p: 150, lv: 5, side: 'A', col: '#f7b3c6' },
+
+    { id: 'birra', n: 'Birra', p: 15, lv: 1, side: 'B', col: '#ffe39a' },
+    { id: 'dados', n: 'Dados', p: 15, lv: 1, side: 'B', col: '#fffaf1' },
+    { id: 'puchos', n: 'Atado de puchos', p: 20, lv: 1, side: 'B' },
+    { id: 'naipes', n: 'Mazo para el truco', p: 20, lv: 1, side: 'B' },
+    { id: 'porro', n: 'Porro', p: 30, lv: 2, side: 'B' },
+    { id: 'vino', n: 'Vino', p: 35, lv: 2, side: 'B' },
+    { id: 'cuchillo', n: 'Cuchillito', p: 30, lv: 3, side: 'B', col: '#f7b3c6' },
+    { id: 'calavera', n: 'Calaverita', p: 45, lv: 4, side: 'B', col: '#f6a38f' },
+  ];
+  // Cosas de la tienda vieja: se muestran como lo más parecido de la nueva (nadie pierde lo que compró).
+  const ALIAS = { cangrejo: 'estrella', osito: 'liebre', helado: 'sandia', pulpo: 'caracoles', choripan: 'heladerita',
+    gatito: 'tony', salchicha: 'tulio', champa: 'vino' };
+  const COLORS = ['#f6a38f', '#f7b3c6', '#ffe39a', '#b6e5cd', '#a9d6f0', '#cfc0f0', '#7fb8e6', '#e8735a', '#fffaf1', '#5b4d72'];
+
+  // La foto del 8/12: dos autos, la tabla, Tulio y la colonia entera. Se arma con la XP de todos (la meta es secreta)
+  // y cada persona aparece cuando llega al nivel 2. El 8/12 aparecen todos igual.
+  const FOTO = {
+    png: false, // true cuando estén los PNG de nanobanana en el bucket (foto/fondo.png, foto/fox.png, foto/jero.png…)
     goal: 2600,
-    pieces: ['Parantes', 'Techo a rayas', 'Volado', 'Cortinas', 'Banderín', 'Reposeras', 'Sombrilla', 'Heladerita', 'Guirnalda', 'Cartel'],
+    nivel: 1,
+    dia: '2026-12-08',
+    pieces: [
+      { id: 'fox', n: 'El Fox', at: 0.05 },
+      { id: 'sandero', n: 'El Sandero', at: 0.12 },
+      { id: 'tabla', n: 'La tabla', at: 0.25 },
+      { id: 'tulio', n: 'Tulio', at: 0.4 },
+      { id: 'banderines', n: 'Banderines', at: 0.7 },
+      { id: 'revelado', n: 'Revelado', at: 1 },
+    ],
+    // Dónde está cada uno (coordenadas sobre 400×300, pie en y). Se puede reacomodar acá.
+    slots: {
+      rich: { x: 27, y: 246, s: 0.92, pose: 'pie' },
+      nachote: { x: 198, y: 243, s: 0.88, pose: 'pie' },
+      nico: { x: 374, y: 246, s: 0.92, pose: 'pie' },
+      juli: { x: 64, y: 288, s: 1, pose: 'pie' },
+      juani: { x: 120, y: 291, s: 1, pose: 'pie' },
+      jero: { x: 282, y: 291, s: 1, pose: 'pie' },
+      viqui: { x: 337, y: 288, s: 1, pose: 'pie' },
+      pachi: { x: 160, y: 295, s: 0.95, pose: 'agachado' },
+      rochi: { x: 240, y: 295, s: 0.95, pose: 'agachado' },
+      jose: { x: 118, y: 147, s: 0.85, pose: 'sentado' },
+      sofi: { x: 254, y: 166, r: -8, pose: 'polaroid' },
+      chino: { x: 283, y: 163, r: 3, pose: 'polaroid' },
+      grego: { x: 312, y: 167, r: 9, pose: 'polaroid' },
+    },
     hitos: [
       { at: 0.4, t: 'Llega Jose', d: 'Estreno del video de Rich', fecha: '5/12' },
-      { at: 1, t: 'Carpa completa', d: 'Álbum final, wrapped y premio', fecha: 'antes de volver' },
+      { at: 1, t: 'La foto revelada', d: 'Álbum final, wrapped y premio', fecha: 'antes de volver' },
     ],
   };
 
-  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETS, ACH, SHOP, CARPA };
+  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETS, ACH, SHOP, ALIAS, COLORS, FOTO };
 })();

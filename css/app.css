@@ -66,9 +66,10 @@ h2 { font-size: 1.2rem; }
 .spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 
 /* moneda dibujada */
-.coin { display: inline-grid; place-items: center; width: 1.15em; height: 1.15em; border-radius: 50%; background: var(--butter); border: 2px solid var(--ink); font-family: var(--display); font-size: .7em; font-weight: 700; vertical-align: -.15em; }
+.coin { display: inline-grid; place-items: center; width: 1.15em; height: 1.15em; border-radius: 50%; background: #f2b84b; color: var(--ink); border: 2px solid var(--ink); font-family: var(--display); font-size: .7em; font-weight: 700; vertical-align: -.15em; box-shadow: inset -2px -2px 0 rgba(67, 54, 90, .18); }
 .coin::after { content: "c"; }
-.chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--display); font-weight: 600; font-size: .9rem; padding: 3px 11px; position: relative; isolation: isolate; }
+/* Los chips tienen fondo propio: el texto va siempre en tinta, aunque el cielo esté oscuro. */
+.chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--display); font-weight: 600; font-size: .9rem; padding: 3px 11px; position: relative; isolation: isolate; color: var(--ink); }
 .chip::before { content: ""; position: absolute; inset: 0; background: var(--c, var(--paper)); border: 2px solid var(--ink); border-radius: 99px; filter: url(#crayon); z-index: -1; }
 
 /* caritas */
@@ -127,22 +128,64 @@ h2 { font-size: 1.2rem; }
 .strip .sq { width: 100%; aspect-ratio: 1; border-radius: 8px; border: 2px solid var(--ink); object-fit: cover; display: grid; place-items: center; background: var(--paper); }
 .strip .sq.no { border-style: dashed; border-color: var(--soft); opacity: .6; }
 
-/* ---------- tienda ---------- */
-.shop { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 6px; }
-.item { display: grid; justify-items: center; gap: 2px; background: none; border: 0; cursor: pointer; padding: 2px; font-size: .88rem; line-height: 1.05; text-align: center; color: inherit; }
-.item .ic { width: 54px; height: 54px; display: grid; place-items: center; font-size: 1.7rem; position: relative; isolation: isolate; }
+/* ---------- kiosco ---------- */
+.shop { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 6px; }
+.item { display: grid; justify-items: center; align-content: start; gap: 3px; background: none; border: 0; cursor: pointer; padding: 2px; font-size: .88rem; line-height: 1.05; text-align: center; color: inherit; }
+.item .ic { width: 58px; height: 58px; display: grid; place-items: center; position: relative; isolation: isolate; }
 .item .ic::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--c, var(--paper)); border: 2px solid currentColor; filter: url(#crayon); z-index: -1; }
+.item .ic svg { width: 74%; height: 74%; }
 .item.locked { opacity: .42; cursor: default; }
-.mine { display: flex; gap: 6px; flex-wrap: wrap; font-size: 1.5rem; }
+.art-big { width: 150px; height: 120px; display: grid; place-items: center; }
+.art-big svg { width: 100%; height: 100%; }
+.mini { width: 34px; height: 34px; display: grid; place-items: center; }
+.mini svg { width: 100%; height: 100%; }
+.swatches { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; max-width: 300px; }
+.swatches button { width: 34px; height: 34px; border-radius: 50%; border: 2.5px solid var(--ink); background: var(--c); cursor: pointer; padding: 0; }
+.swatches button.on { outline: 3px solid var(--ink); outline-offset: 2px; }
 
-/* ---------- carpa ---------- */
-.carpa svg { width: 100%; height: auto; display: block; }
-.carpa .ghost * { fill: none !important; stroke: var(--soft); stroke-dasharray: 4 4; opacity: .55; }
+/* ---------- altar playero ---------- */
+.altar { position: relative; aspect-ratio: 4 / 5; overflow: hidden; isolation: isolate; border: 2.5px solid var(--ink); border-radius: 14px 18px 12px 16px;
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 18%, var(--sky-hor) 33%, var(--sea) 33%, color-mix(in srgb, var(--sea) 62%, #fff) 45%);
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.altar::before { content: ""; position: absolute; left: 0; right: 0; top: 45%; bottom: 0; background: radial-gradient(color-mix(in srgb, var(--ink) 13%, transparent) 1px, transparent 1.6px) 0 0 / 13px 13px, var(--sand); }
+.altar::after { content: ""; position: absolute; left: -4%; right: -4%; top: calc(45% - 6px); height: 12px; background: radial-gradient(circle at 9px 0, #fff 6px, transparent 6.5px) 0 0 / 18px 12px repeat-x; opacity: .9; filter: url(#crayon); }
+.altar .nube { position: absolute; aspect-ratio: 3 / 1; background: #fff; border-radius: 999px; opacity: .9; filter: url(#crayon); }
+.altar .nube::before { content: ""; position: absolute; width: 50%; height: 140%; left: 16%; bottom: 30%; background: inherit; border-radius: 50%; }
+[data-sky-dark="1"] .altar .nube { background: #8c8fb2; opacity: .7; }
+.altar .it { position: absolute; transform: translate(-50%, -100%); isolation: isolate; z-index: 3; }
+.altar .it svg { display: block; width: 100%; height: auto; overflow: visible; }
+.altar .it::after { content: ""; position: absolute; left: 16%; right: 16%; bottom: -3px; height: 7px; border-radius: 50%; background: rgba(67, 54, 90, .16); z-index: -1; }
+.altar .it.fixed::after { display: none; }
+.altar.edit .it:not(.fixed) { touch-action: none; cursor: grab; }
+.altar .it.lift { cursor: grabbing; }
+.altar .it.lift::after { opacity: 0; }
+.altar .it.lift svg { transform: rotate(-4deg) scale(1.06); transition: transform .12s; }
+.altar .it.plop svg { animation: plop .32s ease-out; transform-origin: 50% 100%; }
+@keyframes plop { 35% { transform: scale(1.1, .86); } 70% { transform: scale(.97, 1.04); } }
+.altar .ground { position: absolute; height: 9px; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(67, 54, 90, .22); z-index: 98; pointer-events: none; }
+.altar .vacio { position: absolute; left: 50%; top: 74%; transform: translate(-50%, -50%); text-align: center; background: rgba(255, 250, 241, .85); border: 2px dashed var(--soft); border-radius: 14px; padding: 6px 12px; z-index: 50; width: max-content; }
+.bolsa { display: flex; gap: 8px; flex-wrap: wrap; }
+.bolsa button { width: 54px; height: 54px; border: 2px dashed var(--soft); border-radius: 12px; background: var(--paper); padding: 6px; display: grid; place-items: center; cursor: pointer; }
+.bolsa svg { width: 100%; height: 100%; }
+.faces.visit { grid-template-columns: repeat(6, 1fr); gap: 8px 2px; }
+.faces.visit .face { width: min(44px, 11vw); height: min(44px, 11vw); }
+.faces.visit .pick { padding: 0; }
+
+/* ---------- la foto ---------- */
+.foto svg { width: 100%; height: auto; display: block; border-radius: 10px; border: 2.5px solid var(--ink); }
+.foto:not(.revelada) svg { filter: saturate(.82) sepia(.1); }
+.foto.revelada { background: #fff; padding: 8px 8px 30px; border: 2.5px solid var(--ink); border-radius: 6px; transform: rotate(-1deg); box-shadow: 4px 6px 0 rgba(67, 54, 90, .16); }
+.foto .ghost * { fill: none !important; stroke: var(--soft) !important; stroke-dasharray: 4 4; opacity: .7; }
+.foto .ghost image, .foto .ghost text { display: none; }
+.capas { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 10px; border: 2.5px solid var(--ink); background: linear-gradient(var(--sky-top), var(--sky-mid) 55%, var(--sky-hor)); }
+.capas img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.capas img.falta { filter: brightness(0) invert(1); opacity: .5; }
+.foto:not(.revelada) .capas { filter: saturate(.82) sepia(.1); }
 .hito { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; }
 .hito .dot { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid var(--ink); display: grid; place-items: center; font-family: var(--display); font-size: .8rem; }
 .hito.done .dot { background: var(--mint); }
 .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
-.mate { display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: center; font-size: .95rem; line-height: 1.05; }
+.mate { display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: center; font-size: .95rem; line-height: 1.05; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; color: inherit; }
 .mate .face { width: 40px; height: 40px; }
 
 /* ---------- navegación ---------- */
