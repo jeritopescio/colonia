@@ -157,7 +157,24 @@ window.SONIDO = (function () {
     }, true);
   }
 
+  // Bocina de auto chiquito: "mec mec", dos notas a la vez como las bocinas de verdad. suave = la que te tocan a vos.
+  function bocina(suave) {
+    run(() => {
+      const t0 = ctx.currentTime + 0.005, v = suave ? 0.14 : 0.24;
+      [0, 0.2].forEach((d) => {
+        const t = t0 + d, f = ctx.createBiquadFilter(), g = ctx.createGain();
+        f.type = 'lowpass'; f.frequency.value = 1600; f.Q.value = 2.2;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.012);
+        g.gain.setValueAtTime(v, t + 0.11); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+        [[392, 'square'], [494, 'sawtooth']].forEach(([hz, type]) => {
+          const o = ctx.createOscillator(); o.type = type; o.frequency.value = hz; o.connect(f); o.start(t); o.stop(t + 0.17);
+        });
+        f.connect(g); g.connect(seco);
+      });
+    });
+  }
+
   // La música del inicio usa el mismo contexto de audio.
   const audio = () => { init(); return ctx; };
-  return { plop, trtss, chap, si, no, monedas, audio };
+  return { plop, trtss, chap, si, no, monedas, bocina, audio };
 })();

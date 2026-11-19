@@ -1,5 +1,5 @@
 /* Cielo reactivo: hora de Argentina, salida y puesta del sol, y clima real.
-   Antes y después del viaje mira La Plata; del 4 al 8 de diciembre, Costa Esmeralda. */
+   Antes y después del viaje mira La Plata; desde el viernes 4 a las 16 (DATA.COSTA) hasta el 8 de diciembre, Costa Esmeralda. */
 (function () {
   const PLACES = {
     laplata: { name: 'La Plata', lat: -34.921, lon: -57.955 },
@@ -12,8 +12,8 @@
   const arDate = (d = arNow()) => d.toISOString().slice(0, 10);
   const arMinute = (d = arNow()) => d.getUTCHours() * 60 + d.getUTCMinutes();
   const place = () => {
-    const s = arDate();
-    return s >= TRIP.from && s <= TRIP.to ? PLACES.costa : PLACES.laplata;
+    const desde = (window.DATA && window.DATA.COSTA) || TRIP.from; // el viernes a la mañana todavía estamos en La Plata
+    return arNow().toISOString().slice(0, 16) >= desde && arDate() <= TRIP.to ? PLACES.costa : PLACES.laplata;
   };
 
   // Ecuación de salida del sol. Devuelve minutos desde la medianoche local (UTC-3).

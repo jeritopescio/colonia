@@ -293,6 +293,35 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 .leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .leyenda span:not(.feriado)::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; background: var(--c); border: 1.5px solid var(--ink); }
 
+/* ---------- la ruta ---------- */
+.ruta-ext { display: flex; justify-content: space-between; margin-bottom: -4px; }
+.carril { display: grid; gap: 1px; }
+.pista { position: relative; height: 42px; margin: 0 30px; }
+.pista::before { content: ""; position: absolute; left: -30px; right: -30px; bottom: 5px; border-top: 2.5px dashed color-mix(in srgb, var(--soft) 70%, transparent); }
+.pista i { position: absolute; left: var(--x); bottom: 1px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink); }
+.vehiculo { position: absolute; left: var(--x); bottom: 3px; transform: translateX(-50%); width: 50px; height: 40px; display: flex; align-items: flex-end; padding: 0; border: 0; background: none; cursor: pointer; transition: left 1.4s ease; }
+.es-micro .vehiculo { width: 58px; }
+span.vehiculo { cursor: default; }
+.vehiculo svg { display: block; width: 100%; height: auto; }
+.carril.andando .vehiculo svg { animation: traqueteo .45s ease-in-out infinite alternate; }
+.carril.quieto .vehiculo svg { opacity: .8; }
+@keyframes traqueteo { to { transform: translateY(-1.5px) rotate(.7deg); } }
+.vehiculo.pip svg { animation: pip .3s ease 2; }
+@keyframes pip { 50% { transform: scale(1.15) rotate(-4deg); } }
+.globo { position: absolute; bottom: 100%; left: 50%; font-family: var(--display); font-weight: 600; font-size: .78rem; color: var(--ink); background: var(--butter); border: 2px solid var(--ink); border-radius: 99px; padding: 0 7px; white-space: nowrap; pointer-events: none; animation: globo .9s ease forwards; }
+@keyframes globo { from { opacity: 0; transform: translate(-50%, 6px); } 20% { opacity: 1; } to { opacity: 0; transform: translate(-50%, -12px); } }
+.carril-pie { display: flex; align-items: center; justify-content: space-between; gap: 6px; line-height: 1.15; }
+.mini-caras { display: flex; flex: none; }
+.mini-caras .face { width: 20px; height: 20px; border-width: 1.5px; }
+.mini-caras .face + .face { margin-left: -6px; }
+@media (prefers-reduced-motion: reduce) { .carril.andando .vehiculo svg, .vehiculo.pip svg { animation: none; } .vehiculo { transition: none; } }
+
+/* ---------- ¿Quién de la colonia…? ---------- */
+.juego { display: grid; gap: 14px; justify-items: center; text-align: center; }
+.juego-q { font-family: var(--display); font-weight: 600; font-size: 1.25rem; line-height: 1.22; margin: 0; text-wrap: balance; }
+.juego-r { display: grid; justify-items: center; gap: 4px; font-size: 1.1rem; }
+.juego-r .face { width: 78px; height: 78px; }
+
 /* ---------- navegación ---------- */
 nav.tabs { position: fixed; z-index: 5; left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: min(440px, calc(100% - 24px)); display: grid; grid-template-columns: repeat(5, 1fr); padding: 6px 4px; isolation: isolate; }
 nav.tabs::before { content: ""; position: absolute; inset: 0; background: var(--card); border: 2.5px solid var(--ink); border-radius: 24px 28px 22px 30px; filter: url(#crayon); z-index: -1; }

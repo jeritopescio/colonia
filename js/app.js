@@ -321,8 +321,9 @@
   }
   // ---------- helpers de juego ----------
   function daily() {
-    const d = SKY.arDate();
-    const trip = D.DAILY_TRIP[d];
+    const d = SKY.arDate(), yo = person(S.me);
+    // Durante el viaje: la del viaje; quienes juegan a distancia y alguna persona puntual tienen la suya.
+    const trip = (D.DAILY_PROPIA[S.me] || {})[d] || (yo && !yo.trip ? D.DAILY_LEJOS[d] : null) || D.DAILY_TRIP[d];
     return { id: 'dia-' + d, s: 'dia', t: trip || D.DAILY_POOL[hash(d) % D.DAILY_POOL.length], xp: trip ? 40 : 20 };
   }
   // Misiones secretas: dos por día y por persona, cada una en su propio orden, sin repetir hasta agotar la lista.
@@ -332,7 +333,8 @@
     return o;
   }
   // Misiones de la costa: se destraban cuando ya estamos allá. Si alguien ya la hizo, le queda hecha.
-  const enCosta = () => SKY.arNow().toISOString().slice(0, 16) >= D.COSTA;
+  const ahoraAR = () => SKY.arNow().toISOString().slice(0, 16);
+  const enCosta = () => ahoraAR() >= D.COSTA;
   const trabada = (m) => !!m.costa && !enCosta() && !S.photo(m.id);
   const CUANDO_COSTA = 'Se destraba en la costa, el viernes 4 a las 16 h';
   function secretasDe(pid, dia) {
@@ -373,6 +375,7 @@
     const today = SKY.arDate();
     const days = Math.round((Date.parse(SKY.TRIP.from) - Date.parse(today)) / 864e5);
     if (days > 0) return { big: days, small: days === 1 ? 'día para la costa' : 'días para la costa' };
+    if (days === 0 && !enCosta()) return { big: 'Hoy', small: 'salimos a la costa' };
     if (today <= SKY.TRIP.to) return { big: 'Día ' + (1 - days), small: 'de colonia en Costa Esmeralda' };
     return { big: '♡', small: 'la colonia ya volvió' };
   }
@@ -525,6 +528,120 @@
       <ul class="evs">${prox.slice(0, n).map((e) => evRow(e, cuando(e.d))).join('')}</ul></a>`;
   }
 
+  // ---------- la ruta (viernes 4 y sábado 5) ----------
+  // Nadie compite: cada auto avanza cuando alguien que va en él sube la foto de la parada. Los demás le tocan bocina.
+  const R = D.RUTA;
+  const rutaVisible = () => ahoraAR() >= R.desde && SKY.arDate() <= R.ultimoDia;
+  const rutaAbierta = () => ahoraAR() >= R.desde && SKY.arDate() <= SKY.TRIP.to;
+  const miVehiculo = (pid = S.me) => R.vehiculos.find((v) => v.quien.includes(pid));
+  function rutaMisiones() {
+    const v = miVehiculo();
+    if (!v || !rutaAbierta()) return [];
+    return R.paradas.map((p) => ({ id: 'ruta-' + p.id, s: 'ruta', t: (v.micro && p.micro) || p.t, xp: R.xp }));
+  }
+  // La parada más lejana a la que llegó alguien de ese auto (−1: todavía no salió).
+  const dondeVa = (v) => R.paradas.reduce((k, p, i) => (S.doneBy('ruta-' + p.id).some((x) => v.quien.includes(x.id)) ? i : k), -1);
+  const dibujoVehiculo = (v) => (v.micro
+    ? `<svg viewBox="0 0 58 28" aria-hidden="true"><g filter="url(#crayon)" stroke="#43365a" stroke-width="1.8" stroke-linejoin="round">
+        <rect x="3" y="4.5" width="51" height="16.5" rx="3.5" fill="${v.col}"/>
+        <path d="M7 8.5h6.5v5H7zM16 8.5h6.5v5H16zM25 8.5h6.5v5H25zM34 8.5h6.5v5H34zM46 8.5h5.5v7.5H46z" fill="#a9d6f0" stroke-width="1.3"/>
+        <circle cx="14" cy="21.4" r="3.6" fill="#43365a"/><circle cx="44" cy="21.4" r="3.6" fill="#43365a"/></g></svg>`
+    : `<svg viewBox="0 0 50 28" aria-hidden="true"><g filter="url(#crayon)" stroke="#43365a" stroke-width="1.8" stroke-linejoin="round">
+        ${v.tabla ? '<path d="M14 6.6h20c3.5 0 3.5-2 0-2H14c-2.6 0-2.6 2 0 2z" fill="#ffe39a" stroke-width="1.4"/><path d="M24 4.6v2" stroke="#f6a38f" stroke-width="1.4"/>' : ''}
+        <path d="M3 21v-5.5q0-3 3.5-3H14l4.5-4.5H31l6 4.5h6.5q3.5.3 3.5 3.5V21z" fill="${v.col}"/>
+        <path d="M15.8 12.3l3.4-3.1H24v3.1zM25.6 12.3V9.2h4.9l4.1 3.1z" fill="#a9d6f0" stroke-width="1.3"/>
+        <circle cx="13" cy="21.4" r="3.6" fill="#43365a"/><circle cx="37" cy="21.4" r="3.6" fill="#43365a"/></g></svg>`);
+  function laRuta() {
+    if (!rutaVisible()) return '';
+    const yo = miVehiculo(), ultima = R.paradas.length - 1;
+    const carriles = R.vehiculos.map((v) => {
+      const k = dondeVa(v), p = R.paradas[k], mio = yo && yo.id === v.id, b = S.bocinas(v.id).total;
+      const estado = k < 0 ? v.sale : p.va;
+      const auto = mio
+        ? `<span class="vehiculo" style="--x:${p ? p.x : 0}%">${dibujoVehiculo(v)}</span>`
+        : `<button class="vehiculo" data-bocina="${v.id}" data-mudo style="--x:${p ? p.x : 0}%" aria-label="Tocarle bocina a ${esc(v.n.toLowerCase())}">${dibujoVehiculo(v)}</button>`;
+      return `<div class="carril${k < 0 ? ' quieto' : k === ultima ? ' llego' : ' andando'}${v.micro ? ' es-micro' : ''}">
+        <div class="pista">${[0, ...R.paradas.slice(1).map((x) => x.x)].map((x) => `<i style="--x:${x}%"></i>`).join('')}${auto}</div>
+        <div class="carril-pie small"><span><b>${esc(v.n)}</b> ${esc(estado)}${mio ? ' · vas acá' : ''}<span class="muted" data-cuenta="${v.id}">${b ? ` · ${b} ${b === 1 ? 'bocinazo' : 'bocinazos'}` : ''}</span></span>
+          <span class="mini-caras">${v.quien.map((id) => `<img class="face" src="${face(id)}" alt="">`).join('')}</span></div></div>`;
+    }).join('');
+    const sig = yo ? rutaMisiones()[dondeVa(yo) + 1] : null;
+    const llegaron = R.vehiculos.every((v) => dondeVa(v) === ultima);
+    return `<div class="card ruta"><div class="spread"><div class="eyebrow">La ruta</div><span class="small muted">${llegaron ? 'llegamos todos' : 'tocá un auto para tocarle bocina'}</span></div>
+      <div class="ruta-ext small muted"><span>La Plata</span><span>Costa Esmeralda</span></div>${carriles}
+      ${sig ? `<div class="list">${mRow(sig, 'La saca quien no maneja')}</div>` : ''}
+      <button class="btn ghost" data-juego>Jugar a ¿Quién de la colonia…?</button></div>`;
+  }
+  function tocarBocina(btn) {
+    const id = btn.dataset.bocina;
+    S.bocinar(id); SONIDO.bocina();
+    btn.classList.remove('pip'); void btn.offsetWidth; btn.classList.add('pip');
+    const g = document.createElement('span'); g.className = 'globo'; g.textContent = '¡mec mec!';
+    btn.appendChild(g); setTimeout(() => g.remove(), 900);
+    const b = S.bocinas(id).total, c = screen.querySelector(`[data-cuenta="${id}"]`);
+    if (c) c.textContent = ` · ${b} ${b === 1 ? 'bocinazo' : 'bocinazos'}`;
+  }
+  // A quienes van en un auto les llega el aviso cuando alguien les toca bocina.
+  let bocinasVistas = null;
+  function avisarBocinas() {
+    const v = miVehiculo();
+    if (!v || !rutaVisible()) return;
+    const ahora = S.bocinas(v.id).por, antes = bocinasVistas;
+    bocinasVistas = ahora;
+    if (!antes) return;
+    const quienes = Object.keys(ahora).filter((id) => ahora[id] > (antes[id] || 0)).map((id) => person(id).n);
+    if (!quienes.length) return;
+    SONIDO.bocina(true);
+    const lista = quienes.length === 1 ? quienes[0] : quienes.slice(0, -1).join(', ') + ' y ' + quienes[quienes.length - 1];
+    toast(`<span>${esc(lista)} ${v.quien.length > 1 ? 'les' : 'te'} ${quienes.length > 1 ? 'tocaron' : 'tocó'} bocina.</span>`);
+  }
+
+  // ---------- juego para el auto: ¿Quién de la colonia…? ----------
+  // Las preguntas con respuesta salen de las tarjetas; las de señalar no tienen respuesta. No hay puntos ni ganadores.
+  function preguntasJuego() {
+    const out = [], sin = new Set(D.JUEGO.sin), repetidas = {};
+    if (CARTAS) {
+      Object.values(CARTAS).forEach((c) => (c.hab || []).forEach(([h]) => { repetidas[h] = (repetidas[h] || 0) + 1; }));
+      D.PEOPLE.forEach(({ id }) => {
+        const c = CARTAS[id];
+        if (!c) return;
+        const add = (campo, q) => { if (c[campo] && !sin.has(id + '.' + campo)) out.push({ q, who: id }); };
+        add('t', `¿Quién es «${c.t}»?`);
+        add('apodo', `¿A quién le dicen «${c.apodo}»?`);
+        add('poder', `¿De quién es este poder? «${c.poder}»`);
+        add('deb', `¿De quién es esta debilidad? «${c.deb}»`);
+        add('dato', `¿De quién es este dato del chat? «${c.dato}»`);
+        (c.hab || []).filter(([h, n]) => n >= 10 && repetidas[h] === 1).forEach(([h, n]) => out.push({ q: `¿Quién tiene ${h[0].toLowerCase() + h.slice(1)} ${n} en su tarjeta?`, who: id }));
+      });
+    }
+    const mezcla = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const senalar = mezcla(D.JUEGO.senalar.map((t) => ({ q: `¿Quién de la colonia es más probable que ${t}?` })));
+    // Una de señalar cada tres de las otras.
+    const con = mezcla(out), res = [];
+    while (con.length || senalar.length) { res.push(...con.splice(0, 3)); if (senalar.length) res.push(senalar.shift()); }
+    return res;
+  }
+  function juego() {
+    const qs = preguntasJuego();
+    let i = 0;
+    sheet('<div class="juego"></div>', (bg) => {
+      const box = bg.querySelector('.juego');
+      const pintar = (ver) => {
+        const p = qs[i % qs.length];
+        box.innerHTML = `<div class="eyebrow">¿Quién de la colonia…?</div>
+          <p class="juego-q">${esc(p.q)}</p>
+          ${p.who ? (ver ? `<div class="juego-r pop"><img class="face" src="${face(p.who)}" alt=""><b>${esc(person(p.who).n)}</b></div>` : '<p class="small muted" style="margin:0">Alguien lee en voz alta y el resto adivina.</p>')
+            : '<p class="small muted" style="margin:0">A la cuenta de tres, todos señalan a alguien.</p>'}
+          <div class="row" style="justify-content:center"><button class="btn ghost" data-close>Cerrar</button>
+            ${p.who && !ver ? '<button class="btn" id="verQuien" style="--c:var(--lav)">Ver quién es</button>' : '<button class="btn" id="otra" style="--c:var(--mint)">Otra</button>'}</div>`;
+        const v = box.querySelector('#verQuien'), o = box.querySelector('#otra');
+        if (v) v.addEventListener('click', () => pintar(true));
+        if (o) o.addEventListener('click', () => { i += 1; pintar(false); });
+      };
+      pintar(false);
+    });
+  }
+
   // ---------- pantallas ----------
   function top() {
     const st = SKY.state(), L = level(S.xp);
@@ -544,7 +661,7 @@
       <span class="t">${esc(m.t)}${extra ? `<small>${extra}</small>` : ''}</span>
       <span class="chip" style="--c:${ph ? 'var(--mint)' : 'var(--paper)'}">${ph ? 'hecha' : '+' + m.xp}</span></button>`;
   }
-  const allMissions = () => [daily(), D.DUO, ...secretasDe(S.me, SKY.arDate()), ...secretasHasta(), ...D.MISSIONS];
+  const allMissions = () => [daily(), D.DUO, ...rutaMisiones(), ...secretasDe(S.me, SKY.arDate()), ...secretasHasta(), ...D.MISSIONS];
   function bindMissions(root) {
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
       const m = allMissions().find((x) => x.id === b.dataset.m);
@@ -607,7 +724,9 @@
       const d = daily(), L = level(S.xp), c = countdown(), fst = fotoState(), me = person(S.me);
       const hoyS = secretasDe(S.me, SKY.arDate());
       const atras = secretasHasta().filter((m) => m.dia !== SKY.arDate() && !S.photo(m.id)).length;
+      const enLaCasa = !rutaVisible() && SKY.arDate() > R.ultimoDia && SKY.arDate() <= SKY.TRIP.to;
       screen.innerHTML = `${top()}
+        ${laRuta()}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
           <div class="list">${mRow(d, 'Subí la foto y queda hecha')}</div></div>
         ${loQueViene()}
@@ -619,6 +738,7 @@
         <div class="card dark"><div class="spread"><div class="eyebrow">Tus misiones secretas</div><span class="small muted">dos nuevas por día</span></div>
           ${S.secretSeen() ? `<div class="list">${hoyS.map((m) => mRow(m, 'No se la muestres a nadie')).join('')}</div>${atras ? `<a class="small" href="#misiones" style="color:var(--b-soft)">Tenés ${atras} ${atras === 1 ? 'pendiente' : 'pendientes'} de días anteriores</a>` : ''}`
             : `<div class="secret-cover"><span class="muted">Solo vos podés verlas.${me.trip ? '' : ' Valen desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver las de hoy</button></div>`}</div>
+        ${enLaCasa ? '<button class="btn" data-juego style="--c:var(--lav)">Jugar a ¿Quién de la colonia…?</button>' : ''}
         <a class="btn a-playa" href="#portada" style="--c:var(--celeste)">Ir a mirar el mar</a>`;
       bindMissions(screen);
       const b = $('#seeSecret'); if (b) b.addEventListener('click', () => { S.seeSecret(); render(); });
@@ -651,6 +771,8 @@
         <h1 class="on-sky" style="font-size:1.7rem">Misiones</h1>
         <p class="on-sky-soft" style="margin:0">Cada una se cumple subiendo la foto que pide.${me.trip ? '' : ' Las podés hacer desde donde estés.'}${enCosta() ? '' : ' Las de la costa se destraban el viernes 4 a las 16 h.'}</p>
         <div class="card"><div class="eyebrow">Hoy</div><div class="list">${mRow(daily())}${mRow(D.DUO, 'De a dos')}</div></div>
+        ${rutaMisiones().length ? `<div class="card"><div class="eyebrow">La ruta</div><p class="small muted" style="margin:0">Cuando alguien de tu auto sube la foto de una parada, el auto avanza en Hoy. La saca quien no maneja.</p>
+          <div class="list">${rutaMisiones().map((m) => mRow(m)).join('')}</div></div>` : ''}
         ${secretasCard()}
         ${groups}
         <div class="card"><div class="eyebrow">Logros que llegan solos</div><p class="small muted" style="margin:0">No hay que hacer nada: la app los da cuando pasa.</p><div class="row">${achs}</div></div>`;
@@ -660,8 +782,10 @@
     album() {
       const medal = (on) => `<svg class="medal" viewBox="0 0 46 46"><g filter="url(#crayon)" stroke="#43365a" stroke-width="2.2"><path d="M15 3l8 14 8-14" fill="${on ? '#a9d6f0' : 'none'}"/><circle cx="23" cy="28" r="14" fill="${on ? '#ffe39a' : '#fffaf1'}" stroke-dasharray="${on ? '0' : '4 4'}"/><path d="M23 20l2.4 5 5.4.6-4 3.7 1.1 5.3-4.9-2.7-4.9 2.7 1.1-5.3-4-3.7 5.4-.6z" fill="${on ? '#f6a38f' : 'none'}"/></g></svg>`;
       const dias = Object.keys(S.photos()).filter((k) => k.startsWith('dia-')).sort();
-      const series = D.SERIES.map((s) => {
-        const ms = s.id === 'dia' ? dias.map((id) => ({ id, t: 'Del ' + id.slice(-2) + '/' + id.slice(9, 11) })) : D.MISSIONS.filter((m) => m.s === s.id);
+      const rutaAlbum = miVehiculo() && (rutaAbierta() || R.paradas.some((p) => S.photo('ruta-' + p.id)));
+      const series = [...D.SERIES, ...(rutaAlbum ? [{ id: 'ruta', n: 'La ruta' }] : [])].map((s) => {
+        const ms = s.id === 'dia' ? dias.map((id) => ({ id, t: 'Del ' + id.slice(-2) + '/' + id.slice(9, 11) }))
+          : s.id === 'ruta' ? R.paradas.map((p) => ({ id: 'ruta-' + p.id, t: (miVehiculo().micro && p.micro) || p.t, xp: R.xp })) : D.MISSIONS.filter((m) => m.s === s.id);
         if (s.id === 'dia' && !ms.length) return '';
         const done = ms.filter((m) => S.photo(m.id)).length;
         const full = s.id !== 'dia' && done === ms.length;
@@ -688,7 +812,7 @@
       }));
       screen.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
         const id = b.dataset.a;
-        const m = D.MISSIONS.find((x) => x.id === id) || { id, t: 'Misión del día' };
+        const m = allMissions().find((x) => x.id === id) || { id, t: 'Misión del día' };
         const who = new Set(S.doneBy(id).map((p) => p.id));
         const strip = D.PEOPLE.map((p) => {
           const mine = p.id === S.me && S.photo(id);
@@ -845,6 +969,8 @@
     const t = e.target.closest('[data-carta]');
     if (t) carta(t.dataset.carta || S.me);
     else if (e.target.closest('[data-monedas]')) infoMonedas();
+    else if (e.target.closest('[data-bocina]')) tocarBocina(e.target.closest('[data-bocina]'));
+    else if (e.target.closest('[data-juego]')) juego();
   });
 
   // ---------- sonido de cada botón ----------
@@ -911,12 +1037,13 @@
   S.onChange((ev) => {
     if (ev && ev.gift) { const it = shopItem(ev.gift.item); toast(`<span class="mini">${it ? ARTE.item(it.id, it.col) : '♡'}</span><span>${esc(person(ev.gift.de).n)} te regaló ${esc(it ? it.n.toLowerCase() : 'algo')}. Ya está en tu altarcito.</span>`, 4500); }
     if (ev && ev.uploadFailed) toast('<span>No se pudo subir la foto. Queda guardada y se reintenta cuando haya señal.</span>', 4500);
+    avisarBocinas();
     if (!document.querySelector('.sheet-bg') && !dragging) render();
   });
 
   SKY.start();
   render();
-  S.ready.then(() => { render(); if (S.me) setTimeout(welcome, 400); });
+  S.ready.then(() => { render(); avisarBocinas(); if (S.me) setTimeout(welcome, 400); });
   // Actualización sola: la app instalada queda abierta en segundo plano y vuelve sin recargar.
   // Al volver a mirarla se fija si hay versión nueva; si la hay, recarga cuando no estás haciendo nada.
   if ('serviceWorker' in navigator && location.protocol === 'https:') {

@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null,
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {},
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -27,6 +27,7 @@ window.STORE = (function () {
     const r = seeded('demo' + p.id);
     const done = D.MISSIONS.filter((m) => m.s === 'previa' && r() < 0.45).map((m) => m.id);
     DEMO[p.id] = { xp: done.length * 20 + Math.round(r() * 25), done };
+    if (!p.trip) DEMO[p.id].bocinas = Object.fromEntries(D.RUTA.vehiculos.map((v) => [v.id, Math.floor(r() * 3)]));
   });
 
   const levelOf = (xp) => { let i = 0; D.LEVELS.forEach((l, j) => { if (xp >= l.xp) i = j; }); return i; };
@@ -56,7 +57,7 @@ window.STORE = (function () {
       if (mine.xp >= local.xp) {
         s.xp = mine.xp; s.coins = mine.monedas;
         const d = mine.datos;
-        s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null;
+        s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null; s.bocinas = d.bocinas || {};
       }
     }
     if (s.me) s.cache.figs.filter((x) => x.jugador === s.me).forEach((x) => { if (!String(s.photos[x.mision] || '').startsWith('data:')) s.photos[x.mision] = pub(x.foto); });
@@ -82,7 +83,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am };
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
     }, 400);
@@ -140,7 +141,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save();
     },
@@ -203,6 +204,17 @@ window.STORE = (function () {
     // Las secretas se destapan una vez por día: guarda la fecha en que las miraste.
     secretSeen() { return s.secretSeen === window.SKY.arDate(); },
     seeSecret() { s.secretSeen = window.SKY.arDate(); save(); pushMe(); },
+    // Bocinazos de la ruta: cada uno guarda cuántas veces le tocó bocina a cada auto; el total es la suma de todos.
+    bocinar(veh) { s.bocinas[veh] = Math.min(99, (s.bocinas[veh] || 0) + 1); save(); pushMe(); },
+    bocinas(veh) {
+      const por = {};
+      D.PEOPLE.forEach((p) => {
+        const de = p.id === s.me ? s.bocinas : live ? ((s.cache.players[p.id] || {}).datos || {}).bocinas : DEMO[p.id].bocinas;
+        const n = (de && de[veh]) || 0;
+        if (n) por[p.id] = n;
+      });
+      return { total: Object.values(por).reduce((a, b) => a + b, 0), por };
+    },
     figuritas(id) {
       if (id === s.me) return Object.keys(s.photos).length;
       return live ? s.cache.figs.filter((x) => x.jugador === id).length : DEMO[id].done.length;

@@ -70,8 +70,48 @@ window.DATA = (function () {
     'Algo amarillo', 'Tu almuerzo de hoy', 'Una planta de tu casa', 'Tus zapatillas de hoy',
     'El cielo desde tu ventana', 'Algo que te recuerde al verano', 'Tu taza favorita', 'Un animalito de tu barrio (vale cualquier ternurita)',
   ];
+  // Quienes juegan a distancia tienen su propia misión del día mientras la colonia está en la costa.
+  const DAILY_LEJOS = {
+    '2026-12-04': 'Un cartelito de "¡Buen viaje!" para los autos',
+    '2026-12-05': 'Algo que te haga acordar a la colonia',
+    '2026-12-06': 'Tu rincón de verano',
+    '2026-12-07': 'Tu atardecer, a la misma hora que el de la costa',
+    '2026-12-08': 'Una selfie saludando a la colonia que vuelve',
+  };
+  // Alguna persona con su propia misión del día (Jose sale recién el sábado).
+  const DAILY_PROPIA = { jose: { '2026-12-04': 'Un cartelito de "¡Ya voy!" para la colonia' } };
 
   const DUO = { id: 'duo-cocina', t: 'Cociná algo con alguien con quien nunca cocinaste', xp: 50 };
+
+  // La ruta: el viernes 4 salen todos de La Plata. Nadie compite: cada auto avanza en la tira
+  // cuando alguien que va en él sube la foto de la parada (la saca quien no maneja). Los demás le tocan bocina.
+  const RUTA = {
+    desde: '2026-12-04T00:00', ultimoDia: '2026-12-05', xp: 25,
+    vehiculos: [
+      { id: 'sandero', n: 'El Sandero', quien: ['rochi', 'pachi', 'nico', 'nachote', 'juani'], sale: 'sale a las 7, con la tabla y Tulio', col: '#d9dde3', tabla: true },
+      { id: 'fox', n: 'El Fox', quien: ['viqui', 'jero', 'rich', 'juli'], sale: 'sale cerca de las 13', col: '#fffaf1' },
+      { id: 'micro', n: 'El micro de Jose', quien: ['jose'], sale: 'sale el sábado de madrugada', col: '#cfc0f0', micro: true },
+    ],
+    // x = dónde queda la parada en la tira (0 a 100). "va" = cómo se cuenta que el auto ya pasó por ahí.
+    paradas: [
+      { id: 'salida', x: 6, t: 'La selfie del auto antes de arrancar', micro: 'La selfie en el micro antes de arrancar', va: 'ya arrancó' },
+      { id: 'mitad', x: 48, t: 'Mitad de camino: lo que se ve por la ventanilla', va: 'va por la mitad' },
+      { id: 'cartel', x: 80, t: 'El primer cartel que diga Costa Esmeralda', va: 'ya ve los carteles' },
+      { id: 'llegada', x: 100, t: 'Llegada: la primera foto en la casa', va: 'llegó' },
+    ],
+  };
+
+  // Juego "¿Quién de la colonia…?": las preguntas con respuesta salen de las tarjetas (en el bucket).
+  // "sin" = partes de una tarjeta que no van al juego. "senalar" = sin respuesta: a la cuenta de tres, todos señalan.
+  const JUEGO = {
+    sin: ['chino.deb', 'chino.dato', 'viqui.dato'],
+    senalar: [
+      'se meta primero al mar', 'cebe el primer mate en la casa', 'encuentre el caracol más lindo', 'ponga el tema que nadie conoce',
+      'saque más fotos en el viaje', 'se acuerde del protector', 'le hable a todos los perros de la playa', 'cocine algo rico sin que nadie se lo pida',
+      'proponga la próxima juntada', 'se ría primero de esta pregunta', 'arme la mejor playlist', 'se quede charlando hasta tarde',
+      'traiga algo rico para compartir', 'se emocione con el atardecer', 'invente un juego en la playa', 'encuentre la mejor sombra',
+    ],
+  };
 
   // Misiones secretas: dos nuevas por día para cada persona, desde "desde". Solo las ve quien las tiene.
   // Cada uno las recorre en su propio orden y no se repiten hasta terminar la lista.
@@ -280,5 +320,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();
