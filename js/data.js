@@ -164,7 +164,7 @@ window.DATA = (function () {
     gatito: 'tony', salchicha: 'tulio', champa: 'vino', balde: 'heineken' };
   const COLORS = ['#f6a38f', '#f7b3c6', '#ffe39a', '#b6e5cd', '#a9d6f0', '#cfc0f0', '#7fb8e6', '#e8735a', '#fffaf1', '#5b4d72'];
 
-  const CARTAS_V = 2; // subir cuando cambien las tarjetas del bucket (cartas/)
+  const CARTAS_V = 3; // subir cuando cambien las tarjetas del bucket (cartas/)
 
   // La foto del 8/12: dos autos, la tabla, Tulio y la colonia entera. Se arma con la XP de todos (la meta es secreta)
   // y cada persona aparece cuando llega al nivel 2. El 8/12 aparecen todos igual.
@@ -217,5 +217,8 @@ window.DATA = (function () {
     ],
   };
 
-  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V };
+  // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
+  const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
+    ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
+  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

@@ -157,5 +157,7 @@ window.SONIDO = (function () {
     }, true);
   }
 
-  return { plop, trtss, chap, si, no, monedas };
+  // La música del inicio usa el mismo contexto de audio.
+  const audio = () => { init(); return ctx; };
+  return { plop, trtss, chap, si, no, monedas, audio };
 })();

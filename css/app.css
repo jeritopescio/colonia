@@ -87,6 +87,34 @@ h2 { font-size: 1.2rem; }
 .umbrella { width: 168px; height: 150px; border: 0; background: none; cursor: pointer; padding: 0; transition: transform .25s; }
 .umbrella:hover { transform: rotate(-4deg) scale(1.03); }
 .umbrella:active { transform: scale(.96); }
+.cover > * { transition: opacity .9s; }
+.sonido { position: fixed; z-index: 2; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); width: 44px; height: 44px; display: grid; place-items: center; padding: 0; cursor: pointer; background: var(--card); border: 2.5px solid var(--ink); border-radius: 50%; }
+.sonido svg { width: 24px; height: 24px; fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.sonido .tacha { display: none; }
+.sonido.apagado .tacha { display: block; }
+.sonido.apagado { background: color-mix(in srgb, var(--card) 62%, transparent); }
+.cover .mirar { color: var(--on-sky); }
+.cover .mirar::before { border-color: var(--on-sky); }
+.a-playa { justify-self: center; color: var(--ink); text-decoration: none; }
+body.quieto .cover > * { opacity: 0; pointer-events: none; }
+
+/* gaviotas del inicio */
+#gaviotas { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; transition: opacity 1.5s; }
+#gaviotas.fuera { opacity: 0; }
+.gaviota { position: absolute; left: 0; width: var(--w); animation: vuelo var(--dur) linear both; will-change: transform; }
+.gaviota.vuelta { animation-name: vuelo-atras; }
+.gaviota svg { display: block; width: 100%; height: auto; overflow: visible; fill: #fffaf1; stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; animation: ondula var(--ond) ease-in-out infinite alternate; }
+.gaviota.vuelta svg { scale: -1 1; }
+.gaviota .punta { fill: var(--ink); stroke: none; }
+.gaviota .pico { fill: #f2b84b; stroke-width: 1; }
+.gaviota .ala { transform-box: view-box; animation: aleteo var(--ala) ease-in-out infinite; animation-duration: calc(var(--ala) * 5); }
+.gaviota .a { transform-origin: 29px 17px; --s: 1; }
+.gaviota .b { transform-origin: 31px 17px; --s: -1; }
+[data-sky-dark="1"] .gaviota { opacity: .82; }
+@keyframes vuelo { from { transform: translateX(-18vw); } to { transform: translateX(112vw); } }
+@keyframes vuelo-atras { from { transform: translateX(112vw); } to { transform: translateX(-18vw); } }
+@keyframes ondula { from { transform: translateY(-7px) rotate(-1.5deg); } to { transform: translateY(8px) rotate(1.5deg); } }
+@keyframes aleteo { 0%, 20%, 40%, 100% { transform: rotate(calc(var(--s) * -5deg)); } 10%, 30% { transform: rotate(calc(var(--s) * 19deg)); } 70% { transform: rotate(calc(var(--s) * -1deg)); } }
 
 /* ---------- quién sos ---------- */
 .faces { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 10px; }
@@ -262,6 +290,10 @@ nav.tabs a.on::before { content: ""; position: absolute; inset: 0 8%; background
 .carta-dato { width: 100%; margin: 0; padding: 7px 10px; background: color-mix(in srgb, var(--butter) 62%, transparent); border-radius: 10px 14px 12px 8px; }
 .carta.foil::before { background: linear-gradient(115deg, #ffe7a0, #f8b6cb, #cdbdf2, #bcdaf3, #bfe9d3, #ffe7a0); background-size: 260% 100%; animation: foil 6s ease-in-out infinite alternate; }
 @keyframes foil { to { background-position: 100% 0; } }
+.vestigios { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
+.vest { display: grid; gap: 2px; justify-items: center; min-width: 0; padding: 4px 4px 2px; color: inherit; cursor: pointer; background: #fff; border: 2px solid var(--ink); border-radius: 4px; box-shadow: 1.5px 2px 0 rgba(67, 54, 90, .16); transform: rotate(1.2deg); }
+.vest:nth-child(3n + 1) { transform: rotate(-1.4deg); }
+.vest img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; filter: sepia(.22) saturate(.9); }
 .tarjetas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px; }
 .mini-carta { display: grid; gap: 3px; justify-items: center; min-width: 0; padding: 4px 4px 5px; color: inherit; font: inherit; cursor: pointer; background: var(--el); border: 2px solid var(--ink); border-radius: 8px 10px 9px 7px; box-shadow: 1.5px 2px 0 rgba(67, 54, 90, .16); transform: rotate(-1.2deg); }
 .mini-carta:nth-child(even) { transform: rotate(1deg); }

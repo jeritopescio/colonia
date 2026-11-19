@@ -314,6 +314,12 @@
     return { id: 'dia-' + d, s: 'dia', t: trip || D.DAILY_POOL[hash(d) % D.DAILY_POOL.length], xp: trip ? 40 : 20 };
   }
   const secret = () => ({ id: 'secreta', s: 'secreta', t: D.SECRETS[hash(S.me || 'x') % D.SECRETS.length], xp: 60 });
+  const vestigioUrl = (pid, mid) => S.artUrl(`vestigios/${pid}-${mid}.jpg?v=1`);
+  function misionDe(mid) {
+    if (!mid.startsWith('dia-')) return (D.MISSIONS.find((m) => m.id === mid) || { t: 'Una misión' }).t;
+    const d = mid.slice(4);
+    return D.DAILY_TRIP[d] || D.DAILY_POOL[hash(d) % D.DAILY_POOL.length];
+  }
   function countdown() {
     const today = SKY.arDate();
     const days = Math.round((Date.parse(SKY.TRIP.from) - Date.parse(today)) / 864e5);
@@ -439,6 +445,7 @@
     portada() {
       const st = SKY.state(), c = countdown();
       screen.innerHTML = `<section class="cover">
+        <button class="sonido" id="sonido" data-mudo aria-label="Música del inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6.500" cy="18" r="2.500"/><circle cx="16.500" cy="16" r="2.500"/><path class="tacha" d="M3 3l18 18"/></svg></button>
         <div class="eyebrow on-sky-soft">temporada 26/27</div>
         <h1>Colonia</h1>
         <div class="sub">Costa Esmeralda · 4 al 8 de diciembre</div>
@@ -452,8 +459,15 @@
         <div class="on-sky">tocá la sombrilla para entrar</div>
         <div class="chip" style="--c:var(--paper)"><b>${c.big}</b>&nbsp;${c.small}</div>
         <div class="weather small">${esc(weatherLine(st))}</div>
+        <div class="on-sky-soft small" id="oir" hidden>tocá la playa para escuchar</div>
+        <button class="btn ghost mirar" id="mirar">Mirar el mar</button>
       </section>`;
       $('#enter').addEventListener('click', () => go(S.me ? 'hoy' : 'quien'));
+      $('#sonido').addEventListener('click', INICIO.alternar);
+      $('#mirar').addEventListener('click', () => {
+        document.body.classList.add('quieto');
+        setTimeout(() => addEventListener('click', () => document.body.classList.remove('quieto'), { once: true, capture: true }), 0);
+      });
     },
 
     quien() {
@@ -484,7 +498,8 @@
         <a href="#foto" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">La foto del 8/12</div><b>${Math.round(fst.prog * 100)}%</b></div>${fotoHTML(fst, true)}
           <span class="small muted">Se arma con lo que hacemos entre todos.</span></a>
         <div class="card dark"><div class="eyebrow">Tu misión secreta</div>
-          ${S.secretSeen() ? `<div class="list">${mRow(sec, 'No se la muestres a nadie')}</div>` : `<div class="secret-cover"><span class="muted">Solo vos podés verla.${me.trip ? '' : ' Vale desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver mi misión secreta</button></div>`}</div>`;
+          ${S.secretSeen() ? `<div class="list">${mRow(sec, 'No se la muestres a nadie')}</div>` : `<div class="secret-cover"><span class="muted">Solo vos podés verla.${me.trip ? '' : ' Vale desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver mi misión secreta</button></div>`}</div>
+        <a class="btn a-playa" href="#portada" style="--c:var(--celeste)">Ir a mirar el mar</a>`;
       bindMissions(screen);
       const b = $('#seeSecret'); if (b) b.addEventListener('click', () => { S.seeSecret(); render(); });
     },
@@ -521,7 +536,16 @@
       screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">Álbum</h1>
         <div class="card"><div><h2>Tarjetas de la colonia</h2><span class="small muted">Tocá a alguien para ver la suya.</span></div><div class="tarjetas">${tarjetas}</div></div>
         <p class="on-sky-soft" style="margin:0">Tus figuritas. Tocá una para ver las de todos.</p>${series}
+        <div class="card"><div><h2>Vestigios de la beta</h2><span class="small muted">Las primeras fotos de la colonia, de cuando la app todavía se estaba armando.</span></div>
+          <div class="vestigios">${D.VESTIGIOS.map(([pid, mid], i) => `<button class="vest" data-vest="${i}" aria-label="Foto de ${esc(person(pid).n)}"><img src="${vestigioUrl(pid, mid)}" alt="" loading="lazy"><span class="small">${esc(person(pid).n)}</span></button>`).join('')}</div></div>
         ${DEMO ? '<p class="proto">Modo demo: las fotos de los demás son de ejemplo.</p>' : ''}`;
+      screen.querySelectorAll('[data-vest]').forEach((b) => b.addEventListener('click', () => {
+        const [pid, mid, fecha] = D.VESTIGIOS[+b.dataset.vest];
+        sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
+          <div class="polaroid"><img src="${vestigioUrl(pid, mid)}" alt=""></div>
+          <h2>${esc(misionDe(mid))}</h2><p class="small muted" style="margin:0">De ${esc(person(pid).n)}, el ${fecha}, en plena beta.</p>
+          <button class="btn" data-close>Listo</button></div>`);
+      }));
       screen.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
         const id = b.dataset.a;
         const m = D.MISSIONS.find((x) => x.id === id) || { id, t: 'Misión del día' };
@@ -703,6 +727,7 @@
     if (r !== 'portada' && r !== 'quien' && !S.me) r = 'quien';
     if (r === 'quien' && S.me) r = 'hoy';
     SCREENS[r]();
+    if (r === 'portada') INICIO.entrar(); else INICIO.salir();
     const tabs = $('#tabs');
     tabs.hidden = !S.me || r === 'portada';
     const cur = r === 'kiosco' ? 'altar' : r;
