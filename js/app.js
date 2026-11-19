@@ -21,6 +21,7 @@
     altar: '<svg viewBox="0 0 24 24"><path d="M2.5 11.5a9.5 8 0 0 1 19 0z"/><path d="M12 11.5v8.5M7 20.5h10"/></svg>',
     foto: '<svg viewBox="0 0 24 24"><rect x="4" y="2.5" width="16" height="19" rx="1.5"/><rect x="7" y="5.5" width="10" height="10" rx=".5"/></svg>',
     camara: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>',
+    sombrilla: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5a9.5 8 0 0 1 19 0z"/><path d="M12 11.5v8.5M7 20.5h10"/></svg>',
   };
   const TABS = [['hoy', 'Hoy'], ['misiones', 'Misiones'], ['album', 'Álbum'], ['altar', 'Altarcito'], ['foto', 'La foto']];
 
@@ -330,10 +331,14 @@
     for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
     return o;
   }
+  // Misiones de la costa: se destraban cuando ya estamos allá. Si alguien ya la hizo, le queda hecha.
+  const enCosta = () => SKY.arNow().toISOString().slice(0, 16) >= D.COSTA;
+  const trabada = (m) => !!m.costa && !enCosta() && !S.photo(m.id);
+  const CUANDO_COSTA = 'Se destraba en la costa, el viernes 4 a las 16 h';
   function secretasDe(pid, dia) {
-    const P = D.SECRETAS, viaje = person(pid).trip && dia >= SKY.TRIP.from && dia <= SKY.TRIP.to;
+    const P = D.SECRETAS, viaje = person(pid).trip && dia >= P.viajeDesde && dia <= SKY.TRIP.to;
     const lista = viaje ? P.viaje : P.todas;
-    const n = Math.round((Date.parse(dia) - Date.parse(viaje ? SKY.TRIP.from : P.desde)) / 864e5);
+    const n = Math.round((Date.parse(dia) - Date.parse(viaje ? P.viajeDesde : P.desde)) / 864e5);
     const orden = barajar(lista.length, 'secretas' + pid + (viaje ? 'viaje' : ''));
     return [0, 1].map((k) => ({ id: `sec-${dia}-${k + 1}`, s: 'secreta', t: lista[orden[(n * 2 + k) % lista.length]], xp: P.xp }));
   }
@@ -530,6 +535,10 @@
   }
 
   function mRow(m, extra = '') {
+    if (trabada(m)) {
+      return `<button class="mis trabada" data-m="${m.id}" aria-disabled="true"><span class="thumb empty">${IC.sombrilla}</span>
+        <span class="t">${esc(m.t)}<small>${CUANDO_COSTA}</small></span><span class="chip" style="--c:var(--paper)">+${m.xp}</span></button>`;
+    }
     const ph = S.photo(m.id);
     return `<button class="mis" data-m="${m.id}">${ph ? `<img class="thumb" src="${ph}" alt="">` : `<span class="thumb empty">${IC.camara}</span>`}
       <span class="t">${esc(m.t)}${extra ? `<small>${extra}</small>` : ''}</span>
@@ -539,6 +548,7 @@
   function bindMissions(root) {
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
       const m = allMissions().find((x) => x.id === b.dataset.m);
+      if (trabada(m)) return toast(`<span>${CUANDO_COSTA}, cuando ya estemos todos allá.</span>`);
       const ph = S.photo(m.id);
       if (!ph) return askPhoto(m);
       sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
@@ -639,7 +649,7 @@
       const achs = Object.entries(D.ACH).map(([k, a]) => `<span class="chip" style="--c:var(--paper)">${esc(a.t)} · +${a.c} <span class="coin"></span></span>`).join('');
       screen.innerHTML = `${top()}
         <h1 class="on-sky" style="font-size:1.7rem">Misiones</h1>
-        <p class="on-sky-soft" style="margin:0">Cada una se cumple subiendo la foto que pide.${me.trip ? '' : ' Las podés hacer desde donde estés.'}</p>
+        <p class="on-sky-soft" style="margin:0">Cada una se cumple subiendo la foto que pide.${me.trip ? '' : ' Las podés hacer desde donde estés.'}${enCosta() ? '' : ' Las de la costa se destraban el viernes 4 a las 16 h.'}</p>
         <div class="card"><div class="eyebrow">Hoy</div><div class="list">${mRow(daily())}${mRow(D.DUO, 'De a dos')}</div></div>
         ${secretasCard()}
         ${groups}
@@ -657,7 +667,7 @@
         const full = s.id !== 'dia' && done === ms.length;
         return `<div class="card"><div class="spread"><div><h2>${esc(s.n)}</h2><span class="small muted">${done} de ${ms.length} figuritas</span></div>${s.id === 'dia' ? '' : medal(full)}</div>
           <div class="slots">${ms.map((m) => { const ph = S.photo(m.id); const n = s.id === 'dia' ? 0 : S.doneBy(m.id).length;
-            return `<button class="slot" data-a="${m.id}" aria-label="${esc(m.t)}">${ph ? `<img src="${ph}" alt="">` : `<span class="ph">${esc(m.t)}</span>`}${n ? `<span class="chip n" style="--c:var(--paper)">${n}/13</span>` : ''}</button>`; }).join('')}</div></div>`;
+            return `<button class="slot${trabada(m) ? ' trabada' : ''}" data-a="${m.id}" aria-label="${esc(m.t)}">${ph ? `<img src="${ph}" alt="">` : `<span class="ph">${trabada(m) ? IC.sombrilla : ''}${esc(m.t)}</span>`}${n ? `<span class="chip n" style="--c:var(--paper)">${n}/13</span>` : ''}</button>`; }).join('')}</div></div>`;
       }).join('');
       const tarjetas = [S.me, ...D.PEOPLE.map((p) => p.id).filter((id) => id !== S.me)].map((id) => {
         const c = (CARTAS && CARTAS[id]) || {}, n = esc(person(id).n);
@@ -686,9 +696,10 @@
           const inner = mine ? `<img class="sq" src="${mine}" alt="">` : theirs ? `<img class="sq" src="${theirs}" alt="" loading="lazy">` : who.has(p.id) ? `<img class="sq" src="${face(p.id)}" alt="" style="filter:saturate(.5) sepia(.25)">` : '<span class="sq no"></span>';
           return `<figure>${inner}<figcaption>${esc(p.n)}</figcaption></figure>`;
         }).join('');
-        sheet(`<div style="display:grid;gap:12px"><h2>${esc(m.t)}</h2><div class="strip">${strip}</div>
+        const cerrada = trabada(m), hecha = S.photo(id);
+        sheet(`<div style="display:grid;gap:12px"><h2>${esc(m.t)}</h2>${cerrada ? `<p class="small muted" style="margin:0">${CUANDO_COSTA}.</p>` : ''}<div class="strip">${strip}</div>
           ${DEMO ? '<p class="small muted" style="margin:0">En modo demo, las fotos de los demás se muestran con su cara.</p>' : ''}
-          <div class="row" style="justify-content:flex-end">${S.photo(id) ? '' : `<button class="btn" id="go" style="--c:var(--mint)">Subir la mía</button>`}<button class="btn ghost" data-close>${S.photo(id) ? 'Cerrar' : NAH}</button></div></div>`,
+          <div class="row" style="justify-content:flex-end">${hecha || cerrada ? '' : `<button class="btn" id="go" style="--c:var(--mint)">Subir la mía</button>`}<button class="btn ghost" data-close>${hecha || cerrada ? 'Cerrar' : NAH}</button></div></div>`,
         (bg) => { const g = bg.querySelector('#go'); if (g) g.addEventListener('click', () => { bg.remove(); askPhoto(m); }); });
       }));
     },

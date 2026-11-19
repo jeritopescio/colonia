@@ -145,6 +145,10 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 .thumb.empty svg { width: 26px; height: 26px; stroke: var(--soft); }
 .mis .t { min-width: 0; }
 .mis .t small { display: block; color: var(--soft); }
+.mis.trabada { cursor: default; }
+.mis.trabada .t, .mis.trabada .chip { opacity: .55; }
+.slot.trabada .ph { opacity: .7; align-content: center; gap: 4px; }
+.slot.trabada .ph svg { width: 22px; height: 22px; stroke: var(--soft); justify-self: center; }
 .list { display: grid; gap: 12px; }
 .secret-cover { display: grid; place-items: center; gap: 8px; text-align: center; padding: 8px 0; }
 

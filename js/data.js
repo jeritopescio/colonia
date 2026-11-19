@@ -35,25 +35,27 @@ window.DATA = (function () {
   ];
 
   // Cada misión se cumple subiendo una foto. Al subirla, queda hecha.
+  // Las marcadas "costa" se destraban recién cuando ya estamos allá: COSTA, en hora argentina.
+  const COSTA = '2026-12-04T16:00';
   const MISSIONS = [
     { id: 'bolso', s: 'previa', t: 'Lo que va en tu bolso', xp: 20 },
     { id: 'golo-ruta', s: 'previa', t: 'La golosina para la ruta', xp: 20 },
     { id: 'playlist', s: 'previa', t: 'El tema que sumás a la playlist del viaje', xp: 20 },
     { id: 'flor', s: 'flora', t: 'Una flor', xp: 30 },
-    { id: 'perro', s: 'flora', t: 'Un animalito de playa (vale cualquier ternurita)', xp: 30 },
-    { id: 'caracol', s: 'flora', t: 'Un caracol o una almeja', xp: 30 },
+    { id: 'perro', s: 'flora', t: 'Un animalito de playa (vale cualquier ternurita)', xp: 30, costa: true },
+    { id: 'caracol', s: 'flora', t: 'Un caracol o una almeja', xp: 30, costa: true },
     { id: 'pajaro', s: 'flora', t: 'Un pájaro', xp: 30 },
     { id: 'bicho', s: 'flora', t: 'El bicho más raro que veas', xp: 35 },
     { id: 'golosina', s: 'morfi', t: 'Tu golosina favorita del kiosco', xp: 25 },
     { id: 'parrilla', s: 'morfi', t: 'Lo que hay en la parrilla', xp: 25 },
     { id: 'helado', s: 'morfi', t: 'Un helado', xp: 25 },
-    { id: 'desayuno', s: 'morfi', t: 'Un desayuno de colonia', xp: 25 },
+    { id: 'desayuno', s: 'morfi', t: 'Un desayuno de colonia', xp: 25, costa: true },
     { id: 'selfie-nueva', s: 'selfies', t: 'Selfie con alguien con quien no tenés ninguna este año', xp: 35 },
-    { id: 'selfie-mojada', s: 'selfies', t: 'Selfie mojada', xp: 30 },
+    { id: 'selfie-mojada', s: 'selfies', t: 'Selfie mojada', xp: 30, costa: true },
     { id: 'selfie-atardecer', s: 'selfies', t: 'Selfie al atardecer', xp: 30 },
-    { id: 'mar-manana', s: 'paisajes', t: 'El mar a la mañana', xp: 25 },
+    { id: 'mar-manana', s: 'paisajes', t: 'El mar a la mañana', xp: 25, costa: true },
     { id: 'nubes', s: 'paisajes', t: 'La nube más rara', xp: 25 },
-    { id: 'huellas', s: 'paisajes', t: 'Huellas en la arena', xp: 25 },
+    { id: 'huellas', s: 'paisajes', t: 'Huellas en la arena', xp: 25, costa: true },
   ];
 
   // Misión del día: fija durante el viaje, rotativa antes.
@@ -73,9 +75,10 @@ window.DATA = (function () {
 
   // Misiones secretas: dos nuevas por día para cada persona, desde "desde". Solo las ve quien las tiene.
   // Cada uno las recorre en su propio orden y no se repiten hasta terminar la lista.
-  // Del 4 al 8/12, quienes viajan reciben las de "viaje"; quienes juegan a distancia siguen con "todas".
+  // Del 5 al 8/12 (el 4 se pasa en la ruta), quienes viajan reciben las de "viaje"; quienes juegan a distancia siguen con "todas".
   const SECRETAS = {
     desde: '2026-11-19',
+    viajeDesde: '2026-12-05',
     xp: 30,
     todas: [
       'Conseguí que alguien te enseñe algo nuevo sin decirle que es una misión. Foto de la clase.',
@@ -277,5 +280,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();
