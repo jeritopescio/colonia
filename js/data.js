@@ -71,16 +71,71 @@ window.DATA = (function () {
 
   const DUO = { id: 'duo-cocina', t: 'Cociná algo con alguien con quien nunca cocinaste', xp: 50 };
 
-  // Una secreta por persona. Solo la ve quien la tiene.
-  const SECRETS = [
-    'Conseguí que alguien te enseñe algo nuevo sin decirle que es una misión. Foto de la clase.',
-    'Dejá una notita escondida para alguien. Foto de la notita antes de esconderla.',
-    'Cebale un mate a alguien que no te lo pidió. Foto del mate.',
-    'Sacale una foto linda a alguien sin que se dé cuenta.',
-    'Conseguí que alguien baile diez segundos. Foto del baile.',
-    'Hacé que tres personas digan "Costa Esmeralda" en una misma charla. Foto del momento.',
-    'Juntá algo de la playa para regalarle a alguien al volver. Foto del regalo.',
-  ];
+  // Misiones secretas: dos nuevas por día para cada persona, desde "desde". Solo las ve quien las tiene.
+  // Cada uno las recorre en su propio orden y no se repiten hasta terminar la lista.
+  // Del 4 al 8/12, quienes viajan reciben las de "viaje"; quienes juegan a distancia siguen con "todas".
+  const SECRETAS = {
+    desde: '2026-11-19',
+    xp: 30,
+    todas: [
+      'Conseguí que alguien te enseñe algo nuevo sin decirle que es una misión. Foto de la clase.',
+      'Dejá una notita escondida para alguien. Foto de la notita antes de esconderla.',
+      'Cebale un mate (o servile algo) a alguien que no te lo pidió. Foto de lo que serviste.',
+      'Sacale una foto linda a alguien sin que se dé cuenta.',
+      'Conseguí que alguien baile diez segundos. Foto del baile.',
+      'Hacé que alguien diga "Costa Esmeralda" sin que vos lo nombres primero. Foto del momento.',
+      'Lográ que alguien del grupo mande un audio sin pedírselo. Captura del audio.',
+      'Conseguí que alguien del grupo escriba "regio" en el chat. Captura.',
+      'Mandá al grupo una foto de algo celeste sin explicar por qué. Captura.',
+      'Pedile a alguien que te recomiende una canción y escuchala entera. Foto del tema sonando.',
+      'Encontrá algo con forma de corazón en la calle. Foto.',
+      'Dibujá a alguien del grupo de memoria, en menos de un minuto. Foto del dibujo.',
+      'Decile a alguien del grupo algo lindo que nunca le dijiste. Captura (podés tapar el texto).',
+      'Preguntale a alguien cuál fue el mejor verano de su vida. Foto de quien te lo contó.',
+      'Hacé un barquito de papel y dejalo donde alguien lo encuentre. Foto.',
+      'Comé algo que nunca probaste. Foto.',
+      'Saludá a un perro que no conocés (con permiso). Foto del perro.',
+      'Hacé reír a alguien a carcajadas. Foto de la risa.',
+      'Conseguí que alguien te preste algo y devolvelo con una sorpresa. Foto de la sorpresa.',
+      'Mandale un sticker a alguien del grupo con quien hace días que no hablás. Captura.',
+      'Usá una palabra inventada en una charla y conseguí que alguien la repita. Foto del momento.',
+      'Sacale una foto a tu sombra haciendo una pose ridícula.',
+      'Hacé que alguien te cuente su comida favorita de cuando era chico. Foto de esa comida o de quien te lo contó.',
+      'Regalale una flor (o un yuyito) a alguien. Foto de la entrega.',
+      'Encontrá una nube con forma de algo y conseguí que otra persona también la vea. Foto.',
+      'Escribí "colonia" en algún lado (un vidrio empañado, una servilleta, la tierra) y dejalo ahí. Foto.',
+      'Agradecele a alguien algo que hizo por vos hace mucho. Foto o captura.',
+      'Conseguí que alguien haga una mueca para la foto sin explicarle por qué.',
+      'Sacá una foto desde el piso, con todo gigante arriba.',
+      'Tarareá una canción y conseguí que alguien la adivine. Foto de quien adivinó (o no).',
+      'Llevá algo dulce a algún lado y convidá. Foto.',
+      'Contá un chiste malo y conseguí al menos una risa. Foto del público.',
+      'Conseguí que alguien te cuente un dato raro que no sabías. Foto de quien te lo contó.',
+      'Dejá una piedrita linda donde alguien la vaya a encontrar. Foto.',
+      'Pedile a alguien que te recomiende una peli o un libro y anotalo. Foto de la anotación.',
+      'Armá una torre con lo que tengas a mano sin que nadie sepa para qué. Foto.',
+      'Mandá al grupo una foto vieja de una juntada que nadie recuerde. Captura.',
+      'Conseguí que alguien te salude con un abrazo largo, de esos de diez segundos. Foto.',
+      'Sacale una foto a la persona que más te hizo reír esta semana. No le digas por qué.',
+      'Hacé algo por alguien sin que se entere de que fuiste vos. Foto de lo que hiciste.',
+    ],
+    viaje: [
+      'Conseguí que alguien te ponga protector en la espalda sin pedírselo. Foto de la espalda.',
+      'Enterrá algo chiquito en la arena y dejá que otra persona lo encuentre. Foto del hallazgo.',
+      'Escribí el nombre de alguien en la arena antes de que lo borre el mar. Foto.',
+      'Conseguí que alguien se meta al mar con vos sin haberlo planeado. Foto mojada.',
+      'Robale un ratito de sombra a la sombrilla de otra persona. Foto desde tu lugar.',
+      'Hacé que alguien pruebe algo de la heladerita que nunca come. Foto.',
+      'Juntá tres caracoles distintos y regaláselos a alguien. Foto de la entrega.',
+      'Conseguí que alguien saque la foto del atardecer por vos. Foto de esa foto.',
+      'Dibujá una estrella en la arena al lado de las ojotas de alguien. Foto.',
+      'Hacé que la casa entera cante una canción. Foto del coro.',
+      'Preguntale a alguien cuál es su momento favorito del viaje hasta ahora. Foto de quien te lo contó.',
+      'Conseguí que alguien haga una vertical, una ronda o una pirueta en la arena. Foto.',
+      'Prepará algo para la mesa sin que te lo pidan. Foto de lo que preparaste.',
+      'Dejá una notita en la mochila de alguien. Foto antes de guardarla.',
+    ],
+  };
 
   // Logros automáticos: se ganan solos, sin foto.
   const ACH = {
@@ -166,8 +221,9 @@ window.DATA = (function () {
 
   const CARTAS_V = 3; // subir cuando cambien las tarjetas del bucket (cartas/)
 
-  // La foto del 8/12: dos autos, la tabla, Tulio y la colonia entera. Se arma con la XP de todos (la meta es secreta)
-  // y cada persona aparece cuando llega al nivel 2. El 8/12 aparecen todos igual.
+  // La foto del 8/12: dos autos, la tabla, Tulio y la colonia entera. Las cosas se destraban con la XP de todos (la meta es secreta).
+  // Cada persona aparece cuando sube sus primeras "figus" figuritas; "ultimo" (quien hizo la app) aparece recién
+  // cuando ya están todos los demás. El 8/12 se revela entera igual.
   const FOTO = {
     // 'dibujo' = el provisorio en SVG. 'recortes' = la imagen de nanobanana entera de base y, encima, un PNG por persona
     // o cosa (mismo tamaño que la base, transparente salvo esa persona). Lo que todavía no aparece se ve como silueta.
@@ -176,7 +232,7 @@ window.DATA = (function () {
       ancho: 896, alto: 1200,
       base: 'foto/base.jpg',
       ext: 'webp',
-      v: 4, // subir este número cuando se reemplacen las imágenes del bucket
+      v: 5, // subir este número cuando se reemplacen las imágenes del bucket
       // de atrás para adelante (las personas no se pisan entre sí; las cosas ya vienen sin la gente encima)
       capas: ['sandero', 'fox', 'tabla', 'sofi', 'chino', 'grego',
         'nico', 'nachote', 'juani', 'jero', 'jose', 'viqui', 'pachi', 'rochi', 'juli', 'rich',
@@ -184,7 +240,8 @@ window.DATA = (function () {
       silueta: 'papel', // 'papel' (recorte crema con borde) o 'fantasma' (la persona lavada, sin revelar)
     },
     goal: 2600,
-    nivel: 1,
+    figus: 3,
+    ultimo: 'jero',
     dia: '2026-12-08',
     pieces: [
       { id: 'fox', n: 'El Fox', at: 0.05 },
@@ -220,5 +277,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { PEOPLE, LEVELS, SERIES, MISSIONS, DAILY_TRIP, DAILY_POOL, DUO, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

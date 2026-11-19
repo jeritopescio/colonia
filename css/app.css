@@ -294,6 +294,8 @@ nav.tabs a.on::before { content: ""; position: absolute; inset: 0 8%; background
 .carta-dato { width: 100%; margin: 0; padding: 7px 10px; background: color-mix(in srgb, var(--butter) 62%, transparent); border-radius: 10px 14px 12px 8px; }
 .carta.foil::before { background: linear-gradient(115deg, #ffe7a0, #f8b6cb, #cdbdf2, #bcdaf3, #bfe9d3, #ffe7a0); background-size: 260% 100%; animation: foil 6s ease-in-out infinite alternate; }
 @keyframes foil { to { background-position: 100% 0; } }
+.barra-colonia { --c: var(--coral); height: 16px; }
+details.hechas summary { cursor: pointer; color: var(--b-soft); margin-bottom: 6px; }
 .vestigios { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
 .vest { display: grid; gap: 2px; justify-items: center; min-width: 0; padding: 4px 4px 2px; color: inherit; cursor: pointer; background: #fff; border: 2px solid var(--ink); border-radius: 4px; box-shadow: 1.5px 2px 0 rgba(67, 54, 90, .16); transform: rotate(1.2deg); }
 .vest:nth-child(3n + 1) { transform: rotate(-1.4deg); }

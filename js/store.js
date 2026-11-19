@@ -56,7 +56,7 @@ window.STORE = (function () {
       if (mine.xp >= local.xp) {
         s.xp = mine.xp; s.coins = mine.monedas;
         const d = mine.datos;
-        s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = !!d.secretSeen; s.am = d.am || null;
+        s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null;
       }
     }
     if (s.me) s.cache.figs.filter((x) => x.jugador === s.me).forEach((x) => { if (!String(s.photos[x.mision] || '').startsWith('data:')) s.photos[x.mision] = pub(x.foto); });
@@ -140,7 +140,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = !!row.datos.secretSeen; s.am = row.datos.am || null; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save();
     },
@@ -200,8 +200,13 @@ window.STORE = (function () {
     },
     // En la compu (localhost) usa img/ para probar sin subir nada; publicado, el bucket.
     artUrl(path) { return C.supabaseUrl && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? pub(path) : 'img/' + path; },
-    secretSeen() { return s.secretSeen; },
-    seeSecret() { s.secretSeen = true; save(); pushMe(); },
+    // Las secretas se destapan una vez por día: guarda la fecha en que las miraste.
+    secretSeen() { return s.secretSeen === window.SKY.arDate(); },
+    seeSecret() { s.secretSeen = window.SKY.arDate(); save(); pushMe(); },
+    figuritas(id) {
+      if (id === s.me) return Object.keys(s.photos).length;
+      return live ? s.cache.figs.filter((x) => x.jugador === id).length : DEMO[id].done.length;
+    },
 
     // Guarda la foto, devuelve los premios y la sube en segundo plano.
     addPhoto(mid, dataUrl, xp) {

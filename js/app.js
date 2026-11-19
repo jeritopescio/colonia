@@ -29,9 +29,20 @@
   function fotoState() {
     const prog = fotoProgress();
     const pieces = new Set(D.FOTO.pieces.filter((p) => prog >= p.at - 1e-9).map((p) => p.id));
+    // Cada uno aparece con sus primeras figuritas; quien hizo la app, recién cuando están todos los demás. El 8/12, todos.
     const all = SKY.arDate() >= D.FOTO.dia;
-    const people = new Set(D.PEOPLE.filter((p) => all || S.levelOf(S.xpOf(p.id)) >= D.FOTO.nivel).map((p) => p.id));
-    return { prog, pieces, people };
+    const resto = D.PEOPLE.filter((p) => p.id !== D.FOTO.ultimo);
+    const people = new Set(resto.filter((p) => all || S.figuritas(p.id) >= D.FOTO.figus).map((p) => p.id));
+    if (all || people.size === resto.length) people.add(D.FOTO.ultimo);
+    return { prog, pieces, people, faltan: resto.length - resto.filter((p) => people.has(p.id)).length };
+  }
+  // Qué le falta a cada uno para aparecer en la foto.
+  function estadoEnFoto(pid, st) {
+    if (st.people.has(pid)) return 'En la foto';
+    const vos = pid === S.me;
+    if (pid === D.FOTO.ultimo) return `${vos ? 'Aparecés' : 'Aparece'} último, cuando estén todos · ${st.faltan === 1 ? 'falta 1' : 'faltan ' + st.faltan}`;
+    const k = D.FOTO.figus - S.figuritas(pid);
+    return `${vos ? 'Te' : 'Le'} ${k === 1 ? 'falta 1 figurita' : `faltan ${k} figuritas`}`;
   }
   // Modo recortes: la imagen entera de base y cada persona o cosa encima, en orden de atrás para adelante.
   // Lo desbloqueado se ve tal cual; lo que falta, como silueta en su lugar (así no hay que rellenar lo que queda tapado).
@@ -313,7 +324,40 @@
     const trip = D.DAILY_TRIP[d];
     return { id: 'dia-' + d, s: 'dia', t: trip || D.DAILY_POOL[hash(d) % D.DAILY_POOL.length], xp: trip ? 40 : 20 };
   }
-  const secret = () => ({ id: 'secreta', s: 'secreta', t: D.SECRETS[hash(S.me || 'x') % D.SECRETS.length], xp: 60 });
+  // Misiones secretas: dos por día y por persona, cada una en su propio orden, sin repetir hasta agotar la lista.
+  function barajar(n, semilla) {
+    const r = rnd(semilla), o = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    return o;
+  }
+  function secretasDe(pid, dia) {
+    const P = D.SECRETAS, viaje = person(pid).trip && dia >= SKY.TRIP.from && dia <= SKY.TRIP.to;
+    const lista = viaje ? P.viaje : P.todas;
+    const n = Math.round((Date.parse(dia) - Date.parse(viaje ? SKY.TRIP.from : P.desde)) / 864e5);
+    const orden = barajar(lista.length, 'secretas' + pid + (viaje ? 'viaje' : ''));
+    return [0, 1].map((k) => ({ id: `sec-${dia}-${k + 1}`, s: 'secreta', t: lista[orden[(n * 2 + k) % lista.length]], xp: P.xp }));
+  }
+  // Todas las que ya se destaparon, de la más nueva a la más vieja (las de hoy, solo si ya las miraste).
+  function secretasHasta() {
+    const out = [], hoy = SKY.arDate();
+    for (let t = Date.parse(hoy); t >= Date.parse(D.SECRETAS.desde); t -= 864e5) {
+      const dia = new Date(t).toISOString().slice(0, 10);
+      if (dia !== hoy || S.secretSeen()) out.push(...secretasDe(S.me, dia).map((m) => Object.assign(m, { dia })));
+    }
+    return out;
+  }
+  const fechaCorta = (dia) => `${+dia.slice(8)}/${+dia.slice(5, 7)}`;
+  // En Misiones: las secretas que ya se destaparon. Las pendientes primero; las hechas, plegadas.
+  function secretasCard() {
+    const todas = secretasHasta();
+    if (!todas.length) return '';
+    const fila = (m) => mRow(m, m.dia === SKY.arDate() ? 'De hoy' : 'Del ' + fechaCorta(m.dia));
+    const pend = todas.filter((m) => !S.photo(m.id)), hechas = todas.filter((m) => S.photo(m.id));
+    return `<div class="card dark"><div class="eyebrow">Tus secretas</div>
+      <p class="small muted" style="margin:0">Solo vos las ves. Dos nuevas por día, y las de días anteriores siguen valiendo.</p>
+      ${pend.length ? `<div class="list">${pend.map(fila).join('')}</div>` : '<p class="small muted" style="margin:0">Las tenés todas hechas.</p>'}
+      ${hechas.length ? `<details class="hechas"><summary class="small">Hechas (${hechas.length})</summary><div class="list">${hechas.map(fila).join('')}</div></details>` : ''}</div>`;
+  }
   const vestigioUrl = (pid, mid) => S.artUrl(`vestigios/${pid}-${mid}.jpg?v=1`);
   function misionDe(mid) {
     if (!mid.startsWith('dia-')) return (D.MISSIONS.find((m) => m.id === mid) || { t: 'Una misión' }).t;
@@ -396,6 +440,13 @@
       img.src = URL.createObjectURL(file);
     });
   }
+  function avisoFoto() {
+    const n = S.figuritas(S.me), k = D.FOTO.figus - n;
+    if (S.me === D.FOTO.ultimo) return 'Esto suma a la foto de todos. Vos aparecés cuando estén los demás.';
+    if (k > 0) return `Te ${k === 1 ? 'falta 1 figurita' : 'faltan ' + k + ' figuritas'} para aparecer en la foto.`;
+    if (k === 0) return '¡Ya aparecés en la foto del 8/12!';
+    return 'Esto también suma a la foto de todos.';
+  }
   function showReward(m, url, res) {
     const r = res.out[0];
     const serie = res.out.find((o) => o.ach === 'serie');
@@ -408,7 +459,7 @@
       ${r ? `<div class="row" style="justify-content:center"><span class="chip" style="--c:var(--mint)">+${r.xp} XP</span><span class="chip" style="--c:var(--butter)">+${r.coins} <span class="coin"></span></span></div>` : '<p class="muted small">Cambiaste la foto de esta misión.</p>'}
       ${res.levelUp != null ? `<p><b>Subiste de nivel:</b> ahora sos ${esc(D.LEVELS[res.levelUp].n)}.</p>` : ''}
       ${serie ? `<p><b>Serie completa:</b> ${esc(D.SERIES.find((x) => x.id === serie.serie).n)}. +${D.ACH.serie.c} monedas y medallita.</p>` : ''}
-      <p class="muted small">Esto también suma a la foto de todos.</p>
+      <p class="muted small">${esc(avisoFoto())}</p>
       <button class="btn" data-close>Seguir</button></div>`);
     render();
   }
@@ -428,7 +479,7 @@
       <span class="t">${esc(m.t)}${extra ? `<small>${extra}</small>` : ''}</span>
       <span class="chip" style="--c:${ph ? 'var(--mint)' : 'var(--paper)'}">${ph ? 'hecha' : '+' + m.xp}</span></button>`;
   }
-  const allMissions = () => [daily(), D.DUO, secret(), ...D.MISSIONS];
+  const allMissions = () => [daily(), D.DUO, ...secretasDe(S.me, SKY.arDate()), ...secretasHasta(), ...D.MISSIONS];
   function bindMissions(root) {
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
       const m = allMissions().find((x) => x.id === b.dataset.m);
@@ -488,17 +539,19 @@
 
     hoy() {
       const d = daily(), L = level(S.xp), c = countdown(), fst = fotoState(), me = person(S.me);
-      const sec = secret();
+      const hoyS = secretasDe(S.me, SKY.arDate());
+      const atras = secretasHasta().filter((m) => m.dia !== SKY.arDate() && !S.photo(m.id)).length;
       screen.innerHTML = `${top()}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
           <div class="list">${mRow(d, 'Subí la foto y queda hecha')}</div></div>
         <div class="card"><div class="spread"><div class="eyebrow">Tu libreta</div><span class="small muted">racha: ${S.streak()} ${S.streak() === 1 ? 'día' : 'días'}</span></div>
           <div class="spread"><b style="font-family:var(--display)">${esc(L.n)}</b><span class="small muted">${S.xp} XP${L.next ? ' · faltan ' + (L.next.xp - S.xp) : ''}</span></div>
           <div class="bar"><i style="width:calc(${Math.round(L.pct * 100)}% - 4px)"></i></div></div>
-        <a href="#foto" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">La foto del 8/12</div><b>${Math.round(fst.prog * 100)}%</b></div>${fotoHTML(fst, true)}
-          <span class="small muted">Se arma con lo que hacemos entre todos.</span></a>
-        <div class="card dark"><div class="eyebrow">Tu misión secreta</div>
-          ${S.secretSeen() ? `<div class="list">${mRow(sec, 'No se la muestres a nadie')}</div>` : `<div class="secret-cover"><span class="muted">Solo vos podés verla.${me.trip ? '' : ' Vale desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver mi misión secreta</button></div>`}</div>
+        <a href="#foto" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">La foto del 8/12</div><b>${fst.people.size} de ${D.PEOPLE.length}</b></div>${fotoHTML(fst, true)}
+          <span class="small muted">${esc(estadoEnFoto(S.me, fst))}.</span></a>
+        <div class="card dark"><div class="spread"><div class="eyebrow">Tus misiones secretas</div><span class="small muted">dos nuevas por día</span></div>
+          ${S.secretSeen() ? `<div class="list">${hoyS.map((m) => mRow(m, 'No se la muestres a nadie')).join('')}</div>${atras ? `<a class="small" href="#misiones" style="color:var(--b-soft)">Tenés ${atras} ${atras === 1 ? 'pendiente' : 'pendientes'} de días anteriores</a>` : ''}`
+            : `<div class="secret-cover"><span class="muted">Solo vos podés verlas.${me.trip ? '' : ' Valen desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver las de hoy</button></div>`}</div>
         <a class="btn a-playa" href="#portada" style="--c:var(--celeste)">Ir a mirar el mar</a>`;
       bindMissions(screen);
       const b = $('#seeSecret'); if (b) b.addEventListener('click', () => { S.seeSecret(); render(); });
@@ -512,6 +565,7 @@
         <h1 class="on-sky" style="font-size:1.7rem">Misiones</h1>
         <p class="on-sky-soft" style="margin:0">Cada una se cumple subiendo la foto que pide.${me.trip ? '' : ' Las podés hacer desde donde estés.'}</p>
         <div class="card"><div class="eyebrow">Hoy</div><div class="list">${mRow(daily())}${mRow(D.DUO, 'De a dos')}</div></div>
+        ${secretasCard()}
         ${groups}
         <div class="card"><div class="eyebrow">Logros que llegan solos</div><p class="small muted" style="margin:0">No hay que hacer nada: la app los da cuando pasa.</p><div class="row">${achs}</div></div>`;
       bindMissions(screen);
@@ -634,11 +688,15 @@
       const hitos = D.FOTO.hitos.map((h) => `<div class="hito${st.prog >= h.at ? ' done' : ''}"><span class="dot">${st.prog >= h.at ? '✓' : h.fecha.length < 6 ? h.fecha : '★'}</span>
         <span><b>${esc(h.t)}</b> · ${esc(h.d)}<br><span class="small muted">${st.prog >= h.at ? 'Desbloqueado' : 'Se desbloquea con la foto al ' + Math.round(h.at * 100) + '%'}</span></span></div>`).join('');
       const people = D.PEOPLE.map((p) => `<button class="mate" data-v="${p.id}"><img class="face" src="${face(p.id)}" alt=""${st.people.has(p.id) ? '' : ' style="filter:grayscale(.6);opacity:.75"'}>
-        <span><b>${esc(p.n)}</b><br><span class="small muted">${st.people.has(p.id) ? 'En la foto' : 'Aparece en nivel ' + (D.FOTO.nivel + 1)}${p.trip ? '' : ' · a distancia'}</span></span></button>`).join('');
+        <span><b>${esc(p.n)}</b><br><span class="small muted">${esc(estadoEnFoto(p.id, st))}${p.trip ? '' : ' · a distancia'}</span></span></button>`).join('');
+      const ult = person(D.FOTO.ultimo).n, total = D.PEOPLE.length;
       screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">La foto</h1>
-        <p class="on-sky-soft" style="margin:0">La del 8/12, antes de volver a La Plata. Cada figurita de cualquiera suma, y cada uno aparece cuando llega al nivel ${D.FOTO.nivel + 1}.</p>
-        <div class="card"><div class="spread"><b style="font-family:var(--display);font-size:1.4rem">${Math.round(st.prog * 100)}%</b><span class="small muted">${n} de ${D.FOTO.pieces.length} partes</span></div>
+        <p class="on-sky-soft" style="margin:0">La del 8/12, antes de volver a La Plata. Cada uno aparece cuando sube sus primeras ${D.FOTO.figus} figuritas. ${esc(ult)} aparece último, cuando estén todos. El 8/12 se revela entera igual.</p>
+        <div class="card"><div class="eyebrow">La colonia en la foto</div>
+          <div class="spread"><b style="font-family:var(--display);font-size:1.4rem">${st.people.size} de ${total}</b><span class="small muted">${st.people.size === total ? '¡Estamos todos!' : st.faltan ? `${st.faltan === 1 ? 'falta 1' : 'faltan ' + st.faltan} para que aparezca ${esc(ult)}` : `solo falta ${esc(ult)}`}</span></div>
+          <div class="bar barra-colonia"><i style="width:calc(${Math.round((st.people.size / total) * 100)}% - 4px)"></i></div>
           ${fotoHTML(st)}
+          <div class="spread small"><span class="muted">Las cosas de la foto salen con las figuritas de todos</span><span class="muted">${n} de ${D.FOTO.pieces.length}</span></div>
           <div class="row small">${D.FOTO.pieces.map((p) => `<span class="chip" style="--c:${st.pieces.has(p.id) ? 'var(--mint)' : 'var(--paper)'}">${esc(p.n)}</span>`).join('')}</div></div>
         <div class="card"><div class="eyebrow">Lo que destraba</div>${hitos}</div>
         <div class="card"><div class="eyebrow">La colonia</div><p class="small muted" style="margin:0">Tocá a alguien para visitar su altarcito.</p><div class="people">${people}</div></div>
