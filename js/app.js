@@ -464,6 +464,62 @@
     render();
   }
 
+  // ---------- calendario ----------
+  // Las fechas viven en el bucket (agenda/agenda.json), no en el repo público: se cambian sin volver a publicar la app.
+  let AGENDA = null;
+  try { AGENDA = JSON.parse(localStorage.getItem('colonia.agenda')); } catch (e) { /* sin copia */ }
+  fetch(S.artUrl('agenda/agenda.json'), { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+    if (!j || !Array.isArray(j.eventos)) return;
+    const cambio = JSON.stringify(j) !== JSON.stringify(AGENDA);
+    AGENDA = j;
+    try { localStorage.setItem('colonia.agenda', JSON.stringify(j)); } catch (e) { /* sin lugar */ }
+    if (cambio && ['hoy', 'calendario'].includes(location.hash.slice(1))) render();
+  }).catch(() => {});
+  const TIPO = { plan: ['var(--rose)', 'juntada'], gig: ['var(--coral)', 'show'], bday: ['var(--butter)', 'cumple'], trip: ['var(--mint)', 'costa'], out: ['var(--celeste)', 'alguien de viaje'] };
+  const PRIORIDAD = ['trip', 'bday', 'gig', 'plan', 'out'];
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const SEMANA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const dos = (n) => String(n).padStart(2, '0');
+  const eventos = () => (AGENDA ? [...AGENDA.eventos].sort((a, b) => a.d.localeCompare(b.d)) : []);
+  function cuando(dia) {
+    const dd = Math.round((Date.parse(dia) - Date.parse(SKY.arDate())) / 864e5);
+    if (dd === 0) return 'hoy';
+    if (dd === 1) return 'mañana';
+    const [y, m, d] = dia.split('-').map(Number);
+    return dd > 1 && dd < 7 ? `${SEMANA[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d}` : `${d}/${m}`;
+  }
+  function evRow(e, etiqueta) {
+    const caras = (e.p || []).filter(person).map((id) => `<img class="face" src="${face(id)}" alt="">`).join('');
+    return `<li class="ev${e.d < SKY.arDate() ? ' paso' : ''}${e.k === 'hol' ? ' feriado' : ''}"><span class="ev-dia" style="--c:${TIPO[e.k] ? TIPO[e.k][0] : 'transparent'}">${etiqueta}</span>
+      <span class="ev-t">${esc(e.t)}${e.n ? ` <small>· ${esc(e.n)}</small>` : ''}</span>${caras ? `<span class="ev-caras">${caras}</span>` : ''}</li>`;
+  }
+  function mesHTML(y, m, evs) {
+    const hoy = SKY.arDate();
+    const largo = new Date(Date.UTC(y, m, 0)).getUTCDate(), primero = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
+    let g = 'LMMJVSD'.split('').map((x) => `<span class="dow">${x}</span>`).join('') + '<span></span>'.repeat(primero);
+    for (let d = 1; d <= largo; d++) {
+      const dia = `${y}-${dos(m)}-${dos(d)}`, ks = evs.filter((e) => e.d === dia).map((e) => e.k);
+      if (dia >= SKY.TRIP.from && dia <= SKY.TRIP.to) ks.push('trip');
+      const tipo = PRIORIDAD.find((k) => ks.includes(k)), c = ['d'];
+      if (dia < AGENDA.desde || dia > AGENDA.hasta) c.push('fuera');
+      else if (dia < hoy) c.push('paso');
+      if (ks.includes('hol')) c.push('feriado');
+      if (dia === hoy) c.push('hoy');
+      if (tipo) c.push('marca');
+      g += `<span class="${c.join(' ')}"${tipo ? ` style="--c:${TIPO[tipo][0]}"` : ''}${dia === hoy ? ' aria-current="date"' : ''}>${d}</span>`;
+    }
+    return `<div class="card mes"><div class="spread"><h2>${MESES[m - 1]}</h2><span class="muted">${y}</span></div>
+      <div class="cal">${g}</div><ul class="evs del-mes">${evs.map((e) => evRow(e, Number(e.d.slice(8)))).join('')}</ul></div>`;
+  }
+  // Para Hoy: lo de hoy y lo que sigue (al menos tres cosas).
+  function loQueViene() {
+    const hoy = SKY.arDate(), prox = eventos().filter((e) => e.d >= hoy);
+    if (!prox.length) return '';
+    const n = Math.max(3, prox.filter((e) => e.d === hoy).length);
+    return `<a href="#calendario" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">Lo que viene</div><span class="small muted">ver el calendario</span></div>
+      <ul class="evs">${prox.slice(0, n).map((e) => evRow(e, cuando(e.d))).join('')}</ul></a>`;
+  }
+
   // ---------- pantallas ----------
   function top() {
     const st = SKY.state(), L = level(S.xp);
@@ -544,6 +600,7 @@
       screen.innerHTML = `${top()}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
           <div class="list">${mRow(d, 'Subí la foto y queda hecha')}</div></div>
+        ${loQueViene()}
         <div class="card"><div class="spread"><div class="eyebrow">Tu libreta</div><span class="small muted">racha: ${S.streak()} ${S.streak() === 1 ? 'día' : 'días'}</span></div>
           <div class="spread"><b style="font-family:var(--display)">${esc(L.n)}</b><span class="small muted">${S.xp} XP${L.next ? ' · faltan ' + (L.next.xp - S.xp) : ''}</span></div>
           <div class="bar"><i style="width:calc(${Math.round(L.pct * 100)}% - 4px)"></i></div></div>
@@ -555,6 +612,25 @@
         <a class="btn a-playa" href="#portada" style="--c:var(--celeste)">Ir a mirar el mar</a>`;
       bindMissions(screen);
       const b = $('#seeSecret'); if (b) b.addEventListener('click', () => { S.seeSecret(); render(); });
+    },
+
+    calendario() {
+      const c = countdown(), hoy = SKY.arDate();
+      const titulo = `${top()}<div class="spread"><h1 class="on-sky" style="font-size:1.7rem">Calendario</h1><a class="btn ghost" href="#hoy" style="text-decoration:none">Volver a Hoy</a></div>`;
+      if (!AGENDA) { screen.innerHTML = `${titulo}<div class="card"><p class="muted" style="margin:0">Buscando las fechas… Si no tenés señal, aparecen cuando vuelva.</p></div>`; return; }
+      const evs = eventos(), [y0, m0] = AGENDA.desde.split('-').map(Number), fin = AGENDA.hasta.slice(0, 7);
+      const meses = [];
+      for (let y = y0, m = m0; `${y}-${dos(m)}` <= fin; m === 12 ? ((y += 1), (m = 1)) : (m += 1)) meses.push([y, m]);
+      const estrellas = evs.filter((e) => ['plan', 'gig', 'bday', 'trip'].includes(e.k));
+      const pasaron = estrellas.filter((e) => e.d < hoy).length;
+      const estrella = (on) => `<svg class="${on ? 'on' : ''}" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 .9l1.5 3.2 3.5.4-2.6 2.4.7 3.5L6 8.7 2.9 10.4l.7-3.5L1 4.5l3.5-.4z"/></svg>`;
+      const [, mh, dh] = AGENDA.hasta.split('-').map(Number), [, md, dd] = AGENDA.desde.split('-').map(Number);
+      screen.innerHTML = `${titulo}
+        <div class="card"><div class="spread"><div class="eyebrow">Temporada 26/27</div><span class="chip" style="--c:var(--mint)">${c.big} ${esc(c.small)}</span></div>
+          <p class="small muted" style="margin:0">Del ${dd}/${md} al ${dh}/${mh}. Cada estrella es una juntada, un show o un cumple: se pinta cuando ya pasó.</p>
+          <div class="estrellas" role="img" aria-label="${pasaron} de ${estrellas.length}">${estrellas.map((e) => estrella(e.d < hoy)).join('')}</div></div>
+        ${meses.map(([y, m]) => mesHTML(y, m, evs.filter((e) => e.d.startsWith(`${y}-${dos(m)}`)))).join('')}
+        <div class="card"><div class="leyenda small">${Object.values(TIPO).map(([col, n]) => `<span style="--c:${col}">${n}</span>`).join('')}<span class="feriado">feriado</span></div></div>`;
     },
 
     misiones() {
@@ -788,12 +864,12 @@
     if (r === 'portada') INICIO.entrar(); else INICIO.salir();
     const tabs = $('#tabs');
     tabs.hidden = !S.me || r === 'portada';
-    const cur = r === 'kiosco' ? 'altar' : r;
+    const cur = r === 'kiosco' ? 'altar' : r === 'calendario' ? 'hoy' : r;
     tabs.innerHTML = TABS.map(([k, l]) => `<a href="#${k}" class="${k === cur ? 'on' : ''}" ${k === cur ? 'aria-current="page"' : ''}>${IC[k]}<span>${l}</span></a>`).join('');
     const dev = $('#devbtn'); if (dev) dev.hidden = r === 'portada';
   }
   addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
-  SKY.onChange(() => { const r = location.hash.slice(1); if (r === 'portada' || r === '' || r === 'hoy') { const w = document.querySelectorAll('.weather'); w.forEach((el) => (el.textContent = weatherLine(SKY.state()))); } });
+  SKY.onChange(() => { const r = location.hash.slice(1); if (r === 'portada' || r === '' || r === 'hoy' || r === 'calendario') { const w = document.querySelectorAll('.weather'); w.forEach((el) => (el.textContent = weatherLine(SKY.state()))); } });
 
   // ---------- panel para probar el cielo (solo prototipo) ----------
   if (PROTO) {
