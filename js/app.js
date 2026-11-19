@@ -301,9 +301,11 @@
   }
   function visit(pid) {
     if (pid === S.me) { go('altar'); return; }
-    const bg = sheet(`<div style="display:grid;gap:12px"><div class="spread"><h2>El altarcito de ${esc(person(pid).n)}</h2><img class="face" src="${face(pid)}" alt="" style="width:40px;height:40px"></div>
+    const bg = sheet(`<div style="display:grid;gap:12px"><div class="spread"><h2>El altarcito de ${esc(person(pid).n)}</h2>
+        <button class="ver-carta" id="suCarta" aria-label="Ver la tarjeta de ${esc(person(pid).n)}"><img class="face" src="${face(pid)}" alt=""><span class="small">Tarjeta</span></button></div>
       ${altarHTML(pid, false)}<button class="btn ghost" data-close>Volver</button></div>`);
     bindAltar(bg.querySelector('.altar'), false);
+    bg.querySelector('#suCarta').addEventListener('click', () => { bg.remove(); carta(pid); });
   }
   // ---------- helpers de juego ----------
   function daily() {
@@ -512,7 +514,12 @@
           <div class="slots">${ms.map((m) => { const ph = S.photo(m.id); const n = s.id === 'dia' ? 0 : S.doneBy(m.id).length;
             return `<button class="slot" data-a="${m.id}" aria-label="${esc(m.t)}">${ph ? `<img src="${ph}" alt="">` : `<span class="ph">${esc(m.t)}</span>`}${n ? `<span class="chip n" style="--c:var(--paper)">${n}/13</span>` : ''}</button>`; }).join('')}</div></div>`;
       }).join('');
+      const tarjetas = [S.me, ...D.PEOPLE.map((p) => p.id).filter((id) => id !== S.me)].map((id) => {
+        const c = (CARTAS && CARTAS[id]) || {}, n = esc(person(id).n);
+        return `<button class="mini-carta${c.foil ? ' foil' : ''}" data-carta="${id}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}" aria-label="Ver la tarjeta de ${n}"><img src="${face(id)}" alt=""><b>${n}</b></button>`;
+      }).join('');
       screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">Álbum</h1>
+        <div class="card"><div><h2>Tarjetas de la colonia</h2><span class="small muted">Tocá a alguien para ver la suya.</span></div><div class="tarjetas">${tarjetas}</div></div>
         <p class="on-sky-soft" style="margin:0">Tus figuritas. Tocá una para ver las de todos.</p>${series}
         ${DEMO ? '<p class="proto">Modo demo: las fotos de los demás son de ejemplo.</p>' : ''}`;
       screen.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
@@ -639,8 +646,12 @@
       ${c.poder ? `<div class="carta-sec"><div class="eyebrow">Poder</div><p>${esc(c.poder)}</p></div>` : ''}
       ${c.deb ? `<div class="carta-sec"><div class="eyebrow">Debilidad</div><p>${esc(c.deb)}</p></div>` : ''}
       ${c.dato ? `<p class="carta-dato">${esc(c.dato)}</p>` : ''}
-      <button class="btn" data-close>Listo</button></div>`,
-    (bg) => { const im = bg.querySelector('.carta-foto img'); im.addEventListener('error', () => { im.src = face(pid); }, { once: true }); });
+      <div class="row" style="justify-content:center">${pid === S.me ? '' : '<button class="btn ghost" id="suAltar">Ver su altarcito</button>'}<button class="btn" data-close>Listo</button></div></div>`,
+    (bg) => {
+      const im = bg.querySelector('.carta-foto img'), al = bg.querySelector('#suAltar');
+      im.addEventListener('error', () => { im.src = face(pid); }, { once: true });
+      if (al) al.addEventListener('click', () => { bg.remove(); visit(pid); });
+    });
   }
   function infoMonedas() {
     const fila = (t, c) => `<li><span>${esc(t)}</span><span class="chip" style="--c:var(--butter)">+${c} <span class="coin"></span></span></li>`;
@@ -662,7 +673,8 @@
     (bg) => bg.querySelector('#irKiosco').addEventListener('click', () => { bg.remove(); go('kiosco'); }));
   }
   screen.addEventListener('click', (e) => {
-    if (e.target.closest('[data-carta]')) carta(S.me);
+    const t = e.target.closest('[data-carta]');
+    if (t) carta(t.dataset.carta || S.me);
     else if (e.target.closest('[data-monedas]')) infoMonedas();
   });
 

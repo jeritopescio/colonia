@@ -262,6 +262,14 @@ nav.tabs a.on::before { content: ""; position: absolute; inset: 0 8%; background
 .carta-dato { width: 100%; margin: 0; padding: 7px 10px; background: color-mix(in srgb, var(--butter) 62%, transparent); border-radius: 10px 14px 12px 8px; }
 .carta.foil::before { background: linear-gradient(115deg, #ffe7a0, #f8b6cb, #cdbdf2, #bcdaf3, #bfe9d3, #ffe7a0); background-size: 260% 100%; animation: foil 6s ease-in-out infinite alternate; }
 @keyframes foil { to { background-position: 100% 0; } }
+.tarjetas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px; }
+.mini-carta { display: grid; gap: 3px; justify-items: center; min-width: 0; padding: 4px 4px 5px; color: inherit; font: inherit; cursor: pointer; background: var(--el); border: 2px solid var(--ink); border-radius: 8px 10px 9px 7px; box-shadow: 1.5px 2px 0 rgba(67, 54, 90, .16); transform: rotate(-1.2deg); }
+.mini-carta:nth-child(even) { transform: rotate(1deg); }
+.mini-carta.foil { background: linear-gradient(115deg, #ffe7a0, #f8b6cb, #cdbdf2, #bcdaf3, #bfe9d3); }
+.mini-carta img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #fff; border-radius: 4px; }
+.mini-carta b { max-width: 100%; overflow: hidden; font-family: var(--display); font-size: .86rem; font-weight: 600; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.ver-carta { display: grid; flex: none; justify-items: center; gap: 1px; padding: 0; color: inherit; font: inherit; cursor: pointer; background: none; border: 0; }
+.ver-carta .face { width: 40px; height: 40px; }
 @media (prefers-reduced-motion: reduce) { .carta.foil::before { animation: none; } }
 
 /* de dónde salen las monedas */
