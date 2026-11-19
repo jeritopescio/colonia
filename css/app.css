@@ -32,11 +32,18 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 [data-sky-dark="1"] .clouds i { background: #8c8fb2; opacity: .7; }
 @keyframes drift { to { transform: translateX(190vw); } }
 .rain { position: absolute; inset: 0; }
-.sea { position: absolute; left: 0; right: 0; top: 76%; height: 11%; background: linear-gradient(var(--sea), color-mix(in srgb, var(--sea) 70%, #fff)); }
-.foam { position: absolute; left: -10%; right: -10%; bottom: -7px; height: 14px; background: radial-gradient(circle at 10px 0, #fff 7px, transparent 7.5px) 0 0 / 20px 14px repeat-x; opacity: .85; animation: foam 7s ease-in-out infinite alternate; filter: url(#crayon); }
-@keyframes foam { to { transform: translateX(26px); } }
-.sand { position: absolute; left: 0; right: 0; top: 87%; bottom: 0; background: radial-gradient(color-mix(in srgb, var(--ink) 14%, transparent) 1px, transparent 1.5px) 0 0 / 14px 14px, var(--sand); }
-@media (prefers-reduced-motion: reduce) { .clouds i, .foam, .stars i { animation: none; } }
+/* El mar se aclara hacia la orilla y se funde en la arena mojada: no hay línea dura. */
+.sea { position: absolute; z-index: 1; left: 0; right: 0; top: 76%; height: calc(11% + 18px); background: linear-gradient(var(--sea), color-mix(in srgb, var(--sea) 84%, #fff) 48%, color-mix(in srgb, var(--sea) 52%, #fff) 82%); -webkit-mask-image: linear-gradient(#000 76%, transparent); mask-image: linear-gradient(#000 76%, transparent); }
+.sand { position: absolute; left: 0; right: 0; top: 87%; bottom: 0; background: linear-gradient(color-mix(in srgb, var(--sea) 26%, var(--sand)), transparent 46px), radial-gradient(color-mix(in srgb, var(--ink) 11%, transparent) 1px, transparent 1.5px) 0 0 / 14px 14px, var(--sand); }
+/* Olitas de puntos: dos capas que van y vienen a destiempo. */
+.orilla { position: absolute; z-index: 2; left: -5%; right: -5%; top: 76%; height: 17%; }
+.orilla canvas { position: absolute; inset: 0; width: 100%; height: 100%; will-change: transform; }
+.ola-a { animation: ola-a 10s ease-in-out infinite alternate; }
+.ola-b { opacity: .4; animation: ola-b 14s ease-in-out infinite alternate; }
+[data-sky-dark="1"] .orilla { opacity: .55; }
+@keyframes ola-a { from { transform: translate(-7px, 5px); } to { transform: translate(8px, -5px); } }
+@keyframes ola-b { from { transform: translate(9px, -7px); } to { transform: translate(-8px, 3px); } }
+@media (prefers-reduced-motion: reduce) { .clouds i, .ola-a, .ola-b, .stars i { animation: none; } }
 
 /* ---------- app ---------- */
 #app { position: relative; z-index: 1; max-width: 460px; margin: 0 auto; min-height: 100%;
@@ -103,18 +110,15 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 #gaviotas.fuera { opacity: 0; }
 .gaviota { position: absolute; left: 0; width: var(--w); animation: vuelo var(--dur) linear both; will-change: transform; }
 .gaviota.vuelta { animation-name: vuelo-atras; }
-.gaviota svg { display: block; width: 100%; height: auto; overflow: visible; fill: #fffaf1; stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; animation: ondula var(--ond) ease-in-out infinite alternate; }
-.gaviota.vuelta svg { scale: -1 1; }
-.gaviota .punta { fill: var(--ink); stroke: none; }
-.gaviota .pico { fill: #f2b84b; stroke-width: 1; }
-.gaviota .ala { transform-box: view-box; animation: aleteo var(--ala) ease-in-out infinite; animation-duration: calc(var(--ala) * 5); }
-.gaviota .a { transform-origin: 29px 17px; --s: 1; }
-.gaviota .b { transform-origin: 31px 17px; --s: -1; }
-[data-sky-dark="1"] .gaviota { opacity: .82; }
-@keyframes vuelo { from { transform: translateX(-18vw); } to { transform: translateX(112vw); } }
-@keyframes vuelo-atras { from { transform: translateX(112vw); } to { transform: translateX(-18vw); } }
-@keyframes ondula { from { transform: translateY(-7px) rotate(-1.5deg); } to { transform: translateY(8px) rotate(1.5deg); } }
-@keyframes aleteo { 0%, 20%, 40%, 100% { transform: rotate(calc(var(--s) * -5deg)); } 10%, 30% { transform: rotate(calc(var(--s) * 19deg)); } 70% { transform: rotate(calc(var(--s) * -1deg)); } }
+.gaviota svg { display: block; width: 100%; height: auto; overflow: visible; fill: none; stroke: var(--on-sky); stroke-width: 1.8px; stroke-linecap: round; opacity: .72; animation: ondula var(--ond) ease-in-out infinite alternate; }
+.gaviota path { vector-effect: non-scaling-stroke; }
+.gaviota .ala { transform-box: view-box; transform-origin: 14px 9px; animation: aleteo calc(var(--ala) * 4) ease-in-out infinite; }
+.gaviota .a { --s: 1; }
+.gaviota .b { --s: -1; }
+@keyframes vuelo { from { transform: translateX(-8vw); } to { transform: translateX(106vw); } }
+@keyframes vuelo-atras { from { transform: translateX(106vw); } to { transform: translateX(-8vw); } }
+@keyframes ondula { from { transform: translateY(-5px); } to { transform: translateY(6px); } }
+@keyframes aleteo { 0%, 25%, 50%, 100% { transform: rotate(calc(var(--s) * -14deg)); } 12.5%, 37.5% { transform: rotate(calc(var(--s) * 20deg)); } 75% { transform: rotate(calc(var(--s) * 3deg)); } }
 
 /* ---------- quién sos ---------- */
 .faces { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 10px; }

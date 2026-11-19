@@ -120,7 +120,7 @@
 
   function build() {
     const el = document.getElementById('sky');
-    el.innerHTML = '<div class="sky-grad"></div><div class="stars"></div><div class="sun"></div><div class="clouds"></div><canvas class="rain"></canvas><div class="sea"><i class="foam"></i></div><div class="sand"></div>';
+    el.innerHTML = '<div class="sky-grad"></div><div class="stars"></div><div class="sun"></div><div class="clouds"></div><canvas class="rain"></canvas><div class="sand"></div><div class="sea"></div><div class="orilla"><canvas class="ola-b"></canvas><canvas class="ola-a"></canvas></div>';
     const st = el.querySelector('.stars');
     for (let i = 0; i < 40; i++) {
       const s = document.createElement('i');
@@ -131,6 +131,47 @@
     canvas = el.querySelector('canvas'); ctx = canvas.getContext('2d');
     const size = () => { canvas.width = innerWidth; canvas.height = innerHeight; };
     size(); addEventListener('resize', size);
+    dibujarOrilla();
+    let ancho = innerWidth;
+    addEventListener('resize', () => { if (innerWidth !== ancho) { ancho = innerWidth; dibujarOrilla(); } });
+  }
+
+  // Espuma en semitono: junto a la arena los puntos son grandes y están pegados; mar adentro se achican,
+  // se aclaran y se ralean, y así arman el degradado. Cada capa tiene su propia forma de orilla.
+  function dibujarOrilla() {
+    const box = document.querySelector('#sky .orilla'), W = box.clientWidth, H = box.clientHeight;
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    box.querySelectorAll('canvas').forEach((c, capa) => {
+      c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+      const g = c.getContext('2d'); g.scale(dpr, dpr); g.fillStyle = '#fff';
+      let semilla = 7 + capa * 31;
+      const r = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647; };
+      const fase = capa * 2.1 + 0.7, costa = H * 0.65 - capa * 5;
+      const borde = (x) => costa + 4.5 * Math.sin(x / 67 + fase) + 2.5 * Math.sin(x / 29 + fase * 2) - 6 * Math.abs(Math.sin(x / 38 + fase));
+      const punto = (x, y, rad, al) => { g.globalAlpha = al; g.beginPath(); g.arc(x, y, rad, 0, 6.2832); g.fill(); };
+      // Cuatro olitas: la que rompe y tres que vienen atrás, cortadas en tramos, con aire entre una y otra.
+      [[0, 4, 4.2, 2.1, 0.96, 0.66, 0], [29, 3, 2.15, 1.35, 0.6, 0.42, -0.45], [51, 2, 1.4, 1, 0.4, 0.3, -0.05], [68, 2, 0.95, 0.7, 0.26, 0.18, 0.25]].forEach(([lejos, filas, r0, r1, a0, a1, corte], o) => {
+        const f2 = fase + o * 1.7, largo = 41 + o * 13;
+        for (let i = 0; i < filas; i++) {
+          const t = filas > 1 ? i / (filas - 1) : 0, rad = r0 + (r1 - r0) * t, paso = rad * 2 + 2.1 + o * 0.9;
+          for (let x = (i % 2 ? paso / 2 : 0) - paso; x < W + paso; x += paso) {
+            const tramo = Math.sin(x / largo + f2);
+            if (o && tramo < corte) continue;
+            const puntas = o ? Math.min(1, (tramo - corte) * 3.2) : 1;
+            const y = costa + (borde(x + o * 40) - costa) * (1 - o * 0.16) - lejos - i * (rad * 1.5 + 1.4) + (r() - 0.5) * 0.7;
+            punto(x + (r() - 0.5) * 0.9, y, rad * (0.74 + 0.26 * puntas) * (0.94 + r() * 0.12), (a0 + (a1 - a0) * t) * (0.45 + 0.55 * puntas));
+          }
+        }
+      });
+      // Lo que deja la ola en la arena mojada: puntitos cada vez más sueltos.
+      for (let i = 1; i <= 4; i++) {
+        for (let x = 0; x < W; x += 8 + i * 2) {
+          if (r() < 0.35 + i * 0.13) continue;
+          punto(x + r() * 5, borde(x) + i * 5.5 + r() * 2, 1.5 - i * 0.2, 0.55 - i * 0.09);
+        }
+      }
+      g.globalAlpha = 1;
+    });
   }
 
   function setClouds(n, speed) {

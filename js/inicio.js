@@ -212,21 +212,22 @@ window.INICIO = (function () {
   }
 
   // ---------- gaviotas ----------
-  const DIBUJO = `<svg viewBox="0 0 60 30" aria-hidden="true"><g class="ala a"><path d="M29 16C23 8 14 5 3 9c8 1 15 4 21 10z"/><path class="punta" d="M3 9c3-1.300 6-1.800 9-1.700-1 1.100-1.500 2-1.800 3C8 9.700 5.500 9.200 3 9z"/></g><g class="ala b"><path d="M31 16c6-8 15-11 26-7-8 1-15 4-21 10z"/><path class="punta" d="M57 9c-3-1.300-6-1.800-9-1.700 1 1.100 1.500 2 1.800 3 2.400-.6 4.700-1.100 7.200-1.300z"/></g><path d="M18 19c7-5 17-5 24-2-5 4-16 6-24 2z"/><circle cx="42" cy="16" r="2.900"/><path class="pico" d="M44.600 15.300l4.200 1.200-4.200 1.100z"/></svg>`;
+  // Lejos, una gaviota es apenas una v que aletea.
+  const DIBUJO = '<svg viewBox="0 0 28 14" aria-hidden="true"><path class="ala a" d="M14 9C11 5 7 3 2 4"/><path class="ala b" d="M14 9c3-4 7-6 12-5"/></svg>';
   const quieta = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let turno = null, llamadas = [];
   const cielo = () => document.getElementById('gaviotas');
 
   function soltar(atras) {
     const box = cielo();
-    if (!box || box.children.length > 6) return;
-    const dir = Math.random() < 0.5 ? 1 : -1, tam = azar(0.6, 1.2), dur = azar(36, 50) / Math.sqrt(tam), alto = azar(7, 36);
-    const n = Math.random() < 0.34 ? uno([2, 3]) : 1;
+    if (!box || box.children.length > 9) return;
+    const dir = Math.random() < 0.5 ? 1 : -1, tam = azar(0.6, 1), dur = azar(54, 78) / Math.sqrt(tam), alto = azar(6, 32);
+    const n = uno([1, 2, 3, 3, 4]);
     for (let i = 0; i < n; i++) {
       const el = document.createElement('div');
       el.className = 'gaviota' + (dir < 0 ? ' vuelta' : '');
-      const t = tam * azar(0.88, 1.08);
-      el.style.cssText = `top:${(alto + i * azar(1.2, 3)).toFixed(1)}%;--w:${(58 * t).toFixed(0)}px;--dur:${dur.toFixed(1)}s;--ala:${azar(1.05, 1.5).toFixed(2)}s;--ond:${azar(4.5, 7.5).toFixed(1)}s;animation-delay:${(i * azar(1.6, 3.2) - atras * dur).toFixed(2)}s`;
+      const t = tam * azar(0.86, 1.1);
+      el.style.cssText = `top:${(alto + (i % 2 ? 1 : -0.4) * i * azar(0.5, 1.2)).toFixed(1)}%;--w:${(25 * t).toFixed(0)}px;--dur:${dur.toFixed(1)}s;--ala:${azar(0.75, 1.15).toFixed(2)}s;--ond:${azar(4.5, 7.5).toFixed(1)}s;animation-delay:${(i * azar(1.1, 2.6) - atras * dur).toFixed(2)}s`;
       el.innerHTML = DIBUJO;
       el.addEventListener('animationend', (e) => { if (e.target === el) el.remove(); });
       box.appendChild(el);
@@ -236,7 +237,7 @@ window.INICIO = (function () {
       const f = Math.max(atras + 0.06, azar(0.3, 0.68));
       llamadas.push(setTimeout(() => {
         const c = ctx();
-        if (motor && c) motor.gaviota(c.currentTime + 0.05, dir * (f * 2 - 1) * 0.75, Math.max(0, Math.min(1, 1.2 - tam)));
+        if (motor && c) motor.gaviota(c.currentTime + 0.05, dir * (f * 2 - 1) * 0.75, 1.35 - tam);
       }, (f - atras) * dur * 1000));
     }
   }
