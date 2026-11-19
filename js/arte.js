@@ -286,7 +286,7 @@ window.ARTE = (function () {
     delfin: 80, delfinrosa: 80, sombrero: 64, rabas: 70, papas: 64, neoprene: 100, antorchas: 112 })
     .forEach(([id, m]) => { ITEMS[id] = [m, m, null]; });
   // Con el arte nuevo cambian las proporciones: estos usan otro lado mayor que su dibujo viejo.
-  const LADO = { carpa: 172, sombrilla: 140, tony: 88 };
+  const LADO = { carpa: 172, sombrilla: 140, tony: 88, feluchis: 84 };
 
   // Cartelito con el nombre del altar (no se compra).
   // Arte hecho con IA (img/altar). Si una cosa no lo tiene, se usa su dibujo en SVG.
