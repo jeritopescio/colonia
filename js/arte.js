@@ -281,10 +281,12 @@ window.ARTE = (function () {
   };
 
   // Cosas que solo existen como arte de IA: acá va su lado mayor, en la misma escala que los dibujos.
-  Object.entries({ heineken: 46, marihuana: 112, lobo: 160, estudiantes: 160, reposeraarg: 118, guitarra: 128, buzo: 82, tejos: 84,
-    moto: 176, ps5: 72, fogata: 88, caipirinha: 96, salvavidas: 72, mangrullo: 215, kayak: 186, yate: 172, ballena: 118, sirena: 62,
-    delfin: 84, delfinrosa: 84, sombrero: 70, rabas: 74, papas: 68, neoprene: 112, antorchas: 124 })
+  Object.entries({ heineken: 46, marihuana: 104, lobo: 116, estudiantes: 116, reposeraarg: 100, guitarra: 104, buzo: 78, tejos: 72,
+    moto: 130, ps5: 70, fogata: 84, caipirinha: 86, salvavidas: 66, mangrullo: 172, kayak: 138, yate: 150, ballena: 112, sirena: 70,
+    delfin: 80, delfinrosa: 80, sombrero: 64, rabas: 70, papas: 64, neoprene: 100, antorchas: 112 })
     .forEach(([id, m]) => { ITEMS[id] = [m, m, null]; });
+  // Con el arte nuevo cambian las proporciones: estos usan otro lado mayor que su dibujo viejo.
+  const LADO = { carpa: 172, sombrilla: 140, tony: 88 };
 
   // Cartelito con el nombre del altar (no se compra).
   // Arte hecho con IA (img/altar). Si una cosa no lo tiene, se usa su dibujo en SVG.
@@ -312,7 +314,7 @@ window.ARTE = (function () {
   const size = (id) => {
     const it = ITEMS[id], g = IMG[id];
     if (!g) return { w: it[0], h: it[1] };
-    const e = Math.max(it[0], it[1]) / Math.max(g[0], g[1]);
+    const e = (LADO[id] || Math.max(it[0], it[1])) / Math.max(g[0], g[1]);
     return { w: g[0] * e, h: g[1] * e };
   };
   function item(id, k, cls = '') {

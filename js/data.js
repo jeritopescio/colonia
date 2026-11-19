@@ -113,7 +113,6 @@ window.DATA = (function () {
     { id: 'protector', n: 'Protector', p: 10, lv: 1, col: '#ffe39a', d: 'Factor 50. Se pasa una vez y se recuerda cuando ya es tarde.' },
     { id: 'lentes', n: 'Lentes de sol', p: 12, lv: 1, col: '#f7b3c6', d: 'Para mirar a cualquiera sin que se note. Se nota.' },
     { id: 'heineken', n: 'Lata de Heineken', p: 12, lv: 1, d: 'La lata verde. Transpira más que vos.' },
-    { id: 'balde', n: 'Balde y palita', p: 15, lv: 1, col: '#a9d6f0', d: 'Obras públicas de orilla. El mar las inaugura y las demuele.' },
     { id: 'sandia', n: 'Sandía', p: 12, lv: 1, d: 'Se come con las manos y termina en el codo.' },
     { id: 'librito', n: 'Librito', p: 15, lv: 1, col: '#b6e5cd', d: 'Viajó a todas las playas. Sigue en la página doce.' },
     { id: 'futbol', n: 'Pelota de fútbol', p: 15, lv: 1, d: 'Dos ojotas hacen un arco. El que la patea al mar la va a buscar.' },
@@ -162,10 +161,10 @@ window.DATA = (function () {
   ];
   // Cosas de la tienda vieja: se muestran como lo más parecido de la nueva (nadie pierde lo que compró).
   const ALIAS = { cangrejo: 'estrella', osito: 'liebre', helado: 'sandia', pulpo: 'caracoles', choripan: 'heladerita',
-    gatito: 'tony', salchicha: 'tulio', champa: 'vino' };
+    gatito: 'tony', salchicha: 'tulio', champa: 'vino', balde: 'heineken' };
   const COLORS = ['#f6a38f', '#f7b3c6', '#ffe39a', '#b6e5cd', '#a9d6f0', '#cfc0f0', '#7fb8e6', '#e8735a', '#fffaf1', '#5b4d72'];
 
-  const CARTAS_V = 1; // subir cuando cambien las tarjetas del bucket (cartas/)
+  const CARTAS_V = 2; // subir cuando cambien las tarjetas del bucket (cartas/)
 
   // La foto del 8/12: dos autos, la tabla, Tulio y la colonia entera. Se arma con la XP de todos (la meta es secreta)
   // y cada persona aparece cuando llega al nivel 2. El 8/12 aparecen todos igual.

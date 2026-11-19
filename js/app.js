@@ -50,7 +50,7 @@
   const ZONAS = { arena: [SAND_TOP, SAND_BOT], fondo: [SAND_TOP, SAND_TOP + 0.09], mar: [MAR_TOP, MAR_BOT] };
   const RANGO = { mar: 0, fondo: 1, arena: 2 };
   const ESCALA = 1.3, HOLD = 260, SLOP = 9, ZMAX = 3; // tamaño general, ms para agarrar, px de tolerancia, zoom máximo
-  const REFUGIO = { sombrilla: { x: 0.3, y: 0.6 }, carpa: { x: 0.5, y: 0.585 } };
+  const REFUGIO = { sombrilla: { x: 0.26, y: 0.6 }, carpa: { x: 0.27, y: 0.6 } };
   const shopItem = (id) => D.SHOP.find((x) => x.id === id) || D.SHOP.find((x) => x.id === D.ALIAS[id]);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const zonaDe = (id) => (shopItem(id) || {}).z || 'arena';
@@ -632,11 +632,12 @@
     const hab = (c.hab || []).map(([k, n]) => `<div class="hab${n > 10 ? ' over' : ''}"><span>${esc(k)}</span><span class="nivel"><i style="width:${Math.min(n, 10) * 10}%"></i></span><b>${n}</b></div>`).join('');
     sheet(`<div class="carta${c.foil ? ' foil' : ''}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}">
       <div class="carta-foto"><img src="${S.artUrl(`cartas/${pid}.webp?v=${D.CARTAS_V}`)}" alt="${esc(p.n)}"></div>
-      <div class="carta-id"><h2>${esc(p.n)}</h2>${c.t ? `<p>${esc(c.t)}</p>` : ''}
+      <div class="carta-id"><h2>${esc(p.n)}</h2>${c.apodo ? `<p class="carta-apodo">${esc(c.apodo)}</p>` : ''}${c.t ? `<p>${esc(c.t)}</p>` : ''}
         <div class="row">${c.s ? `<span class="chip" style="--c:var(--el)">${SIGNO[c.s] || ''}&#xFE0E; ${esc(c.s)}</span>` : ''}<span class="chip">${esc(L.n)} · nivel ${L.i + 1}</span></div></div>
       ${c.bio ? `<p class="carta-bio">${esc(c.bio)}</p>` : ''}
       ${hab ? `<div class="carta-sec"><div class="eyebrow">Habilidades</div>${hab}</div>` : ''}
       ${c.poder ? `<div class="carta-sec"><div class="eyebrow">Poder</div><p>${esc(c.poder)}</p></div>` : ''}
+      ${c.deb ? `<div class="carta-sec"><div class="eyebrow">Debilidad</div><p>${esc(c.deb)}</p></div>` : ''}
       ${c.dato ? `<p class="carta-dato">${esc(c.dato)}</p>` : ''}
       <button class="btn" data-close>Listo</button></div>`,
     (bg) => { const im = bg.querySelector('.carta-foto img'); im.addEventListener('error', () => { im.src = face(pid); }, { once: true }); });
