@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {},
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [],
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -58,6 +58,7 @@ window.STORE = (function () {
         s.xp = mine.xp; s.coins = mine.monedas;
         const d = mine.datos;
         s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null; s.bocinas = d.bocinas || {};
+        s.regalosVistos = [...new Set([...(d.regalosVistos || []), ...s.regalosVistos])];
       }
     }
     if (s.me) s.cache.figs.filter((x) => x.jugador === s.me).forEach((x) => { if (!String(s.photos[x.mision] || '').startsWith('data:')) s.photos[x.mision] = pub(x.foto); });
@@ -72,6 +73,7 @@ window.STORE = (function () {
         save(); emit();
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'regalos' }, (p) => {
+        if (s.cache.regalos.some((r) => r.id === p.new.id)) return; // ya lo agregó quien lo regaló
         s.cache.regalos.push(p.new); save(); emit();
         if (p.new.para === s.me) listeners.forEach((f) => f({ gift: p.new }));
       })
@@ -83,7 +85,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas };
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200) };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
     }, 400);
@@ -141,7 +143,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save();
     },
@@ -163,6 +165,16 @@ window.STORE = (function () {
     gifts() {
       if (live) return s.cache.regalos.filter((r) => r.para === s.me).map((r) => ({ id: r.id, from: r.de, item: r.item }));
       return s.me && s.me !== 'nico' ? [{ id: 'demo1', from: 'nico', item: 'birra' }] : [];
+    },
+    // Regalos que todavía no viste (el aviso sale una sola vez, también si entrás desde otro celu).
+    regalosNuevos() { return api.gifts().filter((g) => !s.regalosVistos.includes(g.id)); },
+    verRegalos(ids) { s.regalosVistos = [...new Set([...s.regalosVistos, ...ids])]; save(); pushMe(); },
+    // Monedas de regalo puntuales (D.BONOS): se dan una sola vez a quien corresponde.
+    bonos() {
+      const got = (D.BONOS || []).filter((b) => b.para === s.me && !s.ach['bono:' + b.id]);
+      got.forEach((b) => { s.coins += b.c; s.ach['bono:' + b.id] = 1; });
+      if (got.length) { save(); pushMe(); }
+      return got;
     },
 
     // ---------- altarcito playero ----------
@@ -244,7 +256,18 @@ window.STORE = (function () {
       s.coins -= item.p;
       if (to && to !== s.me) {
         if (!s.ach.regalo) { s.ach.regalo = 1; s.coins += D.ACH.regalo.c; }
-        if (client) client.from('regalos').insert({ de: s.me, para: to, item: item.id }).then(({ error }) => { if (error) console.warn(error); });
+        // Se agrega enseguida a lo guardado, así aparece en su altarcito sin esperar.
+        api.regaloEnCamino = client
+          ? client.from('regalos').insert({ de: s.me, para: to, item: item.id })
+            .then(({ error }) => {
+              if (error) { console.warn(error); return null; }
+              return client.from('regalos').select('id,de,para,item,creado').eq('de', s.me).eq('para', to).order('creado', { ascending: false }).limit(1);
+            })
+            .then((res) => {
+              const data = res && res.data && res.data[0];
+              if (data && !s.cache.regalos.some((r) => r.id === data.id)) { s.cache.regalos.push(data); save(); emit(); }
+            }).catch((e) => console.warn(e))
+          : Promise.resolve();
         save(); pushMe();
         return true;
       }

@@ -180,6 +180,9 @@ window.DATA = (function () {
     ],
   };
 
+  // Monedas de regalo puntuales: se dan una sola vez, al entrar.
+  const BONOS = [{ id: 'regalitos-jero', para: 'jero', c: 300, t: 'Para estrenar los regalitos' }];
+
   // Logros automáticos: se ganan solos, sin foto.
   const ACH = {
     'entrada': { t: 'Entraste hoy', c: 5 },
@@ -320,5 +323,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, BONOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();
