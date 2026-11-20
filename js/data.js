@@ -78,6 +78,12 @@ window.DATA = (function () {
     '2026-12-07': 'Tu atardecer, a la misma hora que el de la costa',
     '2026-12-08': 'Una selfie saludando a la colonia que vuelve',
   };
+  // Entre capítulos (después de que cierra uno y hasta que arranca el que sigue): misión del día liviana, mirando para atrás y para adelante.
+  const DAILY_ENTRE = [
+    'Una foto de la colonia que nunca mostraste', 'Algo que querés llevar al próximo viaje', 'Tu verano de hoy',
+    'Un lugar al que irías con la colonia', 'Algo que te haga acordar a Costa Esmeralda', 'El cielo de hoy, estés donde estés',
+    'Lo que estás escuchando', 'Un rincón lindo de tu casa', 'Algo rico para la próxima juntada', 'Tus ojotas',
+  ];
   // Alguna persona con su propia misión del día (Jose sale recién el sábado).
   const DAILY_PROPIA = { jose: { '2026-12-04': 'Un cartelito de "¡Ya voy!" para la colonia' } };
 
@@ -180,8 +186,18 @@ window.DATA = (function () {
     ],
   };
 
-  // Monedas de regalo puntuales: se dan una sola vez, al entrar.
-  const BONOS = [{ id: 'regalitos-jero', para: 'jero', c: 300, t: 'Para estrenar los regalitos' }];
+  // Capítulos: la colonia se cuenta por temporadas. Cuando una cierra no se borra nada (álbum, altarcitos, la foto, monedas)
+  // y la app sigue abierta "entre capítulos", con misión del día e ideas para el que viene.
+  // El que viene se anuncia sin publicar la app, en agenda.json del bucket: "proximo": { "n": 2, "t": "Colonia de invierno", "d": "2027-07-10" }.
+  const CAPITULOS = [
+    { n: 1, t: 'Costa Esmeralda', temporada: '26/27', desde: '2026-11-17', hasta: '2027-01-10' },
+  ];
+
+  // Monedas de regalo puntuales: se dan una sola vez, al entrar. para '*' = a todos; desde = recién a partir de ese día.
+  const BONOS = [
+    { id: 'regalitos-jero', para: 'jero', c: 300, t: 'Para estrenar los regalitos' },
+    { id: 'capitulo-2', para: '*', desde: '2027-01-11', c: 100, t: 'Para arrancar el capítulo 2' },
+  ];
 
   // Logros automáticos: se ganan solos, sin foto.
   const ACH = {
@@ -323,5 +339,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, BONOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, BONOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

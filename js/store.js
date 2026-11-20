@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [],
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [],
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -29,6 +29,10 @@ window.STORE = (function () {
     DEMO[p.id] = { xp: done.length * 20 + Math.round(r() * 25), done };
     if (!p.trip) DEMO[p.id].bocinas = Object.fromEntries(D.RUTA.vehiculos.map((v) => [v.id, Math.floor(r() * 3)]));
   });
+  // Ideas de ejemplo para el capítulo que viene (solo en el modo demo).
+  [['rochi', 'Un finde largo en las sierras, con pileta'], ['nico', 'Repetir la costa, pero una semana entera'], ['juli', 'Una colonia de invierno con guiso y juegos de mesa']]
+    .forEach(([id, t], i) => { DEMO[id].idea = { t, en: `2027-01-1${i + 1}T12:00:00Z` }; });
+  DEMO.pachi.sumo = ['rochi']; DEMO.juani.sumo = ['rochi', 'juli']; DEMO.rich.sumo = ['nico'];
 
   const levelOf = (xp) => { let i = 0; D.LEVELS.forEach((l, j) => { if (xp >= l.xp) i = j; }); return i; };
 
@@ -58,6 +62,7 @@ window.STORE = (function () {
         s.xp = mine.xp; s.coins = mine.monedas;
         const d = mine.datos;
         s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null; s.bocinas = d.bocinas || {};
+        s.idea = d.idea || null; s.sumo = d.sumo || [];
         s.regalosVistos = [...new Set([...(d.regalosVistos || []), ...s.regalosVistos])];
       }
     }
@@ -85,7 +90,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200) };
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
     }, 400);
@@ -143,7 +148,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save();
     },
@@ -171,7 +176,8 @@ window.STORE = (function () {
     verRegalos(ids) { s.regalosVistos = [...new Set([...s.regalosVistos, ...ids])]; save(); pushMe(); },
     // Monedas de regalo puntuales (D.BONOS): se dan una sola vez a quien corresponde.
     bonos() {
-      const got = (D.BONOS || []).filter((b) => b.para === s.me && !s.ach['bono:' + b.id]);
+      const hoy = window.SKY.arDate();
+      const got = (D.BONOS || []).filter((b) => (b.para === s.me || b.para === '*') && (!b.desde || hoy >= b.desde) && !s.ach['bono:' + b.id]);
       got.forEach((b) => { s.coins += b.c; s.ach['bono:' + b.id] = 1; });
       if (got.length) { save(); pushMe(); }
       return got;
@@ -226,6 +232,33 @@ window.STORE = (function () {
         if (n) por[p.id] = n;
       });
       return { total: Object.values(por).reduce((a, b) => a + b, 0), por };
+    },
+    // Cosas que se ven una sola vez por persona (también desde otro celu): se anotan en ach.
+    visto(k) { return !!s.ach[k]; },
+    marcar(k) { s.ach[k] = 1; save(); pushMe(); },
+
+    // Ideas para el capítulo que viene: cada persona deja una (datos.idea) y toca ♡ en las de otros (datos.sumo = de quiénes).
+    setIdea(t) { t = String(t || '').trim().slice(0, 120); s.idea = t ? { t, en: new Date().toISOString() } : null; save(); pushMe(); },
+    sumarme(pid) { s.sumo = s.sumo.includes(pid) ? s.sumo.filter((x) => x !== pid) : s.sumo.concat(pid); save(); pushMe(); },
+    ideas() {
+      const de = (pid) => (pid === s.me ? s : live ? ((s.cache.players[pid] || {}).datos || {}) : DEMO[pid]);
+      return D.PEOPLE.map((p) => ({ pid: p.id, ...(de(p.id).idea || {}) })).filter((i) => i.t)
+        .map((i) => Object.assign(i, { sumos: D.PEOPLE.filter((p) => p.id !== i.pid && (de(p.id).sumo || []).includes(i.pid)).map((p) => p.id) }))
+        .sort((a, b) => String(a.en).localeCompare(String(b.en)));
+    },
+
+    // Para cerrar un capítulo: lo que juntó la colonia hasta "hasta" (inclusive).
+    resumen(hasta) {
+      const antes = (t) => !t || String(t).slice(0, 10) <= hasta;
+      let fotos;
+      if (live) {
+        const set = new Set(s.cache.figs.filter((x) => antes(x.creada)).map((x) => x.jugador + '/' + x.mision));
+        Object.entries(s.photos).forEach(([m, u]) => { if (String(u).startsWith('data:')) set.add(s.me + '/' + m); });
+        fotos = set.size;
+      } else fotos = D.PEOPLE.reduce((n, p) => n + api.figuritas(p.id), 0);
+      const regalos = live ? s.cache.regalos.filter((r) => antes(r.creado)).length : api.gifts().length;
+      const bocinas = D.RUTA.vehiculos.reduce((n, v) => n + api.bocinas(v.id).total, 0);
+      return { fotos, regalos, bocinas };
     },
     figuritas(id) {
       if (id === s.me) return Object.keys(s.photos).length;

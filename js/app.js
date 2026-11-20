@@ -326,11 +326,13 @@
     bg.querySelector('#regalarle').addEventListener('click', () => { bg.remove(); regalarA = pid; go('kiosco'); });
   }
   // ---------- helpers de juego ----------
+  // La rotativa del día: durante el capítulo 1, DAILY_POOL; cuando cierra, la de entre capítulos.
+  const delPool = (d) => { const p = d > D.CAPITULOS[0].hasta ? D.DAILY_ENTRE : D.DAILY_POOL; return p[hash(d) % p.length]; };
   function daily() {
     const d = SKY.arDate(), yo = person(S.me);
     // Durante el viaje: la del viaje; quienes juegan a distancia y alguna persona puntual tienen la suya.
     const trip = (D.DAILY_PROPIA[S.me] || {})[d] || (yo && !yo.trip ? D.DAILY_LEJOS[d] : null) || D.DAILY_TRIP[d];
-    return { id: 'dia-' + d, s: 'dia', t: trip || D.DAILY_POOL[hash(d) % D.DAILY_POOL.length], xp: trip ? 40 : 20 };
+    return { id: 'dia-' + d, s: 'dia', t: trip || delPool(d), xp: trip ? 40 : 20 };
   }
   // Misiones secretas: dos por día y por persona, cada una en su propio orden, sin repetir hasta agotar la lista.
   function barajar(n, semilla) {
@@ -375,7 +377,7 @@
   function misionDe(mid) {
     if (!mid.startsWith('dia-')) return (D.MISSIONS.find((m) => m.id === mid) || { t: 'Una misión' }).t;
     const d = mid.slice(4);
-    return D.DAILY_TRIP[d] || D.DAILY_POOL[hash(d) % D.DAILY_POOL.length];
+    return D.DAILY_TRIP[d] || delPool(d);
   }
   function countdown() {
     const today = SKY.arDate();
@@ -383,7 +385,11 @@
     if (days > 0) return { big: days, small: days === 1 ? 'día para la costa' : 'días para la costa' };
     if (days === 0 && !enCosta()) return { big: 'Hoy', small: 'salimos a la costa' };
     if (today <= SKY.TRIP.to) return { big: 'Día ' + (1 - days), small: 'de colonia en Costa Esmeralda' };
-    return { big: '♡', small: 'la colonia ya volvió' };
+    if (!entreCapitulos()) return { big: '♡', small: 'la colonia ya volvió' };
+    const px = proximo(), faltan = px && Math.round((Date.parse(px.d) - Date.parse(today)) / 864e5);
+    if (faltan > 0) return { big: faltan, small: `${faltan === 1 ? 'día' : 'días'} para el capítulo ${px.n}` };
+    if (faltan === 0) return { big: 'Hoy', small: `arranca el capítulo ${px.n}` };
+    return { big: '♡', small: 'la colonia sigue' };
   }
   function weatherLine(st) {
     const w = st.weather;
@@ -532,6 +538,80 @@
     const n = Math.max(3, prox.filter((e) => e.d === hoy).length);
     return `<a href="#calendario" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">Lo que viene</div><span class="small muted">ver el calendario</span></div>
       <ul class="evs">${prox.slice(0, n).map((e) => evRow(e, cuando(e.d))).join('')}</ul></a>`;
+  }
+
+  // ---------- capítulos ----------
+  // Cuando cierra un capítulo no se borra nada: la app queda "entre capítulos", con su misión del día y un tablero de ideas para el que viene.
+  const capHoy = () => D.CAPITULOS.find((c) => SKY.arDate() >= c.desde && SKY.arDate() <= c.hasta);
+  const capCerrado = () => [...D.CAPITULOS].reverse().find((c) => SKY.arDate() > c.hasta);
+  const entreCapitulos = () => !capHoy() && !!capCerrado();
+  // El que viene se anuncia en agenda.json (bucket): "proximo": { "n": 2, "t": "…", "d": "2027-07-10" }.
+  const proximo = () => (AGENDA && AGENDA.proximo && AGENDA.proximo.d ? AGENDA.proximo : null);
+  const siguiente = () => (proximo() ? proximo().n : capCerrado().n + 1);
+  let verTodas = false; // si abriste "Ver las otras", queda abierto aunque se vuelva a dibujar
+  addEventListener('toggle', (e) => { if (e.target.classList && e.target.classList.contains('mas-ideas')) verTodas = e.target.open; }, true);
+  function ideasCard() {
+    const px = proximo(), ideas = S.ideas(), mia = ideas.find((i) => i.pid === S.me), c = countdown();
+    const chip = !px ? 'se escribe entre todos' : typeof c.big === 'number' ? `${c.big} ${c.big === 1 ? 'día' : 'días'}` : c.big === 'Hoy' ? '¡arranca hoy!' : 'en marcha';
+    const caras = (ids) => `<span class="mini-caras">${ids.map((id) => `<img class="face" src="${face(id)}" alt="">`).join('')}</span>`;
+    const nota = (i) => {
+      const yo = i.pid === S.me, on = i.sumos.includes(S.me);
+      const pie = yo ? (i.sumos.length ? `<span class="sumo-pie small">${caras(i.sumos)} se suman</span>` : '<span class="sumo-pie small muted">la tuya</span>')
+        : `<button class="sumo${on ? ' on' : ''}" data-sumo="${i.pid}" aria-pressed="${on}" data-mudo><span aria-hidden="true">${on ? '♥' : '♡'}</span> ${i.sumos.length ? caras(i.sumos) : 'me sumo'}</button>`;
+      return `<li class="idea${yo ? ' mia' : ''}"><img class="face" src="${face(i.pid)}" alt=""><p><b>${esc(person(i.pid).n)}:</b> ${esc(i.t)}</p>${pie}</li>`;
+    };
+    return `<div class="card capitulo"><div class="spread"><div class="eyebrow">Capítulo ${siguiente()}${px && px.t ? ' · ' + esc(px.t) : ''}</div>
+        <span class="chip" style="--c:var(--mint)">${chip}</span></div>
+      <p class="small muted" style="margin:0">El capítulo ${capCerrado().n} terminó, la colonia no. ¿Qué hacemos en el que viene? Dejá tu idea y tocá ♡ en las que te copan.</p>
+      ${ideas.length ? `<ul class="ideas">${ideas.slice(0, 4).map(nota).join('')}</ul>` : '<p class="small" style="margin:0">Todavía no hay ninguna. ¿Arrancás vos?</p>'}
+      ${ideas.length > 4 ? `<details class="mas-ideas"${verTodas ? ' open' : ''}><summary class="small">Ver las otras ${ideas.length - 4}</summary><ul class="ideas">${ideas.slice(4).map(nota).join('')}</ul></details>` : ''}
+      <div class="row" style="justify-content:center"><button class="btn ghost" data-resumen>Releer el capítulo ${capCerrado().n}</button><button class="btn" data-idea style="--c:var(--rose)">${mia ? 'Cambiar mi idea' : 'Dejar una idea'}</button></div></div>`;
+  }
+  function dejarIdea() {
+    const mia = S.ideas().find((i) => i.pid === S.me);
+    sheet(`<div style="display:grid;gap:12px">
+      <h2>Tu idea para el capítulo ${siguiente()}</h2>
+      <p class="small muted" style="margin:0">Un lugar, un plan, una fecha, algo que no puede faltar. La ve toda la colonia.</p>
+      <textarea id="ideaT" class="campo" maxlength="120" rows="3" placeholder="Escribila acá">${mia ? esc(mia.t) : ''}</textarea>
+      <div class="row" style="justify-content:center">${mia ? '<button class="btn ghost" id="ideaBorrar">Borrarla</button>' : '<button class="btn ghost" data-close>Cancelar</button>'}
+        <button class="btn" id="ideaOk" style="--c:var(--mint)">Guardar</button></div></div>`,
+    (bg) => {
+      const t = bg.querySelector('#ideaT');
+      setTimeout(() => t.focus(), 60);
+      bg.querySelector('#ideaOk').addEventListener('click', () => {
+        if (!t.value.trim()) return t.focus();
+        S.setIdea(t.value); bg.remove(); render(); SONIDO.plop();
+      });
+      const borrar = bg.querySelector('#ideaBorrar');
+      if (borrar) borrar.addEventListener('click', () => { S.setIdea(''); bg.remove(); render(); });
+    });
+  }
+  // Una vez por persona, al entrar después de que cerró el capítulo (o cuando alguien lo quiere releer).
+  function finDeCapitulo(releer) {
+    const cap = capCerrado();
+    if (!releer) {
+      const r = location.hash.slice(1);
+      if (!S.me || !cap || !entreCapitulos() || S.visto('capitulo:' + cap.n) || !r || r === 'portada' || r === 'quien' || document.hidden || document.querySelector('.sheet-bg')) return false;
+      S.marcar('capitulo:' + cap.n);
+    }
+    const R0 = S.resumen(cap.hasta), L = level(S.xp);
+    const estrellas = eventos().filter((e) => ['plan', 'gig', 'bday', 'trip'].includes(e.k) && e.d >= cap.desde && e.d <= cap.hasta).length;
+    const datos = [[R0.fotos, 'fotos de la colonia'], [estrellas, 'estrellas en el calendario'], [R0.regalos, R0.regalos === 1 ? 'regalo' : 'regalos'], [R0.bocinas, 'bocinazos en la ruta']]
+      .filter(([n]) => n > 0).map(([n, t]) => `<div class="dato"><b>${n}</b><span class="small">${t}</span></div>`).join('');
+    sheet(`<div class="fin-capitulo">
+      <div class="eyebrow">Temporada ${esc(cap.temporada)}</div>
+      <h2>Fin del capítulo ${cap.n}</h2>
+      <p class="lema">No se terminó la colonia: se dio vuelta la página.</p>
+      ${datos ? `<div class="datos">${datos}</div>` : ''}
+      <p class="small muted" style="margin:0">Vos: ${S.figuritas(S.me) ? `${S.figuritas(S.me)} ${S.figuritas(S.me) === 1 ? 'figurita' : 'figuritas'}, ` : ''}nivel ${esc(L.n)}.</p>
+      <p style="margin:0">Todo lo que juntaron queda acá: el álbum, los altarcitos, la foto del 8/12 y las monedas. La app sigue abierta, con su misión del día, y el capítulo ${cap.n + 1} lo escribimos entre todos.</p>
+      <div class="row" style="justify-content:center"><button class="btn ghost" id="fcFoto">Ver la foto del 8/12</button><button class="btn" id="fcIdea" style="--c:var(--rose)">${releer ? 'Listo' : 'Dejar una idea'}</button></div></div>`,
+    (bg) => {
+      bg.querySelector('#fcFoto').addEventListener('click', () => { bg.remove(); go('foto'); });
+      bg.querySelector('#fcIdea').addEventListener('click', () => { bg.remove(); if (!releer) dejarIdea(); });
+    });
+    if (!releer) { SONIDO.plop(); setTimeout(SONIDO.plop, 160); }
+    return true;
   }
 
   // ---------- la ruta (viernes 4 y sábado 5) ----------
@@ -683,12 +763,15 @@
 
   const SCREENS = {
     portada() {
-      const st = SKY.state(), c = countdown();
+      const st = SKY.state(), c = countdown(), cap = capHoy(), px = proximo();
+      // Durante un capítulo, cuál es; entre capítulos, el que viene.
+      const arriba = cap ? `capítulo ${cap.n} · temporada ${cap.temporada}` : entreCapitulos() ? 'entre capítulos' : 'temporada 26/27';
+      const sub = cap || !entreCapitulos() ? 'Costa Esmeralda · 4 al 8 de diciembre' : `Capítulo ${siguiente()} · ${px && px.t ? px.t : 'se escribe entre todos'}`;
       screen.innerHTML = `<section class="cover">
         <button class="sonido" id="sonido" data-mudo aria-label="Música del inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6.500" cy="18" r="2.500"/><circle cx="16.500" cy="16" r="2.500"/><path class="tacha" d="M3 3l18 18"/></svg></button>
-        <div class="eyebrow on-sky-soft">temporada 26/27</div>
+        <div class="eyebrow on-sky-soft">${esc(arriba)}</div>
         <h1>Colonia</h1>
-        <div class="sub">Costa Esmeralda · 4 al 8 de diciembre</div>
+        <div class="sub">${esc(sub)}</div>
         <button class="umbrella" id="enter" aria-label="Entrar">
           <svg viewBox="0 0 170 150" width="168" height="150"><g filter="url(#crayon)" stroke="#43365a" stroke-width="3" stroke-linejoin="round">
             <path d="M85 40V140" fill="none"/><path d="M85 140q0 8 -9 8" fill="none"/>
@@ -733,6 +816,7 @@
       const enLaCasa = !rutaVisible() && SKY.arDate() > R.ultimoDia && SKY.arDate() <= SKY.TRIP.to;
       screen.innerHTML = `${top()}
         ${laRuta()}
+        ${entreCapitulos() ? ideasCard() : ''}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
           <div class="list">${mRow(d, 'Subí la foto y queda hecha')}</div></div>
         ${loQueViene()}
@@ -764,6 +848,8 @@
       screen.innerHTML = `${titulo}
         <div class="card"><div class="spread"><div class="eyebrow">Temporada 26/27</div><span class="chip" style="--c:var(--mint)">${c.big} ${esc(c.small)}</span></div>
           <p class="small muted" style="margin:0">Del ${dd}/${md} al ${dh}/${mh}. Cada estrella es una juntada, un show o un cumple: se pinta cuando ya pasó.</p>
+          <p class="small" style="margin:0">${entreCapitulos() ? 'El capítulo 1 ya cerró, la colonia no: todo lo que juntaron sigue acá y el que viene se escribe entre todos.'
+            : 'El 10/1 cierra el capítulo 1, no la app: lo que junten queda guardado y en 2027 la colonia sigue con el capítulo 2.'}</p>
           <div class="estrellas" role="img" aria-label="${pasaron} de ${estrellas.length}">${estrellas.map((e) => estrella(e.d < hoy)).join('')}</div></div>
         ${meses.map(([y, m]) => mesHTML(y, m, evs.filter((e) => e.d.startsWith(`${y}-${dos(m)}`)))).join('')}
         <div class="card"><div class="leyenda small">${Object.values(TIPO).map(([col, n]) => `<span style="--c:${col}">${n}</span>`).join('')}<span class="feriado">feriado</span></div></div>`;
@@ -992,6 +1078,9 @@
     else if (e.target.closest('[data-monedas]')) infoMonedas();
     else if (e.target.closest('[data-bocina]')) tocarBocina(e.target.closest('[data-bocina]'));
     else if (e.target.closest('[data-juego]')) juego();
+    else if (e.target.closest('[data-idea]')) dejarIdea();
+    else if (e.target.closest('[data-resumen]')) finDeCapitulo(true);
+    else if (e.target.closest('[data-sumo]')) { S.sumarme(e.target.closest('[data-sumo]').dataset.sumo); SONIDO.plop(); render(); }
   });
 
   // ---------- sonido de cada botón ----------
@@ -1050,7 +1139,7 @@
     const cur = r === 'kiosco' ? 'altar' : r === 'calendario' ? 'hoy' : r;
     tabs.innerHTML = TABS.map(([k, l]) => `<a href="#${k}" class="${k === cur ? 'on' : ''}" ${k === cur ? 'aria-current="page"' : ''}>${IC[k]}<span>${l}</span></a>`).join('');
     const dev = $('#devbtn'); if (dev) dev.hidden = r === 'portada';
-    if (r !== 'portada' && r !== 'quien') setTimeout(mostrarRegalos, 700);
+    if (r !== 'portada' && r !== 'quien') setTimeout(() => finDeCapitulo() || mostrarRegalos(), 700);
   }
   addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
   SKY.onChange(() => { const r = location.hash.slice(1); if (r === 'portada' || r === '' || r === 'hoy' || r === 'calendario') { const w = document.querySelectorAll('.weather'); w.forEach((el) => (el.textContent = weatherLine(SKY.state()))); } });
