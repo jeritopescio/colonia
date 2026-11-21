@@ -310,6 +310,14 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 .para-quien { grid-template-columns: auto 1fr; align-items: center; }
 .para-quien .face { width: 52px; height: 52px; }
 
+/* ---------- quién está en la colonia ---------- */
+#enLinea:empty { display: none; }
+.en-linea { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 14px; background: var(--card); border: 2.5px solid var(--ink); border-radius: 99px; justify-self: start; max-width: 100%; }
+.en-linea .caras { display: flex; flex-wrap: wrap; gap: 2px; }
+.cara-linea { position: relative; padding: 0; border: 0; background: none; cursor: pointer; width: 38px; height: 38px; }
+.cara-linea .face { width: 100%; height: 100%; border-width: 2px; }
+.cara-linea i { position: absolute; right: 0; bottom: 0; width: 11px; height: 11px; border-radius: 50%; background: #7fd6a4; border: 2px solid var(--ink); }
+
 /* ---------- hallazgos: botella y galleta ---------- */
 .altar .hallazgo { cursor: pointer; outline-offset: 4px; }
 .altar .hallazgo.galleta .art { transform: rotate(-8deg); }

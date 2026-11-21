@@ -85,6 +85,35 @@ window.STORE = (function () {
       .subscribe();
   }
 
+  // ---------- quién está en la colonia ----------
+  // Presencia en vivo de Supabase: no se guarda nada. Cada celu avisa que está mientras tiene la app a la vista.
+  const enLinea = new Set();
+  let presencia = null, listo = false, listoT;
+  function conectarPresencia() {
+    if (!client || !s.me || presencia) return;
+    presencia = client.channel('presencia', { config: { presence: { key: s.me } } });
+    presencia
+      .on('presence', { event: 'sync' }, () => {
+        enLinea.clear();
+        Object.entries(presencia.presenceState()).forEach(([id, ps]) => { if (id !== s.me && ps.length) enLinea.add(id); });
+        listeners.forEach((f) => f({ presencia: true }));
+      })
+      // Solo avisa de quien llega después: los que ya estaban llegan juntos en los primeros segundos.
+      .on('presence', { event: 'join' }, ({ key, currentPresences }) => {
+        if (!listo || key === s.me || (currentPresences && currentPresences.length)) return;
+        listeners.forEach((f) => f({ llego: key }));
+      })
+      .subscribe((st) => {
+        if (st !== 'SUBSCRIBED') return;
+        listo = false; clearTimeout(listoT); listoT = setTimeout(() => { listo = true; }, 4000);
+        if (!document.hidden) presencia.track({ desde: Date.now() });
+      });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!presencia) return;
+    if (document.hidden) presencia.untrack(); else presencia.track({ desde: Date.now() });
+  });
+
   let pushT;
   function pushMe() {
     if (!client || !s.me) return;
@@ -120,7 +149,11 @@ window.STORE = (function () {
   }
 
   const ready = (async () => {
-    if (!live) return;
+    if (!live) {
+      setTimeout(() => { enLinea.add('nico'); listeners.forEach((f) => f({ presencia: true })); }, 2500);
+      setTimeout(() => { enLinea.add('rochi'); listeners.forEach((f) => f({ presencia: true })); listeners.forEach((f) => f({ llego: 'rochi' })); }, 6000);
+      return;
+    }
     try {
       await Promise.race([
         (async () => {
@@ -128,6 +161,7 @@ window.STORE = (function () {
           client = window.supabase.createClient(C.supabaseUrl, C.supabaseAnonKey, { auth: { persistSession: false } });
           await pull();
           subscribe();
+          conectarPresencia();
         })(),
         new Promise((_, no) => setTimeout(() => no(new Error('tarda mucho')), 9000)),
       ]);
@@ -150,8 +184,10 @@ window.STORE = (function () {
       const row = s.cache.players[id];
       if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
-      save();
+      save(); conectarPresencia();
     },
+    // Quiénes tienen la app abierta ahora (sin contarte a vos).
+    conectados() { return [...enLinea]; },
     usedElsewhere(id) { const r = s.cache.players[id]; return !!(live && r && r.datos && r.datos.v); },
     forget() { const c = s.cache; s = blank(); s.cache = c; save(); },
     get xp() { return s.xp; },

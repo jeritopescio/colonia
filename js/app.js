@@ -909,6 +909,7 @@
       const atras = secretasHasta().filter((m) => m.dia !== SKY.arDate() && !S.photo(m.id)).length;
       const enLaCasa = !rutaVisible() && SKY.arDate() > R.ultimoDia && SKY.arDate() <= SKY.TRIP.to;
       screen.innerHTML = `${top()}
+        ${enLineaHTML()}
         ${laRuta()}
         ${entreCapitulos() ? ideasCard() : ''}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
@@ -1268,8 +1269,28 @@
     });
   }
 
+  // ---------- quién está en la colonia ----------
+  // Cuando alguien abre la app mientras vos la tenés abierta: un cartelito con su cara (una vez cada 3 h por persona).
+  function avisarLlegada(pid) {
+    if (!S.me || !person(pid) || document.hidden) return;
+    let av = {};
+    try { av = JSON.parse(localStorage.getItem('colonia.avisados')) || {}; } catch (e) { /* sin copia */ }
+    if (Date.now() - (av[pid] || 0) < 3 * 36e5) return;
+    av[pid] = Date.now();
+    try { localStorage.setItem('colonia.avisados', JSON.stringify(av)); } catch (e) { /* sin lugar */ }
+    toast(`<img class="face" src="${face(pid)}" alt="" style="width:40px;height:40px"><span><b>${esc(person(pid).n)}</b> está en la colonia</span>`, 4200);
+    SONIDO.plop();
+  }
+  // En Hoy: las caritas de quienes tienen la app abierta ahora.
+  function enLineaHTML() {
+    const ids = S.me ? S.conectados().filter(person) : [];
+    return `<div id="enLinea">${ids.length ? `<div class="en-linea"><span class="small">Ahora en la colonia</span><span class="caras">${ids.map((id) => `<button class="cara-linea" data-carta="${id}" aria-label="${esc(person(id).n)} está en la colonia: ver su tarjeta"><img class="face" src="${face(id)}" alt=""><i aria-hidden="true"></i></button>`).join('')}</span></div>` : ''}</div>`;
+  }
+
   // Cambios de los demás en vivo: se vuelve a dibujar la pantalla (las hojas abiertas no se tocan).
   S.onChange((ev) => {
+    if (ev && ev.llego) return avisarLlegada(ev.llego);
+    if (ev && ev.presencia) { const el = $('#enLinea'); if (el) el.outerHTML = enLineaHTML(); return; }
     if (ev && ev.gift) setTimeout(mostrarRegalos, 300);
     if (ev && ev.uploadFailed) toast('<span>No se pudo subir la foto. Queda guardada y se reintenta cuando haya señal.</span>', 4500);
     avisarBocinas();

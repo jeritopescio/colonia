@@ -1,6 +1,6 @@
 /* Colonia: primero la red (para tener siempre la última versión), y si no hay señal, lo guardado.
    GitHub Pages manda los archivos con "guardalo 10 minutos": por eso se pide con no-cache (pregunta al servidor si cambió). */
-const CACHE = 'colonia-v18';
+const CACHE = 'colonia-v19';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/data.js', 'js/sky.js', 'js/arte-img.js', 'js/arte.js', 'js/sonido.js', 'js/inicio.js', 'js/store.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
