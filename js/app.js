@@ -788,9 +788,8 @@
   }
 
   // Figuritas de amigos: con 2 de 3 cosas (reaccionar a una foto suya, visitar su altarcito, regalarle algo).
-  // Quienes juegan a distancia salen como polaroid, igual que en la foto del 8/12.
-  const caraAmigo = (pid) => (person(pid).trip ? `<img class="amigo-sticker" src="${S.artUrl('amigos/' + pid + '.webp')}" alt="">`
-    : `<span class="amigo-polaroid"><img src="${face(pid)}" alt=""></span>`);
+  // Cada figurita es una polaroid con la foto de perfil de esa persona (si la cambia en la app, cambia también acá).
+  const caraAmigo = (pid) => `<span class="amigo-polaroid"><img src="${face(pid)}" alt=""></span>`;
   const pasosAmigo = (pid) => { const c = S.conAmigo(pid); return [['reac', 'Reaccionar a una foto suya'], ['visita', 'Visitar su altarcito'], ['regalo', 'Regalarle algo']].map(([k, t]) => ({ k, t, ok: c[k] })); };
   function revisarAmigos() {
     if (!S.me) return;

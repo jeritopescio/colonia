@@ -358,15 +358,12 @@ span.reac { cursor: default; }
 .rec.falta.suerte { box-shadow: none; color: #d9a53a; }
 .amigos-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .amigo-slot { display: grid; justify-items: center; align-content: end; gap: 2px; min-height: 96px; padding: 4px 2px; border: 0; background: none; color: var(--ink); font: inherit; cursor: pointer; }
-.amigo-sticker { width: 100%; max-height: 78px; object-fit: contain; filter: drop-shadow(1px 2px 0 rgba(67, 54, 90, .25)); }
 .amigo-polaroid { display: block; width: 58px; padding: 3px 3px 10px; background: #fff; border: 1.5px solid var(--ink); border-radius: 2px; transform: rotate(-3deg); box-shadow: 1px 2px 0 rgba(67, 54, 90, .16); }
 .amigo-polaroid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
-.amigo-slot.falta .amigo-sticker, .amigo-slot.falta .amigo-polaroid, .amigo-grande.falta img { filter: grayscale(1) opacity(.28); }
+.amigo-slot.falta .amigo-polaroid, .amigo-grande.falta img { filter: grayscale(1) opacity(.28); }
 .amigo-slot.falta .small { color: var(--soft); }
-.amigo-grande .amigo-sticker { width: auto; height: 170px; max-height: none; }
 .amigo-grande .amigo-polaroid { width: 130px; }
 .mini-amigo { display: grid; place-items: center; width: 44px; }
-.mini-amigo .amigo-sticker { height: 44px; width: auto; }
 .mini-amigo .amigo-polaroid { width: 38px; }
 .pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; }
 .pasos li { display: flex; gap: 8px; align-items: center; color: var(--soft); }
