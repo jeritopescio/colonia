@@ -16,13 +16,28 @@ window.DATA = (function () {
     { id: 'grego', n: 'Grego', trip: false },
   ];
 
+  // 20 niveles. La curva sube despacio: los primeros salen en días, el 20 pide toda la temporada.
   const LEVELS = [
-    { xp: 0, n: 'Renacuajo' },
-    { xp: 60, n: 'Bañista' },
-    { xp: 150, n: 'Barrenador' },
-    { xp: 280, n: 'Guardavidas' },
-    { xp: 450, n: 'Capitán de carpa' },
-    { xp: 700, n: 'Leyenda de la colonia' },
+    { xp: 0, n: 'Huevo de tortuga' },
+    { xp: 40, n: 'Renacuajo de charco' },
+    { xp: 90, n: 'Sirena encallada' },
+    { xp: 150, n: 'Almeja con insomnio' },
+    { xp: 220, n: 'Medusa sin rumbo' },
+    { xp: 300, n: 'Cangrejo en crisis' },
+    { xp: 390, n: 'Gaviota con antecedentes' },
+    { xp: 490, n: 'Lobo marino de siesta' },
+    { xp: 600, n: 'Churrero ambulante' },
+    { xp: 720, n: 'Guardavida insolado' },
+    { xp: 850, n: 'Barrenador de ola chica' },
+    { xp: 990, n: 'Capitán de reposera' },
+    { xp: 1140, n: 'Pulpo malabarista' },
+    { xp: 1300, n: 'Faro con ojeras' },
+    { xp: 1480, n: 'Delfín mochilero' },
+    { xp: 1680, n: 'Tritón de médano' },
+    { xp: 1900, n: 'Kraken de bolsillo' },
+    { xp: 2150, n: 'Neptuno en ojotas' },
+    { xp: 2450, n: 'Oráculo de la marea' },
+    { xp: 2800, n: 'Colonia definitivo' },
   ];
 
   const SERIES = [
@@ -186,6 +201,17 @@ window.DATA = (function () {
     ],
   };
 
+  // Más coleccionables (además de las figuritas de misiones):
+  // - Recuerdos del verano pasado: fotos reales en el bucket (recuerdos/recuerdos.json). Llegan en sobres:
+  //   uno por día que entrás, uno por cada nivel que subís y unos de bienvenida. Las rarezas "de la suerte" salen pocas veces.
+  // - Figuritas de amigos: la de cada persona se consigue con 2 de 3 cosas (reaccionar a una foto suya, visitar su altarcito, regalarle algo).
+  // - Tu tarjeta sube de categoría con el nivel.
+  const COLECCION = {
+    sobres: { inicio: 3, suerte: 0.12, repetido: 20 },
+    amigos: { necesita: 2, premio: 150 },
+    tarjeta: [{ id: 'bronce', n: 'Bronce', lv: 5 }, { id: 'plata', n: 'Plata', lv: 10 }, { id: 'oro', n: 'Oro', lv: 15 }],
+  };
+
   // Capítulos: la colonia se cuenta por temporadas. Cuando una cierra no se borra nada (álbum, altarcitos, la foto, monedas)
   // y la app sigue abierta "entre capítulos", con misión del día e ideas para el que viene.
   // El que viene se anuncia sin publicar la app, en agenda.json del bucket: "proximo": { "n": 2, "t": "Colonia de invierno", "d": "2027-07-10" }.
@@ -299,14 +325,14 @@ window.DATA = (function () {
   // anim = 'salta', 'cola' o 'flota'. col = color inicial si se puede pintar; sin col, el color es fijo.
   const SHOP = [
     { id: 'sombrilla', n: 'Sombrilla', p: 40, lv: 1, side: 'R', col: '#f6a38f', d: 'Sombra portátil. Se clava con fe y se vuela con el primer viento.' },
-    { id: 'carpa', n: 'Carpa de balneario', p: 110, lv: 2, side: 'R', col: '#a9d6f0', d: 'Lujo de balneario: sombra propia y derecho a mirar feo al que pasa.' },
-    { id: 'mangrullo', n: 'Mangrullo', p: 180, lv: 3, z: 'fondo', d: 'Desde acá arriba se ve todo: el mar, los bañistas y quién no trajo nada para el mate.' },
+    { id: 'carpa', n: 'Carpa de balneario', p: 110, lv: 3, side: 'R', col: '#a9d6f0', d: 'Lujo de balneario: sombra propia y derecho a mirar feo al que pasa.' },
+    { id: 'mangrullo', n: 'Mangrullo', p: 180, lv: 4, z: 'fondo', d: 'Desde acá arriba se ve todo: el mar, los bañistas y quién no trajo nada para el mate.' },
 
-    { id: 'yate', n: 'Yate', p: 600, lv: 5, z: 'mar', anim: 'flota', d: 'Anclado frente a tu altarcito. Nadie sabe cómo pagaste esto.' },
-    { id: 'ballena', n: 'Ballenita', p: 200, lv: 4, z: 'mar', anim: 'salta', d: 'Salta justo cuando mirás para otro lado.' },
-    { id: 'sirena', n: 'Cola de sirena', p: 160, lv: 4, z: 'mar', anim: 'cola', d: 'Solo se le ve la cola. Mejor no preguntar.' },
-    { id: 'delfin', n: 'Delfín', p: 120, lv: 3, z: 'mar', anim: 'salta', d: 'Sale, saluda y se va. Mejor que muchos invitados.' },
-    { id: 'delfinrosa', n: 'Delfín rosa', p: 150, lv: 3, z: 'mar', anim: 'salta', d: 'Rarísimo y muy consciente de eso.' },
+    { id: 'yate', n: 'Yate', p: 600, lv: 8, z: 'mar', anim: 'flota', d: 'Anclado frente a tu altarcito. Nadie sabe cómo pagaste esto.' },
+    { id: 'ballena', n: 'Ballenita', p: 200, lv: 6, z: 'mar', anim: 'salta', d: 'Salta justo cuando mirás para otro lado.' },
+    { id: 'sirena', n: 'Cola de sirena', p: 160, lv: 6, z: 'mar', anim: 'cola', d: 'Solo se le ve la cola. Mejor no preguntar.' },
+    { id: 'delfin', n: 'Delfín', p: 120, lv: 4, z: 'mar', anim: 'salta', d: 'Sale, saluda y se va. Mejor que muchos invitados.' },
+    { id: 'delfinrosa', n: 'Delfín rosa', p: 150, lv: 4, z: 'mar', anim: 'salta', d: 'Rarísimo y muy consciente de eso.' },
 
     { id: 'estrella', n: 'Estrella de mar', p: 8, lv: 1, col: '#f6a38f', d: 'Cinco puntas, cero apuro. Lleva tres días cruzando la misma duna.' },
     { id: 'caracoles', n: 'Caracoles', p: 8, lv: 1, col: '#f7b3c6', d: 'Si te los acercás al oído, alguien te pide que le pases el protector.' },
@@ -321,7 +347,7 @@ window.DATA = (function () {
     { id: 'dados', n: 'Dados', p: 15, lv: 1, col: '#fffaf1', d: 'Deciden quién lava los platos. No se apela.' },
     { id: 'sombrero', n: 'Sombrero de paja', p: 18, lv: 1, col: '#f6a38f', d: 'Paja fina, ala ancha. Se vuela justo cuando te ponés digno.' },
     { id: 'papas', n: 'Bowl de papas fritas', p: 18, lv: 1, d: 'Baja solo, aunque nadie admite haber comido.' },
-    { id: 'basquet', n: 'Pelota de básquet', p: 18, lv: 2, d: 'No hay aro ni piso firme. Pica una vez y se queda a vivir en la arena.' },
+    { id: 'basquet', n: 'Pelota de básquet', p: 18, lv: 3, d: 'No hay aro ni piso firme. Pica una vez y se queda a vivir en la arena.' },
     { id: 'toalla', n: 'Toalla', p: 20, lv: 1, col: '#cfc0f0', d: 'Territorio soberano. Pisarla con arena es declarar la guerra.' },
     { id: 'puchos', n: 'Atado de puchos', p: 20, lv: 1, d: 'El último. Eso dijiste el verano pasado.' },
     { id: 'naipes', n: 'Mazo para el truco', p: 20, lv: 1, d: 'Quien no mienta, que reparta.' },
@@ -330,36 +356,36 @@ window.DATA = (function () {
     { id: 'rabas', n: 'Rabas con limón', p: 28, lv: 1, d: 'La gaviota ya las vio.' },
     { id: 'tejos', n: 'Tejos', p: 30, lv: 1, col: '#f6a38f', d: 'Deporte nacional de orilla. Se mide con la ojota y se discute igual.' },
     { id: 'salvavidas', n: 'Salvavidas', p: 30, lv: 1, col: '#f6a38f', d: 'Nadie lo necesita hasta que todos lo quieren.' },
-    { id: 'porro', n: 'Porro', p: 30, lv: 2, d: 'Armado a mano. Se comparte hacia la izquierda.' },
-    { id: 'cuchillo', n: 'Cuchillito', p: 30, lv: 3, col: '#f7b3c6', d: 'Para el salame. Por ahora.' },
+    { id: 'porro', n: 'Porro', p: 30, lv: 3, d: 'Armado a mano. Se comparte hacia la izquierda.' },
+    { id: 'cuchillo', n: 'Cuchillito', p: 30, lv: 4, col: '#f7b3c6', d: 'Para el salame. Por ahora.' },
     { id: 'lobo', n: 'Toallón del Lobo', p: 35, lv: 1, d: 'Azul y blanco. Aguanta lo que venga, como siempre.' },
     { id: 'estudiantes', n: 'Toallón de Estudiantes', p: 35, lv: 1, d: 'Rojo y blanco. Se seca rápido y te lo hace saber.' },
-    { id: 'vino', n: 'Vino', p: 35, lv: 2, d: 'Tinto de playa: con hielo y sin culpa.' },
+    { id: 'vino', n: 'Vino', p: 35, lv: 3, d: 'Tinto de playa: con hielo y sin culpa.' },
     { id: 'reposeraarg', n: 'Reposera argentina', p: 40, lv: 1, col: '#a9d6f0', d: 'La de caño y cintitas. Te deja la espalda rayada de recuerdo.' },
-    { id: 'liebre', n: 'Liebre', p: 40, lv: 2, d: 'Autóctona del bosque esmeralda. Ranchea en tu lugar sin pedir permiso.' },
+    { id: 'liebre', n: 'Liebre', p: 40, lv: 3, d: 'Autóctona del bosque esmeralda. Ranchea en tu lugar sin pedir permiso.' },
     { id: 'reposera', n: 'Reposera', p: 45, lv: 1, col: '#f6a38f', d: 'De madera y con clase. Le aprieta los dedos a quien la abre con soberbia.' },
-    { id: 'zorrito', n: 'Zorrito', p: 45, lv: 3, d: 'Vecino del pinar. Si falta una ojota, ya sabés.' },
-    { id: 'calavera', n: 'Calaverita', p: 45, lv: 4, col: '#f6a38f', d: 'Apareció en la duna. Tiene flor y mejor actitud que vos.' },
-    { id: 'caipirinha', n: 'Tabla de caipirinha', p: 45, lv: 2, d: 'Limas, azúcar y una tabla que no llega entera a la noche.' },
-    { id: 'fogata', n: 'Fogatita', p: 50, lv: 2, d: 'Chiquita y contenida. Todos saben prenderla, ninguno la prende.' },
-    { id: 'heladerita', n: 'Heladerita con sanguchitos', p: 55, lv: 2, col: '#a9d6f0', d: 'Adentro hay sanguchitos de miga y la promesa de que alcanzan.' },
-    { id: 'antorchas', n: 'Antorchas de playa', p: 55, lv: 2, d: 'Ambientan, espantan mosquitos y se creen Hawái.' },
-    { id: 'tulio', n: 'Tulio', sub: 'el salchicha de Pachi', p: 55, lv: 2, d: 'Mide lo que una cuadra y entra en todos lados.' },
-    { id: 'tony', n: 'Tony', sub: 'el gato de Jero y Viqui', p: 55, lv: 2, d: 'Gris, flaco y con ojos de ámbar. Te mira como si le debieras plata.' },
-    { id: 'feluchis', n: 'Feluchis', sub: 'la gata de Jose', p: 55, lv: 2, d: 'Duerme con los ojos apretados y te juzga igual.' },
-    { id: 'pompi', n: 'Pompi', sub: 'el gato de Juani', p: 55, lv: 2, d: 'Naranja, flaco y veloz. Cuando llegás, ya se fue.' },
-    { id: 'renu', n: 'Renu', sub: 'la perrita de Nachote', p: 55, lv: 2, d: 'Olfato de bretona: detecta un asado a tres balnearios.' },
-    { id: 'leda', n: 'Leda', sub: 'la perra de Rochi', p: 55, lv: 2, d: 'Cabeza de huevo, corazón de dulce de leche.' },
-    { id: 'pure', n: 'Puré', sub: 'la perra de Sofi', p: 55, lv: 2, d: 'Petisa, con orejas de antena. Se duerme en cualquier asiento de auto, de copiloto.' },
-    { id: 'kuky', n: 'Kuky', sub: 'la perra del Chino', p: 55, lv: 2, d: 'Redondita y peluda. Cruza las patas como una señora y mira todo con ojos de miel.' },
-    { id: 'marihuana', n: 'Planta de marihuana', p: 60, lv: 2, d: 'Creció sola, dice. Da sombra, risas y hambre.' },
-    { id: 'neoprene', n: 'Traje de neoprene', p: 60, lv: 2, col: '#a9d6f0', d: 'Entrar cuesta. Salir, más. Surfista al menos de lejos.' },
-    { id: 'tabla', n: 'Tabla de surf', p: 70, lv: 3, col: '#f7b3c6', d: 'Viaja en el techo del Sandero. Surfear es opcional.' },
-    { id: 'guitarra', n: 'Guitarra criolla', p: 80, lv: 2, d: 'Cinco cuerdas sanas. Alguien va a arrancar con la de siempre.' },
-    { id: 'kayak', n: 'Kayak', p: 130, lv: 3, col: '#ffe39a', d: 'Para adentro se rema con ganas. Para afuera, con arrepentimiento.' },
-    { id: 'corona', n: 'Corona enterrada', p: 150, lv: 5, col: '#f7b3c6', d: 'Alguien la enterró antes que vos. Nadie reclamó el trono.' },
-    { id: 'moto', n: 'Moto de agua', p: 320, lv: 4, col: '#e8735a', d: 'Ruido, nafta y envidia. Cara, como todo lo que no necesitás.' },
-    { id: 'ps5', n: 'PS5', p: 400, lv: 4, d: 'En la playa no hay enchufe. Igual la trajiste.' },
+    { id: 'zorrito', n: 'Zorrito', p: 45, lv: 4, d: 'Vecino del pinar. Si falta una ojota, ya sabés.' },
+    { id: 'calavera', n: 'Calaverita', p: 45, lv: 6, col: '#f6a38f', d: 'Apareció en la duna. Tiene flor y mejor actitud que vos.' },
+    { id: 'caipirinha', n: 'Tabla de caipirinha', p: 45, lv: 3, d: 'Limas, azúcar y una tabla que no llega entera a la noche.' },
+    { id: 'fogata', n: 'Fogatita', p: 50, lv: 3, d: 'Chiquita y contenida. Todos saben prenderla, ninguno la prende.' },
+    { id: 'heladerita', n: 'Heladerita con sanguchitos', p: 55, lv: 3, col: '#a9d6f0', d: 'Adentro hay sanguchitos de miga y la promesa de que alcanzan.' },
+    { id: 'antorchas', n: 'Antorchas de playa', p: 55, lv: 3, d: 'Ambientan, espantan mosquitos y se creen Hawái.' },
+    { id: 'tulio', n: 'Tulio', sub: 'el salchicha de Pachi', p: 55, lv: 3, d: 'Mide lo que una cuadra y entra en todos lados.' },
+    { id: 'tony', n: 'Tony', sub: 'el gato de Jero y Viqui', p: 55, lv: 3, d: 'Gris, flaco y con ojos de ámbar. Te mira como si le debieras plata.' },
+    { id: 'feluchis', n: 'Feluchis', sub: 'la gata de Jose', p: 55, lv: 3, d: 'Duerme con los ojos apretados y te juzga igual.' },
+    { id: 'pompi', n: 'Pompi', sub: 'el gato de Juani', p: 55, lv: 3, d: 'Naranja, flaco y veloz. Cuando llegás, ya se fue.' },
+    { id: 'renu', n: 'Renu', sub: 'la perrita de Nachote', p: 55, lv: 3, d: 'Olfato de bretona: detecta un asado a tres balnearios.' },
+    { id: 'leda', n: 'Leda', sub: 'la perra de Rochi', p: 55, lv: 3, d: 'Cabeza de huevo, corazón de dulce de leche.' },
+    { id: 'pure', n: 'Puré', sub: 'la perra de Sofi', p: 55, lv: 3, d: 'Petisa, con orejas de antena. Se duerme en cualquier asiento de auto, de copiloto.' },
+    { id: 'kuky', n: 'Kuky', sub: 'la perra del Chino', p: 55, lv: 3, d: 'Redondita y peluda. Cruza las patas como una señora y mira todo con ojos de miel.' },
+    { id: 'marihuana', n: 'Planta de marihuana', p: 60, lv: 3, d: 'Creció sola, dice. Da sombra, risas y hambre.' },
+    { id: 'neoprene', n: 'Traje de neoprene', p: 60, lv: 3, col: '#a9d6f0', d: 'Entrar cuesta. Salir, más. Surfista al menos de lejos.' },
+    { id: 'tabla', n: 'Tabla de surf', p: 70, lv: 4, col: '#f7b3c6', d: 'Viaja en el techo del Sandero. Surfear es opcional.' },
+    { id: 'guitarra', n: 'Guitarra criolla', p: 80, lv: 3, d: 'Cinco cuerdas sanas. Alguien va a arrancar con la de siempre.' },
+    { id: 'kayak', n: 'Kayak', p: 130, lv: 4, col: '#ffe39a', d: 'Para adentro se rema con ganas. Para afuera, con arrepentimiento.' },
+    { id: 'corona', n: 'Corona enterrada', p: 150, lv: 8, col: '#f7b3c6', d: 'Alguien la enterró antes que vos. Nadie reclamó el trono.' },
+    { id: 'moto', n: 'Moto de agua', p: 320, lv: 6, col: '#e8735a', d: 'Ruido, nafta y envidia. Cara, como todo lo que no necesitás.' },
+    { id: 'ps5', n: 'PS5', p: 400, lv: 6, d: 'En la playa no hay enchufe. Igual la trajiste.' },
   ];
   // Cosas de la tienda vieja: se muestran como lo más parecido de la nueva (nadie pierde lo que compró).
   const ALIAS = { cangrejo: 'estrella', osito: 'liebre', helado: 'sandia', pulpo: 'caracoles', choripan: 'heladerita',
@@ -424,5 +450,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

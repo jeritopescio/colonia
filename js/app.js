@@ -436,6 +436,7 @@
   let regalarA = null; // si se entra al kiosco desde el altarcito de alguien, es para regalarle a esa persona
   function visit(pid) {
     if (pid === S.me) { go('altar'); return; }
+    S.visitar(pid); setTimeout(revisarAmigos, 600);
     const bg = sheet(`<div style="display:grid;gap:12px"><div class="spread"><h2>El altarcito de ${esc(person(pid).n)}</h2>
         <button class="ver-carta" id="suCarta" aria-label="Ver la tarjeta de ${esc(person(pid).n)}"><img class="face" src="${face(pid)}" alt=""><span class="small">Tarjeta</span></button></div>
       ${altarHTML(pid, false)}
@@ -587,7 +588,7 @@
   }
   function reaccionar(b) {
     const key = b.dataset.foto, r = b.dataset.reac;
-    S.reaccionar(key, r); SONIDO.plop();
+    S.reaccionar(key, r); SONIDO.plop(); setTimeout(revisarAmigos, 500);
     const f = S.fotosColonia().find((x) => x.pid + '/' + x.mision === key), post = b.closest('.post');
     if (!f || !post) return render();
     post.outerHTML = postHTML(f);
@@ -703,11 +704,135 @@
       <div class="polaroid pop"><img src="${url}" alt=""></div>
       <h2>${esc(m.t)}</h2>
       ${r ? `<div class="row" style="justify-content:center"><span class="chip" style="--c:var(--mint)">+${r.xp} XP</span><span class="chip" style="--c:var(--butter)">+${r.coins} <span class="coin"></span></span></div>` : '<p class="muted small">Cambiaste la foto de esta misión.</p>'}
-      ${res.levelUp != null ? `<p><b>Subiste de nivel:</b> ahora sos ${esc(D.LEVELS[res.levelUp].n)}.</p>` : ''}
+      ${res.levelUp != null ? `<p style="margin:0"><b>Subiste al nivel ${res.levelUp + 1}:</b> ahora sos ${esc(D.LEVELS[res.levelUp].n)}. Te llegó un sobre de recuerdos.</p>` : ''}
+      ${res.levelUp != null && D.COLECCION.tarjeta.some((x) => x.lv === res.levelUp + 1) ? `<p style="margin:0"><b>Tu tarjeta pasó a ${esc(tierDe(res.levelUp + 1).n.toLowerCase())}.</b></p>` : ''}
       ${serie ? `<p><b>Serie completa:</b> ${esc(D.SERIES.find((x) => x.id === serie.serie).n)}. +${D.ACH.serie.c} monedas y medallita.</p>` : ''}
       <p class="muted small">${esc(avisoFoto())}</p>
       <button class="btn" data-close>Seguir</button></div>`);
     render();
+  }
+
+
+  // ---------- más coleccionables: recuerdos, figuritas de amigos y tarjeta ----------
+  // Recuerdos del verano pasado: las fotos viven en el bucket (recuerdos/), no en el repo. La lista se guarda para verla sin señal.
+  let RECUERDOS = null;
+  try { RECUERDOS = JSON.parse(localStorage.getItem('colonia.recuerdos')); } catch (e) { /* sin copia */ }
+  fetch(S.artUrl('recuerdos/recuerdos.json'), { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+    if (!j || !Array.isArray(j.items)) return;
+    const cambio = JSON.stringify(j) !== JSON.stringify(RECUERDOS);
+    RECUERDOS = j;
+    try { localStorage.setItem('colonia.recuerdos', JSON.stringify(j)); } catch (e) { /* sin lugar */ }
+    if (cambio && ['album', 'hoy'].includes(location.hash.slice(1))) render();
+  }).catch(() => {});
+  const recUrl = (id) => S.artUrl(`recuerdos/${id}.webp?v=${(RECUERDOS && RECUERDOS.v) || 1}`);
+  const recuerdo = (id) => RECUERDOS && RECUERDOS.items.find((x) => x.id === id);
+  const carasDe = (ids) => (ids && ids.length ? `<span class="mini-caras rec-caras">${ids.filter(person).map((id) => `<img class="face" src="${face(id)}" alt="${esc(person(id).n)}" title="${esc(person(id).n)}">`).join('')}</span>` : '');
+  // Al entrar avisa una vez si hay sobres; después se abren desde Hoy o el álbum.
+  let sobresAvisados = false;
+  function mostrarSobres(forzar) {
+    const r = location.hash.slice(1);
+    if (!forzar && (sobresAvisados || !S.me || !r || r === 'portada' || r === 'quien' || document.hidden || document.querySelector('.sheet-bg'))) return false;
+    if (!S.sobres() || !RECUERDOS) return false;
+    sobresAvisados = true;
+    sheet('<div class="sobre-hoja" id="sobreHoja"></div>', (bg) => {
+      const box = bg.querySelector('#sobreHoja');
+      const abrir = () => {
+        const it = S.abrirSobre(RECUERDOS.items);
+        if (!it) { bg.remove(); return; }
+        SONIDO.plop(); setTimeout(SONIDO.plop, 130);
+        const mas = S.sobres();
+        const botones = mas ? `<button class="btn ghost" data-close>Listo</button><button class="btn" id="otro" style="--c:var(--rose)">Abrir otro (${mas})</button>` : '<button class="btn" data-close>Listo</button>';
+        if (it.repetido) {
+          SONIDO.monedas(D.COLECCION.sobres.repetido);
+          box.innerHTML = `<div class="eyebrow">Ya tenés todos los recuerdos</div><h2>Este sobre trae monedas</h2>
+            <span class="chip" style="--c:var(--butter)">+${D.COLECCION.sobres.repetido} <span class="coin"></span></span><div class="row" style="justify-content:center">${botones}</div>`;
+        } else {
+          if (it.suerte) SONIDO.monedas(it.suerte);
+          box.innerHTML = `<div class="eyebrow">${it.mala ? '¡Uy! De la mala suerte' : it.suerte != null ? '¡De la suerte!' : 'Recuerdo del verano pasado'}</div>
+            <div class="polaroid recuerdo-grande pop${it.suerte != null ? ' suerte' : ''}"><img src="${recUrl(it.id)}" alt=""></div>
+            <h2>${esc(it.t)}</h2>${carasDe(it.p)}
+            ${it.suerte ? `<span class="chip" style="--c:var(--butter)">+${it.suerte} <span class="coin"></span></span>` : ''}
+            ${it.mala ? '<p class="small muted" style="margin:0">Tranqui: la mala suerte te dejó un sobre extra.</p>' : ''}
+            <p class="small muted" style="margin:0">Tenés ${S.misRecuerdos().length} de ${RECUERDOS.items.length}.</p>
+            <div class="row" style="justify-content:center">${botones}</div>`;
+        }
+        const o = box.querySelector('#otro'); if (o) o.addEventListener('click', abrir);
+        render();
+      };
+      const n = S.sobres();
+      box.innerHTML = `<div class="eyebrow">Recuerdos del verano pasado</div>
+        <button class="sobre" id="abrirSobre" aria-label="Abrir el sobre"><span class="sobre-sello" aria-hidden="true">♡</span></button>
+        <h2>${n === 1 ? 'Tenés un sobre' : `Tenés ${n} sobres`}</h2>
+        <p class="small muted" style="margin:0">Cada sobre trae una foto real del viaje anterior. A veces sale una de la suerte, que da monedas.</p>
+        <div class="row" style="justify-content:center"><button class="btn ghost" data-close>Después</button><button class="btn" id="abrirSobre2" style="--c:var(--rose)">Abrirlo</button></div>`;
+      box.querySelectorAll('#abrirSobre, #abrirSobre2').forEach((b) => b.addEventListener('click', abrir));
+    });
+    return true;
+  }
+  function verRecuerdo(id) {
+    const it = recuerdo(id);
+    if (!it) return;
+    sheet(`<div class="sobre-hoja"><div class="polaroid recuerdo-grande${it.suerte != null ? ' suerte' : ''}"><img src="${recUrl(it.id)}" alt=""></div>
+      <h2>${esc(it.t)}</h2>${carasDe(it.p)}<button class="btn" data-close>Listo</button></div>`);
+  }
+
+  // Figuritas de amigos: con 2 de 3 cosas (reaccionar a una foto suya, visitar su altarcito, regalarle algo).
+  // Quienes juegan a distancia salen como polaroid, igual que en la foto del 8/12.
+  const caraAmigo = (pid) => (person(pid).trip ? `<img class="amigo-sticker" src="${S.artUrl('amigos/' + pid + '.webp')}" alt="">`
+    : `<span class="amigo-polaroid"><img src="${face(pid)}" alt=""></span>`);
+  const pasosAmigo = (pid) => { const c = S.conAmigo(pid); return [['reac', 'Reaccionar a una foto suya'], ['visita', 'Visitar su altarcito'], ['regalo', 'Regalarle algo']].map(([k, t]) => ({ k, t, ok: c[k] })); };
+  function revisarAmigos() {
+    if (!S.me) return;
+    const nuevos = D.PEOPLE.filter((p) => p.id !== S.me && !S.misAmigos().includes(p.id) && pasosAmigo(p.id).filter((x) => x.ok).length >= D.COLECCION.amigos.necesita);
+    nuevos.forEach((p, i) => {
+      const r = S.ganarAmigo(p.id);
+      setTimeout(() => {
+        toast(`<span class="mini-amigo">${caraAmigo(p.id)}</span><span>¡Conseguiste la figurita de <b>${esc(p.n)}</b>!${r === 'todos' ? ` Completaste todas: +${D.COLECCION.amigos.premio} monedas.` : ''}</span>`, 4500);
+        if (r === 'todos') SONIDO.monedas(D.COLECCION.amigos.premio); else SONIDO.plop();
+      }, i * 900);
+    });
+    if (nuevos.length && ['album', 'colonia'].includes(location.hash.slice(1)) && !document.querySelector('.sheet-bg')) setTimeout(render, 300);
+  }
+  function amigoSheet(pid) {
+    const p = person(pid), tiene = S.misAmigos().includes(pid);
+    sheet(`<div class="sobre-hoja"><div class="amigo-grande${tiene ? '' : ' falta'}">${caraAmigo(pid)}</div>
+      <h2>${tiene ? `La figurita de ${esc(p.n)}` : `Te falta la de ${esc(p.n)}`}</h2>
+      <ul class="pasos">${pasosAmigo(pid).map((x) => `<li class="${x.ok ? 'ok' : ''}"><span aria-hidden="true">${x.ok ? '✓' : '○'}</span>${esc(x.t)}</li>`).join('')}</ul>
+      ${tiene ? '' : `<p class="small muted" style="margin:0">Con ${D.COLECCION.amigos.necesita} de las 3 es tuya.</p>`}
+      <div class="row" style="justify-content:center"><button class="btn ghost" id="suAltar2">Visitar su altarcito</button><button class="btn" id="regalar2" style="--c:var(--rose)">Regalarle algo</button></div></div>`,
+    (bg) => {
+      bg.querySelector('#suAltar2').addEventListener('click', () => { bg.remove(); visit(pid); });
+      bg.querySelector('#regalar2').addEventListener('click', () => { bg.remove(); regalarA = pid; go('kiosco'); });
+    });
+  }
+
+  // Tu tarjeta sube de categoría con el nivel: bronce, plata y oro.
+  const tierDe = (nivel) => [...D.COLECCION.tarjeta].reverse().find((t) => nivel >= t.lv) || null;
+  const tierDePid = (pid) => tierDe(level(pid === S.me ? S.xp : S.xpOf(pid)).i + 1);
+
+  function masColeccionables(medal) {
+    const nv = level(S.xp).i + 1, yo = person(S.me);
+    let recs = '';
+    if (RECUERDOS) {
+      const mios = new Set(S.misRecuerdos()), comunes = RECUERDOS.items.filter((x) => x.suerte == null), raras = RECUERDOS.items.filter((x) => x.suerte != null);
+      const pol = (it) => (mios.has(it.id) ? `<button class="rec${it.suerte != null ? ' suerte' : ''}" data-rec="${it.id}" aria-label="${esc(it.t)}"><img src="${recUrl(it.id)}" alt="" loading="lazy"></button>`
+        : `<span class="rec falta${it.suerte != null ? ' suerte' : ''}" aria-hidden="true">${it.suerte != null ? '✦' : '?'}</span>`);
+      const tengo = (l) => l.filter((x) => mios.has(x.id)).length;
+      recs = `<div class="card"><div class="spread"><div><h2>Recuerdos del verano pasado</h2><span class="small muted">${tengo(comunes)} de ${comunes.length} fotos reales del viaje anterior</span></div>
+          ${S.sobres() ? `<button class="btn" data-sobres style="--c:var(--rose)">Abrir sobre (${S.sobres()})</button>` : medal(tengo(comunes) === comunes.length)}</div>
+        <div class="recs">${comunes.map(pol).join('')}</div>
+        <div class="eyebrow">De la suerte · ${tengo(raras)} de ${raras.length}</div><div class="recs">${raras.map(pol).join('')}</div>
+        <p class="small muted" style="margin:0">Te llega un sobre por cada día que entrás y por cada nivel que subís.</p></div>`;
+    }
+    const amigos = D.PEOPLE.filter((p) => p.id !== S.me), mis = new Set(S.misAmigos());
+    const amigosCard = `<div class="card"><div class="spread"><div><h2>Figuritas de amigos</h2><span class="small muted">${amigos.filter((p) => mis.has(p.id)).length} de ${amigos.length}</span></div>${medal(amigos.every((p) => mis.has(p.id)))}</div>
+      <p class="small muted" style="margin:0">La de cada persona sale con 2 de estas 3: reaccionar a una foto suya, visitar su altarcito o regalarle algo. Con todas, +${D.COLECCION.amigos.premio} monedas.</p>
+      <div class="amigos-grid">${amigos.map((p) => `<button class="amigo-slot${mis.has(p.id) ? '' : ' falta'}" data-amigo="${p.id}" aria-label="${esc(p.n)}${mis.has(p.id) ? '' : ': todavía no'}">${caraAmigo(p.id)}<span class="small">${esc(p.n)}</span></button>`).join('')}</div></div>`;
+    const c = (CARTAS && CARTAS[S.me]) || {};
+    const tarjeta = `<div class="card"><div><h2>Tu tarjeta</h2><span class="small muted">Sube de categoría con tu nivel. Vas por el ${nv}.</span></div>
+      <div class="tiers">${D.COLECCION.tarjeta.map((t) => `<button class="tier${nv >= t.lv ? '' : ' falta'}" data-carta aria-label="Tarjeta de ${t.n.toLowerCase()}${nv >= t.lv ? '' : ', nivel ' + t.lv}">
+        <span class="mini-carta tier-${t.id}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}"><img src="${face(S.me)}" alt=""><b>${esc(yo.n)}</b></span><span class="small">${t.n} · nivel ${t.lv}</span></button>`).join('')}</div></div>`;
+    return `<h2 class="on-sky" style="font-size:1.3rem;margin:6px 0 0">Más coleccionables</h2>${recs}${amigosCard}${tarjeta}`;
   }
 
   // ---------- calendario ----------
@@ -1047,6 +1172,7 @@
         ${entreCapitulos() ? ideasCard() : ''}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
           <div class="list">${mRow(d, 'Sacá la foto y se vuelve figurita')}</div></div>
+        ${S.sobres() && RECUERDOS ? `<button class="card sobres-hoy" data-sobres><span class="sobre chico" aria-hidden="true"><span class="sobre-sello">♡</span></span><span><b>${S.sobres() === 1 ? 'Tenés un sobre sin abrir' : `Tenés ${S.sobres()} sobres sin abrir`}</b><br><span class="small muted">Recuerdos del verano pasado</span></span><span class="chip" style="--c:var(--rose)">Abrir</span></button>` : ''}
         <div class="card dark"><div class="spread"><div class="eyebrow">Tus misiones secretas</div><span class="small muted">dos nuevas por día</span></div>
           ${S.secretSeen() ? `<div class="list">${hoyS.map((m) => mRow(m, 'No se la muestres a nadie')).join('')}</div>${atras ? `<a class="small" href="#album" style="color:var(--b-soft)">Tenés ${atras} ${atras === 1 ? 'pendiente' : 'pendientes'} de días anteriores</a>` : ''}`
             : `<div class="secret-cover"><span class="muted">Solo vos podés verlas.${me.trip ? '' : ' Valen desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver las de hoy</button></div>`}</div>
@@ -1106,7 +1232,8 @@
         ${series}
         ${tarjeta('De a dos', 'Una para hacer con alguien.', [D.DUO], null)}
         ${tarjeta('Del día', `${dias.length} ${dias.length === 1 ? 'misión del día hecha' : 'misiones del día hechas'}`, dias, null, false)}
-        ${secretasCard()}`;
+        ${secretasCard()}
+        ${masColeccionables(medal)}`;
       bindMissions(screen);
       screen.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
         const id = b.dataset.a;
@@ -1133,7 +1260,8 @@
       const fotos = S.fotosColonia(), ver = fotos.slice(0, verFotos);
       const tarjetas = [S.me, ...D.PEOPLE.map((p) => p.id).filter((id) => id !== S.me)].map((id) => {
         const c = (CARTAS && CARTAS[id]) || {}, n = esc(person(id).n);
-        return `<button class="mini-carta${c.foil ? ' foil' : ''}" data-carta="${id}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}" aria-label="Ver la tarjeta de ${n}"><img src="${face(id)}" alt=""><b>${n}</b></button>`;
+        const tr = tierDePid(id);
+        return `<button class="mini-carta${c.foil ? ' foil' : ''}${tr ? ' tier-' + tr.id : ''}" data-carta="${id}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}" aria-label="Ver la tarjeta de ${n}"><img src="${face(id)}" alt=""><b>${n}</b></button>`;
       }).join('');
       screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">Colonia</h1>
         ${balanceHTML()}
@@ -1218,6 +1346,7 @@
             SONIDO.monedas(it.p, -1);
             bg.remove();
             if (to) {
+              Promise.resolve(S.regaloEnCamino).then(() => setTimeout(revisarAmigos, 300));
               toast(`<span class="mini">${ARTE.item(it.id, it.col)}</span><span>Le regalaste ${esc(it.n.toLowerCase())} a ${esc(person(to).n)}. Ya está en su altarcito.</span>`);
               // Si venías de su altarcito, volvés ahí para verlo puesto.
               if (para) { regalarA = null; go('altar'); Promise.race([S.regaloEnCamino, new Promise((ok) => setTimeout(ok, 2500))]).then(() => visit(to)); } else render();
@@ -1273,10 +1402,11 @@
   function carta(pid) {
     const p = person(pid), c = (CARTAS && CARTAS[pid]) || {}, L = level(pid === S.me ? S.xp : S.xpOf(pid));
     const hab = (c.hab || []).map(([k, n]) => `<div class="hab${n > 10 ? ' over' : ''}"><span>${esc(k)}</span><span class="nivel"><i style="width:${Math.min(n, 10) * 10}%"></i></span><b>${n}</b></div>`).join('');
-    sheet(`<div class="carta${c.foil ? ' foil' : ''}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}">
+    const tier = tierDePid(pid);
+    sheet(`<div class="carta${c.foil ? ' foil' : ''}${tier ? ' tier-' + tier.id : ''}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}">
       <div class="carta-foto"><img src="${S.artUrl(`cartas/${pid}.webp?v=${D.CARTAS_V}`)}" alt="${esc(p.n)}"></div>
       <div class="carta-id"><h2>${esc(p.n)}</h2>${c.apodo ? `<p class="carta-apodo">${esc(c.apodo)}</p>` : ''}${c.t ? `<p>${esc(c.t)}</p>` : ''}
-        <div class="row">${c.s ? `<span class="chip" style="--c:var(--el)">${SIGNO[c.s] || ''}&#xFE0E; ${esc(c.s)}</span>` : ''}<span class="chip">${esc(L.n)} · nivel ${L.i + 1}</span></div></div>
+        <div class="row">${c.s ? `<span class="chip" style="--c:var(--el)">${SIGNO[c.s] || ''}&#xFE0E; ${esc(c.s)}</span>` : ''}<span class="chip">${esc(L.n)} · nivel ${L.i + 1}</span>${tier ? `<span class="chip tier-chip tier-${tier.id}">Tarjeta de ${tier.n.toLowerCase()}</span>` : ''}</div></div>
       ${c.bio ? `<p class="carta-bio">${esc(c.bio)}</p>` : ''}
       ${hab ? `<div class="carta-sec"><div class="eyebrow">Habilidades</div>${hab}</div>` : ''}
       ${c.poder ? `<div class="carta-sec"><div class="eyebrow">Poder</div><p>${esc(c.poder)}</p></div>` : ''}
@@ -1319,6 +1449,9 @@
     else if (e.target.closest('[data-resumen]')) finDeCapitulo(true);
     else if (e.target.closest('[data-sumo]')) { S.sumarme(e.target.closest('[data-sumo]').dataset.sumo); SONIDO.plop(); render(); }
     else if (e.target.closest('[data-reac]')) reaccionar(e.target.closest('[data-reac]'));
+    else if (e.target.closest('[data-sobres]')) mostrarSobres(true);
+    else if (e.target.closest('[data-rec]')) verRecuerdo(e.target.closest('[data-rec]').dataset.rec);
+    else if (e.target.closest('[data-amigo]')) amigoSheet(e.target.closest('[data-amigo]').dataset.amigo);
   });
 
   // ---------- sonido de cada botón ----------
@@ -1378,7 +1511,7 @@
     const cur = r === 'kiosco' ? 'altar' : r === 'calendario' ? 'hoy' : r;
     tabs.innerHTML = TABS.map(([k, l]) => `<a href="#${k}" class="${k === cur ? 'on' : ''}" ${k === cur ? 'aria-current="page"' : ''}>${IC[k]}<span>${l}</span></a>`).join('');
     const dev = $('#devbtn'); if (dev) dev.hidden = r === 'portada';
-    if (r !== 'portada' && r !== 'quien') { setTimeout(() => finDeCapitulo() || mostrarRegalos(), 700); setTimeout(avisarReacciones, 1400); setTimeout(avisarCosta, 1000); }
+    if (r !== 'portada' && r !== 'quien') { setTimeout(() => finDeCapitulo() || mostrarRegalos() || mostrarSobres(), 700); setTimeout(revisarAmigos, 1800); setTimeout(avisarReacciones, 1400); setTimeout(avisarCosta, 1000); }
   }
   addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
   SKY.onChange(() => { const r = location.hash.slice(1); if (r === 'portada' || r === '' || r === 'hoy' || r === 'calendario') { const w = document.querySelectorAll('.weather'); w.forEach((el) => (el.textContent = weatherLine(SKY.state()))); } });

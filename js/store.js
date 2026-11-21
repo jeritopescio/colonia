@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacVistas: [],
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacVistas: [], sobres: 0, recuerdos: [], visitas: [], amigos: [],
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -78,6 +78,8 @@ window.STORE = (function () {
         s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null; s.bocinas = d.bocinas || {};
         s.idea = d.idea || null; s.sumo = d.sumo || []; s.hallazgos = d.hallazgos || {}; s.reac = d.reac || {};
         s.reacVistas = [...new Set([...(d.reacVistas || []), ...s.reacVistas])];
+        s.sobres = d.sobres || 0;
+        ['recuerdos', 'visitas', 'amigos'].forEach((k) => { s[k] = [...new Set([...(d[k] || []), ...(s[k] || [])])]; });
         s.regalosVistos = [...new Set([...(d.regalosVistos || []), ...s.regalosVistos])];
       }
     }
@@ -134,7 +136,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacVistas: s.reacVistas.slice(-400) };
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
     }, 400);
@@ -198,7 +200,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacVistas = row.datos.reacVistas || []; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacVistas = row.datos.reacVistas || []; s.sobres = row.datos.sobres || 0; s.recuerdos = row.datos.recuerdos || []; s.visitas = row.datos.visitas || []; s.amigos = row.datos.amigos || []; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save(); conectarPresencia();
     },
@@ -351,6 +353,45 @@ window.STORE = (function () {
     },
     verReacciones(ks) { s.reacVistas = [...new Set([...s.reacVistas, ...ks])]; save(); pushMe(); },
 
+    // ---------- más coleccionables ----------
+    sobres() { return s.sobres || 0; },
+    misRecuerdos() { return s.recuerdos || []; },
+    // Abre un sobre: un recuerdo que no tengas (a veces, una rareza de la suerte). Si ya tenés todos, monedas.
+    abrirSobre(items) {
+      if (!(s.sobres > 0) || !items || !items.length) return null;
+      s.sobres -= 1;
+      const faltan = items.filter((x) => !s.recuerdos.includes(x.id));
+      const raras = faltan.filter((x) => x.suerte != null), comunes = faltan.filter((x) => x.suerte == null);
+      const pool = raras.length && (!comunes.length || Math.random() < D.COLECCION.sobres.suerte) ? raras : comunes;
+      let it = null;
+      if (pool.length) {
+        it = pool[Math.floor(Math.random() * pool.length)];
+        s.recuerdos.push(it.id);
+        if (it.suerte) s.coins += it.suerte;
+        if (it.mala) s.sobres += 1;
+      } else s.coins += D.COLECCION.sobres.repetido;
+      save(); pushMe();
+      return it || { repetido: true };
+    },
+    visitar(pid) { if (!s.visitas.includes(pid)) { s.visitas.push(pid); save(); pushMe(); } },
+    // Qué hiciste con cada persona: reaccionar a una foto suya, visitar su altarcito, regalarle algo.
+    conAmigo(pid) {
+      return {
+        reac: Object.keys(s.reac).some((k) => k.startsWith(pid + '/')),
+        visita: s.visitas.includes(pid),
+        regalo: live ? s.cache.regalos.some((r) => r.de === s.me && r.para === pid) : false,
+      };
+    },
+    misAmigos() { return s.amigos || []; },
+    ganarAmigo(pid) {
+      if (s.amigos.includes(pid)) return false;
+      s.amigos.push(pid);
+      const todos = D.PEOPLE.filter((p) => p.id !== s.me).every((p) => s.amigos.includes(p.id));
+      if (todos && !s.ach['amigos:todos']) { s.ach['amigos:todos'] = 1; s.coins += D.COLECCION.amigos.premio; }
+      save(); pushMe();
+      return todos ? 'todos' : true;
+    },
+
     // Botellas y galletas que encontraste en tu altarcito: { botella: [{ dia, i }], galleta: [...] } (i = cuál mensaje).
     hallazgos(tipo) { return (s.hallazgos && s.hallazgos[tipo]) || []; },
     hallado(tipo, dia) { return api.hallazgos(tipo).some((h) => h.dia === dia); },
@@ -407,8 +448,10 @@ window.STORE = (function () {
           if (all.every((x) => s.photos[x.id]) && !s.ach[key]) { s.ach[key] = 1; s.coins += D.ACH.serie.c; out.push({ ach: 'serie', serie: m.s }); }
         }
       }
+      const subio = levelOf(s.xp) - before;
+      if (subio > 0) s.sobres = (s.sobres || 0) + subio;
       save(); pushMe(); uploadPending();
-      return { out, levelUp: levelOf(s.xp) > before ? levelOf(s.xp) : null };
+      return { out, levelUp: subio > 0 ? levelOf(s.xp) : null };
     },
 
     buy(item, to) {
@@ -442,8 +485,10 @@ window.STORE = (function () {
       const min = window.SKY.arMinute();
       const got = [];
       const give = (k) => { s.coins += D.ACH[k].c; s.ach[k + ':' + today] = 1; got.push(k); };
+      if (!s.ach['sobres:inicio']) { s.ach['sobres:inicio'] = 1; s.sobres = (s.sobres || 0) + D.COLECCION.sobres.inicio; pushMe(); }
       if (!s.days.includes(today)) {
         s.days.push(today);
+        s.sobres = (s.sobres || 0) + 1;
         give('entrada');
         if (min < 300) give('noctambulo');
         const streak = api.streak();

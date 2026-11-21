@@ -335,6 +335,59 @@ span.reac { cursor: default; }
 .vender { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border: 0; background: none; color: var(--soft); font: inherit; font-size: .92rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .reac.pop span[aria-hidden] { animation: none; } }
 
+/* ---------- más coleccionables ---------- */
+.sobre-hoja { display: grid; gap: 12px; justify-items: center; text-align: center; }
+.sobre { position: relative; width: 150px; aspect-ratio: 4 / 3; padding: 0; border: 2.5px solid var(--ink); border-radius: 8px; cursor: pointer;
+  background: linear-gradient(160deg, transparent 49.5%, color-mix(in srgb, var(--ink) 18%, transparent) 50%, transparent 51%) top / 100% 55% no-repeat,
+    linear-gradient(20deg, transparent 49.5%, color-mix(in srgb, var(--ink) 18%, transparent) 50%, transparent 51%) top / 100% 55% no-repeat,
+    color-mix(in srgb, var(--rose) 55%, var(--paper)); box-shadow: 3px 4px 0 rgba(67, 54, 90, .16); animation: tiembla 2.4s ease-in-out infinite; }
+.sobre-sello { position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%); width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--coral); border: 2px solid var(--ink); color: #fff; font-size: 1rem; }
+.sobre.chico { width: 54px; flex: none; animation: none; }
+.sobre.chico .sobre-sello { width: 20px; height: 20px; font-size: .7rem; }
+.sobres-hoy { grid-template-columns: auto 1fr auto; align-items: center; text-align: left; border: 0; background: none; font: inherit; color: var(--ink); cursor: pointer; }
+.polaroid.recuerdo-grande { width: min(76vw, 300px); transform: rotate(-1.5deg); }
+.polaroid.recuerdo-grande img { width: 100%; height: auto; aspect-ratio: auto; max-height: 50vh; object-fit: contain; background: #fff; }
+.polaroid.suerte, .rec.suerte { box-shadow: 0 0 0 3px var(--butter), 0 0 18px 4px rgba(255, 210, 90, .75); }
+.rec-caras .face { width: 26px; height: 26px; }
+.recs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.rec { min-width: 0; padding: 3px 3px 9px; border: 1.5px solid var(--ink); border-radius: 3px; background: #fff; cursor: pointer; display: grid; place-items: center; box-shadow: 1px 2px 0 rgba(67, 54, 90, .14); }
+.rec:nth-child(odd) { transform: rotate(-2deg); }
+.rec:nth-child(even) { transform: rotate(1.5deg); }
+.rec img { width: 100%; aspect-ratio: 1; height: auto; object-fit: cover; display: block; }
+.rec.falta { aspect-ratio: 1; cursor: default; border-style: dashed; border-color: var(--soft); color: var(--soft); background: var(--paper); font-family: var(--display); font-weight: 600; box-shadow: none; }
+.rec.falta.suerte { box-shadow: none; color: #d9a53a; }
+.amigos-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.amigo-slot { display: grid; justify-items: center; align-content: end; gap: 2px; min-height: 96px; padding: 4px 2px; border: 0; background: none; color: var(--ink); font: inherit; cursor: pointer; }
+.amigo-sticker { width: 100%; max-height: 78px; object-fit: contain; filter: drop-shadow(1px 2px 0 rgba(67, 54, 90, .25)); }
+.amigo-polaroid { display: block; width: 58px; padding: 3px 3px 10px; background: #fff; border: 1.5px solid var(--ink); border-radius: 2px; transform: rotate(-3deg); box-shadow: 1px 2px 0 rgba(67, 54, 90, .16); }
+.amigo-polaroid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+.amigo-slot.falta .amigo-sticker, .amigo-slot.falta .amigo-polaroid, .amigo-grande.falta img { filter: grayscale(1) opacity(.28); }
+.amigo-slot.falta .small { color: var(--soft); }
+.amigo-grande .amigo-sticker { width: auto; height: 170px; max-height: none; }
+.amigo-grande .amigo-polaroid { width: 130px; }
+.mini-amigo { display: grid; place-items: center; width: 44px; }
+.mini-amigo .amigo-sticker { height: 44px; width: auto; }
+.mini-amigo .amigo-polaroid { width: 38px; }
+.pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; }
+.pasos li { display: flex; gap: 8px; align-items: center; color: var(--soft); }
+.pasos li.ok { color: var(--ink); font-weight: 600; }
+.pasos li span { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; border: 2px solid currentColor; font-size: .8rem; }
+.pasos li.ok span { background: var(--mint); border-color: var(--ink); }
+.tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tier { display: grid; justify-items: center; gap: 4px; padding: 0; border: 0; background: none; font: inherit; color: var(--ink); cursor: pointer; }
+.tier.falta .mini-carta { filter: grayscale(1) opacity(.35); }
+.tier.falta .small { color: var(--soft); }
+.mini-carta.tier-bronce { background: linear-gradient(135deg, #f3c9a3, #c98b5e 55%, #f0c9a4); }
+.mini-carta.tier-plata { background: linear-gradient(135deg, #f4f5f8, #b9bfca 55%, #eef0f4); }
+.mini-carta.tier-oro { background: linear-gradient(115deg, #fff0b3, #f2c14e 40%, #fff3c4 60%, #e7ad2f); background-size: 220% 100%; animation: foil 4s ease-in-out infinite alternate; }
+.carta.tier-bronce::before { background: linear-gradient(135deg, #f3c9a3, #c98b5e 55%, #f0c9a4); }
+.carta.tier-plata::before { background: linear-gradient(135deg, #f4f5f8, #b9bfca 55%, #eef0f4); }
+.carta.tier-oro::before { background: linear-gradient(115deg, #fff0b3, #f2c14e 40%, #fff3c4 60%, #e7ad2f); background-size: 260% 100%; animation: foil 5s ease-in-out infinite alternate; }
+.tier-chip.tier-bronce { --c: #f0c9a4; }
+.tier-chip.tier-plata { --c: #dfe2e8; }
+.tier-chip.tier-oro { --c: #f6d36b; }
+@media (prefers-reduced-motion: reduce) { .sobre, .mini-carta.tier-oro, .carta.tier-oro::before { animation: none; } }
+
 /* ---------- balance y ranking ---------- */
 .podio { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 6px; }
 .podio-p { display: grid; justify-items: center; gap: 2px; padding: 8px 4px 10px; border: 2px solid var(--ink); border-radius: 14px 14px 6px 6px; background: color-mix(in srgb, var(--butter) 40%, var(--paper)); color: var(--ink); font: inherit; cursor: pointer; min-width: 0; }
