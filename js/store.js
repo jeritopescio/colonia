@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [],
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {},
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -62,7 +62,7 @@ window.STORE = (function () {
         s.xp = mine.xp; s.coins = mine.monedas;
         const d = mine.datos;
         s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null; s.bocinas = d.bocinas || {};
-        s.idea = d.idea || null; s.sumo = d.sumo || [];
+        s.idea = d.idea || null; s.sumo = d.sumo || []; s.hallazgos = d.hallazgos || {};
         s.regalosVistos = [...new Set([...(d.regalosVistos || []), ...s.regalosVistos])];
       }
     }
@@ -90,7 +90,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo };
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
     }, 400);
@@ -148,7 +148,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save();
     },
@@ -232,6 +232,15 @@ window.STORE = (function () {
         if (n) por[p.id] = n;
       });
       return { total: Object.values(por).reduce((a, b) => a + b, 0), por };
+    },
+    // Botellas y galletas que encontraste en tu altarcito: { botella: [{ dia, i }], galleta: [...] } (i = cuál mensaje).
+    hallazgos(tipo) { return (s.hallazgos && s.hallazgos[tipo]) || []; },
+    hallado(tipo, dia) { return api.hallazgos(tipo).some((h) => h.dia === dia); },
+    hallar(tipo, dia, i, c) {
+      if (api.hallado(tipo, dia)) return false;
+      s.hallazgos = Object.assign({}, s.hallazgos, { [tipo]: api.hallazgos(tipo).concat({ dia, i }) });
+      s.coins += c; save(); pushMe();
+      return true;
     },
     // Cosas que se ven una sola vez por persona (también desde otro celu): se anotan en ach.
     visto(k) { return !!s.ach[k]; },

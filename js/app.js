@@ -91,6 +91,97 @@
     const vars = sh.anim ? `;--t:${(7 + (h % 40) / 10).toFixed(1)}s;--d:-${((h >> 3) % 70 / 10).toFixed(1)}s` : '';
     return `<div class="it${zonaDe(it.id) === 'mar' ? ' mar' : ''}${sh.anim ? ' ' + sh.anim : ''}" data-k="${it.k}" data-id="${it.id}" data-x="${p.x}" data-y="${p.y}" style="${itStyle(it.id, p.x, p.y, zDe(it.id, i))}${vars}">${clip ? `<span class="recorte">${art}</span>` : art}</div>`;
   }
+  // ---------- hallazgos: la botella del mar y la galleta de arroz ----------
+  // Aparecen solas en tu altarcito algunos días. Se abren tocándolas y dan monedas; si no la abrís ese día, se la lleva la marea.
+  const HZ = D.HALLAZGOS;
+  const forzado = {}; // panel de prueba: hace aparecer una ya
+  function hallazgoHoy(tipo) {
+    const h = HZ[tipo], dia = SKY.arDate();
+    if (!S.me || dia < HZ.desde || S.hallado(tipo, dia)) return null;
+    const r = rnd(tipo + S.me + dia), sale = r() < h.prob, hora = h.de + r() * (h.a - h.de);
+    if (!forzado[tipo] && (!sale || SKY.arMinute() < hora)) return null;
+    return { tipo, x: 0.16 + r() * 0.68, y: tipo === 'botella' ? 0.47 + r() * 0.025 : 0.64 + r() * 0.26 };
+  }
+  function hallazgoHTML(h) {
+    const w = (ARTE.size(h.tipo).w / 4 * ESCALA * (h.tipo === 'botella' ? 0.9 : persp(h.y))).toFixed(2);
+    const que = h.tipo === 'botella' ? 'Una botella llegó del mar' : 'Hay algo enterrado en la arena';
+    return `<div class="it hallazgo ${h.tipo}${h.tipo === 'botella' ? ' mar flota' : ''}" data-hallazgo="${h.tipo}" role="button" tabindex="0" aria-label="${que}"
+      style="left:${(h.x * 100).toFixed(2)}%;top:${(h.y * 100).toFixed(2)}%;width:${w}%;z-index:60">${ARTE.item(h.tipo)}<i class="brillo" aria-hidden="true">✦</i></div>`;
+  }
+  const SIN_TILDE = { á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u', Á: 'A', É: 'E', Í: 'I', Ó: 'O', Ú: 'U' };
+  const sinTilde = (t) => t.replace(/[áéíóúüÁÉÍÓÚ]/g, (c) => SIN_TILDE[c]);
+  const CIFRAR = {
+    murcielago: (t) => sinTilde(t).replace(/[murcielago]/gi, (c) => 'murcielago'.indexOf(c.toLowerCase())),
+    jeringozo: (t) => t.replace(/[aeiouáéíóú]/gi, (v) => v + 'p' + sinTilde(v).toLowerCase()),
+    reves: (t) => [...t].reverse().join(''),
+    espejo: (t) => t,
+    corrida: (t) => sinTilde(t).replace(/[a-z]/gi, (c) => { const A = c <= 'Z' ? 65 : 97; return String.fromCharCode((c.charCodeAt(0) - A + 1) % 26 + A); }),
+  };
+  function abrirHallazgo(el) {
+    const tipo = el.dataset.hallazgo, h = HZ[tipo], lista = tipo === 'botella' ? h.mensajes : h.frases;
+    const i = barajar(lista.length, tipo + S.me)[S.hallazgos(tipo).length % lista.length];
+    if (!S.hallar(tipo, SKY.arDate(), i, h.c)) return;
+    forzado[tipo] = false;
+    el.classList.add('se-va');
+    SONIDO.monedas(h.c);
+    leerHallazgo(tipo, i, true);
+    setTimeout(render, 450);
+  }
+  function leerHallazgo(tipo, i, nuevo) {
+    const premio = nuevo ? `<span class="chip" style="--c:var(--butter)">+${HZ[tipo].c} <span class="coin"></span></span>` : '';
+    if (tipo === 'botella') {
+      const [clave, texto] = HZ.botella.mensajes[i], k = HZ.botella.claves[clave], cif = CIFRAR[clave](texto);
+      return sheet(`<div class="hallazgo-hoja">
+        <div class="eyebrow">Llegó una botella del mar</div>${premio}
+        <div class="papel"><p class="msj${clave === 'espejo' ? ' espejo' : ''}" id="msj">${esc(cif)}</p></div>
+        <p class="small muted" style="margin:0">Viene ${esc(k.n)}. ${esc(k.pista)}</p>
+        <div class="row" style="justify-content:center"><button class="btn ghost" data-close>Guardarla</button><button class="btn" id="descifrar" style="--c:var(--celeste)">Descifrar</button></div></div>`,
+      (bg) => {
+        const p = bg.querySelector('#msj'), b = bg.querySelector('#descifrar');
+        b.addEventListener('click', () => {
+          if (b.dataset.close != null) return;
+          b.disabled = true; p.classList.remove('espejo');
+          const t0 = performance.now(), dur = clave === 'espejo' ? 500 : 1300;
+          const paso = (now) => {
+            const q = Math.min(1, (now - t0) / dur);
+            p.textContent = texto.slice(0, Math.round(q * texto.length)) + cif.slice(Math.round(q * cif.length));
+            if (q < 1) return requestAnimationFrame(paso);
+            p.textContent = texto; p.classList.add('claro'); SONIDO.plop();
+            b.textContent = 'Listo'; b.disabled = false; b.dataset.close = '';
+          };
+          requestAnimationFrame(paso);
+        });
+      });
+    }
+    const [frase, nums] = HZ.galleta.frases[i];
+    sheet(`<div class="hallazgo-hoja">
+      <div class="eyebrow">Una galleta de arroz en la arena</div>${premio}
+      <button class="galleta-abre${nuevo ? '' : ' partida'}" id="partir" aria-label="Partir la galleta"><span class="mitad izq">${ARTE.item('galleta')}</span><span class="mitad der">${ARTE.item('galleta')}</span></button>
+      <div class="tira" id="tira"${nuevo ? ' hidden' : ''}><p>${esc(frase)}</p><p class="small" style="margin:0">Números de la suerte<br><b class="nums">${nums.join(' · ')}</b></p></div>
+      ${nuevo ? '<p class="small muted" id="nota" style="margin:0">Tocala para partirla.</p>' : ''}
+      <button class="btn ghost" data-close>Listo</button></div>`,
+    (bg) => {
+      const g = bg.querySelector('#partir');
+      g.addEventListener('click', () => {
+        if (g.classList.contains('partida')) return;
+        g.classList.add('partida'); SONIDO.plop();
+        setTimeout(() => { bg.querySelector('#tira').hidden = false; const n = bg.querySelector('#nota'); if (n) n.hidden = true; }, 320);
+      });
+    });
+  }
+  const nHallazgos = () => S.hallazgos('botella').length + S.hallazgos('galleta').length;
+  // Todo lo que encontraste, de lo más nuevo a lo más viejo, ya descifrado.
+  function misHallazgos() {
+    const todos = ['botella', 'galleta'].flatMap((tipo) => S.hallazgos(tipo).map((h) => Object.assign({ tipo }, h))).sort((a, b) => b.dia.localeCompare(a.dia));
+    const fila = (h) => {
+      const g = h.tipo === 'galleta' && HZ.galleta.frases[h.i], txt = g ? g[0] : HZ.botella.mensajes[h.i][1];
+      return `<li><span class="mini">${ARTE.item(h.tipo)}</span><div><span class="small muted">${h.tipo === 'botella' ? 'Botella' : 'Galleta'} del ${fechaCorta(h.dia)}</span>
+        <p style="margin:2px 0 0">${esc(txt)}</p>${g ? `<span class="small">Números: ${g[1].join(' · ')}</span>` : ''}</div></li>`;
+    };
+    sheet(`<div style="display:grid;gap:12px"><h2>Lo que trajo el mar</h2>
+      <p class="small muted" style="margin:0">Botellas y galletas que encontraste en tu altarcito.</p>
+      <ul class="hallados">${todos.map(fila).join('')}</ul><button class="btn ghost" data-close>Listo</button></div>`);
+  }
   function altarHTML(pid, editable) {
     const a = S.altar(pid);
     const placed = a.items.map((it) => ({ it, p: spot(pid, it, a.place) })).filter((x) => !x.p.off)
@@ -104,6 +195,7 @@
       ${ref}
       <div class="it fixed cartel" style="left:86%;top:57%;width:${cw}%;z-index:3">${ARTE.cartel(esc(name))}</div>
       ${placed.map(({ it, p }, i) => itHTML(pid, it, p, i)).join('')}
+      ${editable && pid === S.me ? ['botella', 'galleta'].map(hallazgoHoy).filter(Boolean).map(hallazgoHTML).join('') : ''}
       ${!a.items.length && !R ? `<div class="vacio">${editable ? 'Tu playa está vacía.<br>Pasá por el kiosco.' : 'Todavía está vacía.'}</div>` : ''}
     </div><div class="zoombar"><button data-z="-1" aria-label="Alejar">−</button><button data-z="1" aria-label="Acercar">+</button></div></div>`;
   }
@@ -218,7 +310,7 @@
       }
       if (pts.size > 2) return;
       const el = e.target.closest('.it[data-k]');
-      const t = g = { tipo: 'toque', el, pointer: e.pointerId, sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY };
+      const t = g = { tipo: 'toque', el, huevo: e.target.closest('[data-hallazgo]'), pointer: e.pointerId, sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY };
       if (el && editable && !el.classList.contains('fixed')) {
         el.classList.add('pre');
         t.timer = setTimeout(() => { if (g === t && el.isConnected) agarrar(); }, HOLD);
@@ -265,6 +357,7 @@
       }
       const t = g; sinEspera(); g = null;
       if (t.tipo !== 'toque' || e.type === 'pointercancel') return;
+      if (t.huevo) { abrirHallazgo(t.huevo); return; }
       if (t.el) { SONIDO.si(); itemSheet(pid, t.el, editable); return; }
       const now = performance.now(), [x, y] = aLocal(e.clientX, e.clientY);
       if (now - tapT < 320 && Math.hypot(x - tapX, y - tapY) < 34) { tapT = 0; zoomEn(v.z > 1.01 ? 1 : 2, x, y, true); }
@@ -272,6 +365,7 @@
     };
     altar.addEventListener('pointerup', fin);
     altar.addEventListener('pointercancel', fin);
+    box.querySelectorAll('[data-hallazgo]').forEach((b) => b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirHallazgo(b); } }));
     // Mientras se arrastra o hay zoom, el dedo es de la playa y no de la página.
     altar.addEventListener('touchmove', (e) => { if ((g && g.tipo === 'drag') || v.z > 1.001 || e.touches.length > 1) e.preventDefault(); }, { passive: false });
     altar.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -924,7 +1018,8 @@
       screen.innerHTML = `${top()}
         <div class="spread"><h1 class="on-sky" style="font-size:1.7rem">Tu altarcito playero</h1><a class="btn" href="#kiosco" style="--c:var(--butter);text-decoration:none">Kiosco</a></div>
         <div class="card">${altarHTML(S.me, true)}
-          <p class="small muted" style="margin:0">Mantené apretada una cosa para moverla. Tocala para verla, pintarla o guardarla. Con dos dedos te acercás.</p>${bolsaHTML()}</div>
+          <p class="small muted" style="margin:0">Mantené apretada una cosa para moverla. Tocala para verla, pintarla o guardarla. Con dos dedos te acercás.</p>${bolsaHTML()}
+          ${nHallazgos() ? `<button class="btn ghost hallados-btn" id="misHallazgos">Lo que trajo el mar (${nHallazgos()})</button>` : ''}</div>
         <div class="card"><div class="eyebrow">Altarcitos de la colonia</div>
           <div class="faces visit">${D.PEOPLE.filter((p) => p.id !== S.me).map((p) => `<button class="pick" data-v="${p.id}"><img class="face" src="${face(p.id)}" alt=""><span class="small">${esc(p.n)}</span></button>`).join('')}</div></div>`;
       bindAltar(screen.querySelector('.altar'), true);
@@ -934,6 +1029,7 @@
         render();
       }));
       screen.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => visit(b.dataset.v)));
+      const mh = $('#misHallazgos'); if (mh) mh.addEventListener('click', misHallazgos);
     },
 
     kiosco() {
@@ -1158,6 +1254,7 @@
         <label>Clima <select id="kd">${kinds.map((k) => `<option ${SKY.override.kind === k || (!SKY.override.kind && k === 'auto') ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
         <label>La foto: <b id="cv">${Math.round(fotoProgress() * 100)}%</b><input type="range" id="cp" min="0" max="100" step="5" value="${Math.round(fotoProgress() * 100)}"></label>
         <div class="row"><button class="btn ghost" id="now">Volver a la hora real</button><button class="btn ghost" id="reset">Borrar todo y elegir de nuevo</button></div>
+        <div class="row"><button class="btn ghost" data-traer="botella">Traer una botella</button><button class="btn ghost" data-traer="galleta">Traer una galleta</button></div>
         <button class="btn" data-close>Listo</button></div>`,
       (bg) => {
         bg.querySelector('#hr').addEventListener('input', (e) => { SKY.override.minute = +e.target.value; bg.querySelector('#hv').textContent = SKY.fmt(+e.target.value); SKY.paint(); });
@@ -1165,6 +1262,8 @@
         bg.querySelector('#cp').addEventListener('input', (e) => { fotoOverride = +e.target.value / 100; bg.querySelector('#cv').textContent = e.target.value + '%'; render(); });
         bg.querySelector('#now').addEventListener('click', () => { SKY.override.minute = null; SKY.override.kind = null; fotoOverride = null; SKY.paint(); render(); bg.remove(); });
         bg.querySelector('#reset').addEventListener('click', () => { S.forget(); bg.remove(); go('quien'); });
+        // Para mirarlas sin esperar: aparece hoy en tu altarcito (si ya abriste la de hoy, no vuelve).
+        bg.querySelectorAll('[data-traer]').forEach((b) => b.addEventListener('click', () => { forzado[b.dataset.traer] = true; bg.remove(); go('altar'); }));
       });
     });
   }

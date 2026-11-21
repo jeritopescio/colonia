@@ -199,6 +199,89 @@ window.DATA = (function () {
     { id: 'capitulo-2', para: '*', desde: '2027-01-11', c: 100, t: 'Para arrancar el capítulo 2' },
   ];
 
+  // Hallazgos: aparecen solos en tu altarcito algunos días (prob = chance por día, entre los minutos de y a, hora argentina).
+  // Se abren tocándolos y dan monedas. Si no lo abrís ese día, se lo lleva la marea. Cada persona los recorre en su propio orden.
+  const HALLAZGOS = {
+    desde: '2026-11-21',
+    botella: {
+      prob: 0.3, de: 480, a: 1200, c: 20,
+      claves: {
+        murcielago: { n: 'en clave murciélago', pista: 'M U R C I E L A G O = 0 1 2 3 4 5 6 7 8 9' },
+        jeringozo: { n: 'en jeringozo', pista: 'Sacale la p y la vocal que se repite.' },
+        reves: { n: 'escrita al revés', pista: 'Leela de atrás para adelante.' },
+        espejo: { n: 'escrita en espejo', pista: 'Ponela frente a un espejo, o tocá Descifrar.' },
+        corrida: { n: 'corrida una letra', pista: 'Cada letra es la que viene antes: la b es una a.' },
+      },
+      mensajes: [
+        ['murcielago', 'Si encontraste esta botella, el mar te debe una ola. Firma: el mar.'],
+        ['jeringozo', 'Guarden un mate tibio. Llego con la próxima marea.'],
+        ['reves', 'Acá abajo también ponemos la sombrilla torcida. Firma: los peces.'],
+        ['espejo', 'El protector no se pone solo. Firma: el sol de las tres.'],
+        ['corrida', 'Una sirena pregunta quién se llevó la tabla.'],
+        ['murcielago', 'No le cuentes a nadie: los caracoles escuchan todo.'],
+        ['jeringozo', 'Coordenadas del tesoro: debajo de la sombrilla de quien más se ríe.'],
+        ['reves', 'Si estás leyendo esto, tomá agua.'],
+        ['espejo', 'Tulio fue visto en la orilla con anteojos de sol. No confirmamos ni desmentimos.'],
+        ['corrida', 'Botella siete de cien. Las otras noventa y tres se las quedó un delfín.'],
+        ['murcielago', 'Hoy el mar estuvo pensando en vos.'],
+        ['jeringozo', 'Mensaje de una gaviota: la papa frita era mía y no pido perdón.'],
+        ['reves', 'Desde el fondo del mar: aplausos para quien cocinó.'],
+        ['espejo', 'Si un caracol suena a radio, no es el mar: es la playlist del viaje.'],
+        ['corrida', 'Las olas cuentan hasta siete y vuelven a empezar. Vos también podés.'],
+        ['murcielago', 'Gracias por llevarte la basura. Firma: la arena.'],
+        ['jeringozo', 'Encontramos una ojota sola. Si es tuya, el mar te la quiere devolver.'],
+        ['reves', 'Una estrella de mar te manda un abrazo de cinco brazos.'],
+        ['espejo', 'Pronóstico submarino: mojado, con probabilidad de más mojado.'],
+        ['corrida', 'Para quien juega de lejos: el mar te guarda una ola hasta que vengas.'],
+        ['murcielago', 'No hay mensaje. Solo queríamos que abrieras algo lindo.'],
+        ['jeringozo', 'Un cangrejo pide entrar a la colonia. Le dijimos que no. Insiste.'],
+        ['reves', 'Nico: el mar avisa que la arena no es heladera.'],
+        ['espejo', 'Jero: el mar dice que ya lo miraste bastante, que te metas.'],
+        ['corrida', 'Rich: un delfín te vio bailar y quiere clases.'],
+        ['murcielago', 'El faro manda saludos y pide que dejen una luz prendida en la casa.'],
+        ['jeringozo', 'Si lo leíste en voz alta, ya sos parte del club secreto de la botella.'],
+        ['reves', 'Escrito en una servilleta mojada: la próxima juntada la propone quien lea esto.'],
+        ['espejo', 'La marea se lleva las huellas, pero no las fotos. Seguí sacando.'],
+        ['corrida', 'Fin del mensaje. Volvé a tirar la botella al mar, con un deseo adentro.'],
+      ],
+    },
+    galleta: {
+      prob: 0.1, de: 600, a: 1320, c: 40,
+      frases: [
+        ['Un viaje de mil leguas empieza con un solo paso.', [4, 5, 29, 36, 44, 48]],
+        ['Cuando tomes agua, acordate de quién cavó el pozo.', [4, 5, 9, 13, 15, 16]],
+        ['La gota de agua horada la piedra.', [14, 17, 33, 34, 42, 43]],
+        ['No temas ir despacio; temé quedarte quieto.', [2, 7, 10, 28, 33, 40]],
+        ['Si caminan tres juntos, seguro uno tiene algo para enseñarte.', [12, 18, 26, 33, 41, 43]],
+        ['Una risa te saca diez años de encima.', [5, 12, 28, 38, 43, 48]],
+        ['Cuando todos suman leña, la llama crece.', [10, 15, 27, 34, 43, 48]],
+        ['Un hilo solo no hace una cuerda; un árbol solo no hace un bosque.', [1, 3, 15, 37, 47, 49]],
+        ['El agua que corre no se pudre.', [5, 11, 20, 42, 43, 46]],
+        ['Aprender es remar contra la corriente: si no avanzás, retrocedés.', [10, 15, 21, 39, 41, 47]],
+        ['Más vale un vecino cerca que un pariente lejos.', [6, 7, 10, 19, 32, 43]],
+        ['Si la montaña no se mueve, que dé la vuelta el camino.', [17, 18, 24, 29, 41, 48]],
+        ['Ver una vez vale más que escuchar cien veces.', [12, 19, 20, 25, 40, 46]],
+        ['Si dos tienen el mismo corazón, cortan hasta el metal.', [12, 27, 31, 35, 37, 39]],
+        ['Entre los cuatro mares, todos somos hermanos.', [12, 25, 28, 36, 41, 44]],
+        ['Que lleguen amigos de lejos, ¿no es acaso una alegría?', [4, 5, 7, 36, 42, 43]],
+        ['Un día sin verte parecen tres otoños.', [5, 18, 27, 35, 39, 41]],
+        ['El viejo de la frontera perdió su caballo: ¿quién sabe si no fue una suerte?', [5, 14, 28, 29, 36, 37]],
+        ['Dale un pescado a alguien y come un día; enseñale a pescar y come toda la vida.', [3, 5, 9, 10, 17, 47]],
+        ['Con la gente unida se mueve hasta una montaña.', [4, 15, 16, 31, 45, 49]],
+        ['Una palabra amable abriga tres inviernos.', [8, 18, 20, 24, 33, 43]],
+        ['Quien sabe estar contento es feliz siempre.', [1, 12, 34, 38, 41, 49]],
+        ['El mar es grande porque recibe a cien ríos.', [8, 12, 17, 37, 38, 39]],
+        ['Cuando baja el agua, aparecen las piedras.', [4, 6, 8, 11, 13, 43]],
+        ['Para la gente, la comida es el cielo.', [5, 7, 25, 28, 37, 46]],
+        ['El plan del año se hace en primavera; el del día, a la mañana.', [4, 9, 14, 23, 37, 41]],
+        ['Mejor encender una vela que quejarse de la oscuridad.', [13, 14, 18, 25, 43, 49]],
+        ['El mejor momento para plantar un árbol fue hace veinte años. El segundo mejor es hoy.', [1, 16, 24, 28, 33, 42]],
+        ['Agujerito sin arreglar, agujerazo para llorar.', [14, 25, 29, 33, 34, 46]],
+        ['Quien pregunta es tonto cinco minutos; quien no pregunta, lo es para siempre.', [3, 15, 18, 19, 24, 28]],
+      ],
+    },
+  };
+
   // Logros automáticos: se ganan solos, sin foto.
   const ACH = {
     'entrada': { t: 'Entraste hoy', c: 5 },
@@ -267,6 +350,8 @@ window.DATA = (function () {
     { id: 'pompi', n: 'Pompi', sub: 'el gato de Juani', p: 55, lv: 2, d: 'Naranja, flaco y veloz. Cuando llegás, ya se fue.' },
     { id: 'renu', n: 'Renu', sub: 'la perrita de Nachote', p: 55, lv: 2, d: 'Olfato de bretona: detecta un asado a tres balnearios.' },
     { id: 'leda', n: 'Leda', sub: 'la perra de Rochi', p: 55, lv: 2, d: 'Cabeza de huevo, corazón de dulce de leche.' },
+    { id: 'pure', n: 'Puré', sub: 'la perra de Sofi', p: 55, lv: 2, d: 'Petisa, con orejas de antena. Se duerme en cualquier asiento de auto, de copiloto.' },
+    { id: 'kuky', n: 'Kuky', sub: 'la perra del Chino', p: 55, lv: 2, d: 'Redondita y peluda. Cruza las patas como una señora y mira todo con ojos de miel.' },
     { id: 'marihuana', n: 'Planta de marihuana', p: 60, lv: 2, d: 'Creció sola, dice. Da sombra, risas y hambre.' },
     { id: 'neoprene', n: 'Traje de neoprene', p: 60, lv: 2, col: '#a9d6f0', d: 'Entrar cuesta. Salir, más. Surfista al menos de lejos.' },
     { id: 'tabla', n: 'Tabla de surf', p: 70, lv: 3, col: '#f7b3c6', d: 'Viaja en el techo del Sandero. Surfear es opcional.' },
@@ -339,5 +424,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, BONOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();
