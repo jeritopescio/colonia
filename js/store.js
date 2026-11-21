@@ -33,7 +33,16 @@ window.STORE = (function () {
   [['rochi', 'Un finde largo en las sierras, con pileta'], ['nico', 'Repetir la costa, pero una semana entera'], ['juli', 'Una colonia de invierno con guiso y juegos de mesa']]
     .forEach(([id, t], i) => { DEMO[id].idea = { t, en: `2027-01-1${i + 1}T12:00:00Z` }; });
   DEMO.pachi.sumo = ['rochi']; DEMO.juani.sumo = ['rochi', 'juli']; DEMO.rich.sumo = ['nico'];
-  const REAC_DEMO = ['corazon', 'bien', 'mal', 'no', 'si', 'risa'];
+  // Para el ranking en demo: días, regalos, madrugadas y cosas de ejemplo.
+  D.PEOPLE.forEach((p) => {
+    const r = seeded('extra' + p.id), d = DEMO[p.id];
+    d.days = Array.from({ length: 1 + Math.floor(r() * 5) }, (_, i) => `2026-11-${17 + i}`);
+    d.regalosHechos = Math.floor(r() * 3);
+    d.ach = r() < 0.35 ? { 'matutino:2026-11-20': 1, 'matutino:2026-11-21': 1 } : r() < 0.3 ? { 'noctambulo:2026-11-19': 1 } : {};
+    d.owned = Array.from({ length: Math.floor(r() * 5) }, () => 'mate');
+    d.hallazgos = r() < 0.3 ? { botella: [{ dia: '2026-11-21', i: 0 }] } : {};
+  });
+  const REAC_DEMO = ['corazon', 'bien', 'no', 'si', 'risa', 'emocion'];
   D.PEOPLE.forEach((p) => {
     const r = seeded('reac' + p.id); DEMO[p.id].reac = {};
     D.PEOPLE.forEach((q) => { if (q.id !== p.id) DEMO[q.id].done.forEach((m) => { if (r() < 0.3) DEMO[p.id].reac[q.id + '/' + m] = REAC_DEMO[Math.floor(r() * 6)]; }); });
@@ -284,6 +293,27 @@ window.STORE = (function () {
       const c = it ? Math.round(it.p * 0.8) : 0;
       s.owned[i] = null; delete s.place[k]; s.coins += c; save(); pushMe();
       return c;
+    },
+
+    // Lo que hizo cada persona en la app: para el balance, el ranking y las menciones de honor.
+    stats(pid) {
+      const yo = pid === s.me, d = yo ? s : live ? ((s.cache.players[pid] || {}).datos || {}) : DEMO[pid];
+      const ach = d.ach || {}, cuenta = (pre) => Object.keys(ach).filter((k) => k.startsWith(pre + ':')).length;
+      const reac = reacDe(pid), porTipo = {};
+      Object.values(reac).forEach((r) => { porTipo[r] = (porTipo[r] || 0) + 1; });
+      const hz = d.hallazgos || {};
+      return {
+        fotos: api.figuritas(pid),
+        reacciones: Object.keys(reac).length,
+        regalos: live ? s.cache.regalos.filter((r) => r.de === pid).length : d.regalosHechos || 0,
+        dias: (d.days || []).length,
+        porTipo,
+        matutino: cuenta('matutino'),
+        noctambulo: cuenta('noctambulo'),
+        hallazgos: (hz.botella || []).length + (hz.galleta || []).length,
+        bocinas: Object.values(d.bocinas || {}).reduce((a, b) => a + b, 0),
+        altar: (d.owned || []).filter(Boolean).length,
+      };
     },
 
     // ---------- fotos de la colonia y reacciones ----------

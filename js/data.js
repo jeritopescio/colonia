@@ -417,7 +417,7 @@ window.DATA = (function () {
     },
     hitos: [
       { at: 0.4, t: 'Llega Jose', d: 'Estreno del video de Rich', fecha: '5/12' },
-      { at: 1, t: 'La foto revelada', d: 'Álbum final, wrapped y premio', fecha: 'antes de volver' },
+      { at: 1, t: 'La foto revelada', d: 'Se ve entera, para guardar', fecha: 'antes de volver' },
     ],
   };
 

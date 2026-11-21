@@ -335,6 +335,23 @@ span.reac { cursor: default; }
 .vender { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border: 0; background: none; color: var(--soft); font: inherit; font-size: .92rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .reac.pop span[aria-hidden] { animation: none; } }
 
+/* ---------- balance y ranking ---------- */
+.podio { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 6px; }
+.podio-p { display: grid; justify-items: center; gap: 2px; padding: 8px 4px 10px; border: 2px solid var(--ink); border-radius: 14px 14px 6px 6px; background: color-mix(in srgb, var(--butter) 40%, var(--paper)); color: var(--ink); font: inherit; cursor: pointer; min-width: 0; }
+.podio-p.p1 { padding-bottom: 22px; background: color-mix(in srgb, var(--butter) 75%, var(--paper)); }
+.podio-p.p3 { padding-bottom: 4px; background: color-mix(in srgb, var(--coral) 30%, var(--paper)); }
+.podio-p .medalla { font-size: 1.5rem; line-height: 1; }
+.podio-p .face { width: 48px; height: 48px; }
+.podio-p.p1 .face { width: 62px; height: 62px; }
+.podio-p b { font-family: var(--display); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menciones summary { cursor: pointer; font-family: var(--display); font-weight: 600; padding: 4px 0; }
+.ranking { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.ranking li { display: grid; grid-template-columns: 20px 36px 1fr auto; gap: 8px; align-items: center; line-height: 1.2; }
+.ranking .pos { font-family: var(--display); font-weight: 600; color: var(--soft); text-align: right; }
+.ranking .face { width: 36px; height: 36px; border-width: 2px; }
+.ranking .mencion { font-size: .72rem; padding: 1px 8px; vertical-align: 1px; }
+.ranking .pts { font-family: var(--display); font-weight: 600; }
+
 /* ---------- quién está en la colonia ---------- */
 #enLinea:empty { display: none; }
 .en-linea { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 14px; background: var(--card); border: 2.5px solid var(--ink); border-radius: 99px; justify-self: start; max-width: 100%; }

@@ -26,7 +26,7 @@
   };
   const TABS = [['hoy', 'Hoy'], ['album', 'Álbum'], ['colonia', 'Colonia'], ['altar', 'Altarcito'], ['foto', 'La foto']];
   // Reacciones a las fotos de la colonia.
-  const REAC = [['corazon', '❤️', 'Corazón'], ['bien', '👍', 'Pulgar arriba'], ['mal', '👎', 'Pulgar abajo'], ['no', '❌', 'Incorrecto'], ['si', '✅', 'Correcto'], ['risa', '😂', 'Me hizo reír']];
+  const REAC = [['corazon', '❤️', 'Corazón'], ['bien', '👍', 'Pulgar arriba'], ['no', '❌', 'Incorrecto'], ['si', '✅', 'Correcto'], ['risa', '😂', 'Me hizo reír'], ['emocion', '🥹', 'Me emocionó']];
   const REAC_E = Object.fromEntries(REAC.map(([id, e]) => [id, e]));
 
   // ---------- la foto del 8/12 ----------
@@ -511,6 +511,61 @@
     const d = mid.slice(4), quien = pid && person(pid);
     if (mid.startsWith('dia-') && quien) return (D.DAILY_PROPIA[pid] || {})[d] || (!quien.trip && D.DAILY_LEJOS[d]) || misionDe(mid);
     return misionDe(mid);
+  }
+
+  // ---------- balance, ranking y menciones de honor ----------
+  // Puntos: cada foto 3, cada regalo 2, cada reacción y cada día que entraste 1.
+  const PUNTOS = { fotos: 3, regalos: 2, reacciones: 1, dias: 1 };
+  const vez = (n) => (n === 1 ? 'una vez' : `${n} veces`);
+  const tipo = (k) => (s) => s.porTipo[k] || 0;
+  // [clave, título, cómo se cuenta, de dónde sale el número]
+  const MENCIONES = [
+    ['fotos', 'Ojo de fotógrafo', (n) => (n === 1 ? 'una foto' : `${n} fotos`), (s) => s.fotos],
+    ['corazon', 'Corazón de la colonia', (n) => `puso ❤️ ${vez(n)}`, tipo('corazon')],
+    ['risa', 'Risa fácil', (n) => `se rió 😂 ${vez(n)}`, tipo('risa')],
+    ['emocion', 'Lágrima fácil', (n) => `se emocionó 🥹 ${vez(n)}`, tipo('emocion')],
+    ['no', 'Mano dura', (n) => `marcó ❌ ${vez(n)}`, tipo('no')],
+    ['si', 'Sello de aprobación', (n) => `dio ✅ ${vez(n)}`, tipo('si')],
+    ['bien', 'Pulgar de oro', (n) => `puso 👍 ${vez(n)}`, tipo('bien')],
+    ['regalos', 'Alma generosa', (n) => (n === 1 ? 'hizo un regalo' : `hizo ${n} regalos`), (s) => s.regalos],
+    ['matutino', 'Primera luz de la mañana', (n) => `fue la primera persona del día ${vez(n)}`, (s) => s.matutino],
+    ['noctambulo', 'Turno noche', (n) => `entró de madrugada ${vez(n)}`, (s) => s.noctambulo],
+    ['hallazgos', 'Ojo de pirata', (n) => `encontró ${n === 1 ? 'un tesoro' : n + ' tesoros'} del mar`, (s) => s.hallazgos],
+    ['bocinas', 'Bocina de oro', (n) => `tocó bocina ${vez(n)}`, (s) => s.bocinas],
+    ['altar', 'Altar de lujo', (n) => `${n === 1 ? 'una cosa' : n + ' cosas'} en su altarcito`, (s) => s.altar],
+    ['dias', 'Constancia', (n) => `entró ${n === 1 ? 'un día' : n + ' días'}`, (s) => s.dias],
+  ];
+  function ranking() {
+    const filas = D.PEOPLE.map((p) => { const st = S.stats(p.id); return { id: p.id, st, pts: Object.entries(PUNTOS).reduce((t, [k, v]) => t + st[k] * v, 0) }; })
+      .sort((a, b) => b.pts - a.pts || person(a.id).n.localeCompare(person(b.id).n));
+    // Fuera del podio, cada persona recibe la mención donde más se destaca frente al resto (cada una se da una sola vez).
+    const resto = filas.slice(3), maximo = {}, pares = [], usadas = new Set();
+    MENCIONES.forEach(([k, , , v]) => { maximo[k] = Math.max(1, ...filas.map((f) => v(f.st))); });
+    resto.forEach((f) => MENCIONES.forEach(([k, , , v]) => { const n = v(f.st); if (n > 0) pares.push({ f, k, n, peso: n / maximo[k] }); }));
+    pares.sort((a, b) => b.peso - a.peso || b.n - a.n).forEach((p) => {
+      if (p.f.mencion || usadas.has(p.k)) return;
+      const m = MENCIONES.find(([k]) => k === p.k);
+      p.f.mencion = { t: m[1], d: m[2](p.n) }; usadas.add(p.k);
+    });
+    resto.forEach((f) => { if (!f.mencion) f.mencion = { t: 'Miembro de honor', d: 'la colonia no sería la misma' }; });
+    return filas;
+  }
+  let verMenciones = false; // si abriste las menciones, quedan abiertas aunque se vuelva a dibujar
+  addEventListener('toggle', (e) => { if (e.target.classList && e.target.classList.contains('menciones')) verMenciones = e.target.open; }, true);
+  function balanceHTML() {
+    const filas = ranking(), yo = filas.find((f) => f.id === S.me), st = yo.st;
+    const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+    const podio = filas.slice(0, 3).map((f, i) => `<button class="podio-p p${i + 1}" data-carta="${f.id}" aria-label="${i + 1}º: ${esc(person(f.id).n)}, ${f.pts} puntos">
+      <span class="medalla" aria-hidden="true">${['🥇', '🥈', '🥉'][i]}</span><img class="face" src="${face(f.id)}" alt=""><b>${esc(person(f.id).n)}</b><span class="small">${f.pts} pts</span></button>`);
+    const resto = filas.slice(3).map((f, i) => `<li><span class="pos">${i + 4}</span><img class="face" src="${face(f.id)}" alt="">
+      <span><b>${esc(person(f.id).n)}</b> <span class="chip mencion" style="--c:var(--lav)">${esc(f.mencion.t)}</span><br><span class="small muted">${esc(f.mencion.d)}</span></span><span class="small pts">${f.pts}</span></li>`).join('');
+    return `<div class="card balance">
+      <div class="spread"><div class="eyebrow">Tu balance</div><span class="chip" style="--c:var(--butter)">${yo.pts} pts · ${filas.indexOf(yo) + 1}º de ${filas.length}</span></div>
+      <p style="margin:0">Subiste ${plural(st.fotos, 'foto', 'fotos')}, mandaste ${plural(st.reacciones, 'reacción', 'reacciones')}, hiciste ${plural(st.regalos, 'regalo', 'regalos')} y entraste ${plural(st.dias, 'día', 'días')}.</p>
+      <div class="eyebrow">Quienes más participan</div>
+      <div class="podio">${[podio[1], podio[0], podio[2]].join('')}</div>
+      <details class="menciones"${verMenciones ? ' open' : ''}><summary>Menciones de honor para el resto (${filas.length - 3})</summary><ul class="ranking">${resto}</ul></details>
+      <p class="small muted" style="margin:0">Cada foto suma 3 puntos, cada regalo 2, y cada reacción y cada día que entrás, 1. Se actualiza en vivo. El 8/12, cuando termine el viaje, sale el wrapped de la colonia.</p></div>`;
   }
 
   // ---------- fotos de la colonia y reacciones ----------
@@ -1081,10 +1136,11 @@
         return `<button class="mini-carta${c.foil ? ' foil' : ''}" data-carta="${id}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}" aria-label="Ver la tarjeta de ${n}"><img src="${face(id)}" alt=""><b>${n}</b></button>`;
       }).join('');
       screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">Colonia</h1>
-        <div class="card"><div><h2>Tarjetas de la colonia</h2><span class="small muted">Tocá a alguien para ver la suya y visitar su altarcito.</span></div><div class="tarjetas">${tarjetas}</div></div>
+        ${balanceHTML()}
         <p class="on-sky-soft" style="margin:0">Las fotos de todos, de la más nueva a la más vieja. Reaccioná con un toque.</p>
         ${ver.length ? ver.map(postHTML).join('') : '<div class="card"><p class="muted" style="margin:0">Todavía nadie subió fotos. Sacá la primera desde el álbum.</p></div>'}
         ${fotos.length > verFotos ? `<button class="btn" id="masFotos" style="--c:var(--paper);justify-self:center">Ver más fotos (${fotos.length - verFotos})</button>` : ''}
+        <div class="card"><div><h2>Tarjetas de la colonia</h2><span class="small muted">Tocá a alguien para ver la suya y visitar su altarcito.</span></div><div class="tarjetas">${tarjetas}</div></div>
         <div class="card"><div><h2>Vestigios de la beta</h2><span class="small muted">Las primeras fotos de la colonia, de cuando la app todavía se estaba armando.</span></div>
           <div class="vestigios">${D.VESTIGIOS.map(([pid, mid], i) => `<button class="vest" data-vest="${i}" aria-label="Foto de ${esc(person(pid).n)}"><img src="${vestigioUrl(pid, mid)}" alt="" loading="lazy"><span class="small">${esc(person(pid).n)}</span></button>`).join('')}</div></div>
         ${DEMO ? '<p class="proto">Modo demo: las fotos de los demás se muestran con su cara.</p>' : ''}`;
@@ -1196,7 +1252,7 @@
           ${fotoHTML(st)}
           <div class="spread small"><span class="muted">Las cosas de la foto salen con las figuritas de todos</span><span class="muted">${n} de ${D.FOTO.pieces.length}</span></div>
           <div class="row small">${D.FOTO.pieces.map((p) => `<span class="chip" style="--c:${st.pieces.has(p.id) ? 'var(--mint)' : 'var(--paper)'}">${esc(p.n)}</span>`).join('')}</div></div>
-        <div class="card"><div class="eyebrow">Lo que destraba</div>${hitos}</div>
+        <div class="card"><div class="eyebrow">Lo que destraba</div>${hitos}<div class="hito"><span class="dot">8/12</span><span><b>El wrapped de la colonia</b> · el balance de todo el viaje<br><span class="small muted">Sale cuando termina el viaje, no depende de la foto</span></span></div></div>
         <div class="card"><div class="eyebrow">La colonia</div><p class="small muted" style="margin:0">Tocá a alguien para visitar su altarcito.</p><div class="people">${people}</div></div>
         ${DEMO ? '<p class="proto">Modo demo: el progreso de los demás es de ejemplo.</p>' : ''}`;
       screen.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => visit(b.dataset.v)));
