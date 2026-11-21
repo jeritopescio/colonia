@@ -536,6 +536,16 @@
     ['altar', 'Altar de lujo', (n) => `${n === 1 ? 'una cosa' : n + ' cosas'} en su altarcito`, (s) => s.altar],
     ['dias', 'Constancia', (n) => `entró ${n === 1 ? 'un día' : n + ' días'}`, (s) => s.dias],
   ];
+  // Menciones escritas a partir del chat (bucket menciones/menciones.json): si hay, reemplazan a la automática.
+  let MENC = null;
+  try { MENC = JSON.parse(localStorage.getItem('colonia.menciones')); } catch (e) { /* sin copia */ }
+  fetch(S.artUrl('menciones/menciones.json'), { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+    if (!j || !j.menciones) return;
+    const cambio = JSON.stringify(j) !== JSON.stringify(MENC);
+    MENC = j;
+    try { localStorage.setItem('colonia.menciones', JSON.stringify(j)); } catch (e) { /* sin lugar */ }
+    if (cambio && location.hash.slice(1) === 'colonia') render();
+  }).catch(() => {});
   function ranking() {
     const filas = D.PEOPLE.map((p) => { const st = S.stats(p.id); return { id: p.id, st, pts: Object.entries(PUNTOS).reduce((t, [k, v]) => t + st[k] * v, 0) }; })
       .sort((a, b) => b.pts - a.pts || person(a.id).n.localeCompare(person(b.id).n));
@@ -549,6 +559,7 @@
       p.f.mencion = { t: m[1], d: m[2](p.n) }; usadas.add(p.k);
     });
     resto.forEach((f) => { if (!f.mencion) f.mencion = { t: 'Miembro de honor', d: 'la colonia no sería la misma' }; });
+    resto.forEach((f) => { const m = MENC && MENC.menciones[f.id]; if (m && m.t) f.mencion = { t: m.t, d: m.d || '' }; });
     return filas;
   }
   let verMenciones = false; // si abriste las menciones, quedan abiertas aunque se vuelva a dibujar
@@ -1412,12 +1423,42 @@
       ${c.poder ? `<div class="carta-sec"><div class="eyebrow">Poder</div><p>${esc(c.poder)}</p></div>` : ''}
       ${c.deb ? `<div class="carta-sec"><div class="eyebrow">Debilidad</div><p>${esc(c.deb)}</p></div>` : ''}
       ${c.dato ? `<p class="carta-dato">${esc(c.dato)}</p>` : ''}
-      <div class="row" style="justify-content:center">${pid === S.me ? '' : '<button class="btn ghost" id="suAltar">Ver su altarcito</button>'}<button class="btn" data-close>Listo</button></div></div>`,
+      <div class="row" style="justify-content:center">${pid === S.me ? '<button class="btn ghost" id="miPerfil">Cambiar mi foto de perfil</button>' : '<button class="btn ghost" id="suAltar">Ver su altarcito</button>'}<button class="btn" data-close>Listo</button></div></div>`,
     (bg) => {
       const im = bg.querySelector('.carta-foto img'), al = bg.querySelector('#suAltar');
       im.addEventListener('error', () => { im.src = face(pid); }, { once: true });
       if (al) al.addEventListener('click', () => { bg.remove(); visit(pid); });
+      const mp = bg.querySelector('#miPerfil'); if (mp) mp.addEventListener('click', () => { bg.remove(); cambiarPerfil(); });
     });
+  }
+  // Foto de perfil: cada uno puede cambiar la de WhatsApp por otra (se recorta cuadrada, al centro).
+  function cambiarPerfil() {
+    let inp = $('#perfilFile');
+    if (!inp) { inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'perfilFile'; inp.hidden = true; document.body.appendChild(inp); }
+    inp.value = '';
+    inp.onchange = async () => {
+      const f = inp.files[0];
+      if (!f) return;
+      let url;
+      try { url = await squareImage(f, 400); } catch (e) { return toast('<span>No pude leer esa foto. Probá con otra.</span>'); }
+      sheet(`<div class="sobre-hoja"><div class="eyebrow">Tu foto de perfil</div>
+        <img class="face perfil-previa" src="${url}" alt="">
+        <p class="small muted" style="margin:0">Así te van a ver en la app: en el ranking, en las reacciones y cuando entrás.</p>
+        <div class="row" style="justify-content:center"><button class="btn ghost" id="otraPerfil">Elegir otra</button><button class="btn" id="usarPerfil" style="--c:var(--mint)">Usar esta</button></div>
+        ${S.tienePerfil() ? '<button class="vender" id="volverWa">Volver a la de WhatsApp</button>' : ''}</div>`,
+      (bg) => {
+        bg.querySelector('#otraPerfil').addEventListener('click', () => { bg.remove(); cambiarPerfil(); });
+        bg.querySelector('#usarPerfil').addEventListener('click', async () => {
+          bg.remove(); render();
+          const ok = await S.setPerfil(url);
+          toast(ok ? '<span>Listo, ya tenés tu foto nueva.</span>' : '<span>Quedó en este celu, pero no se pudo subir. Probá de nuevo con señal.</span>');
+          render();
+        });
+        const wa = bg.querySelector('#volverWa');
+        if (wa) wa.addEventListener('click', () => { bg.remove(); S.setPerfil(null); toast('<span>Volviste a la foto de WhatsApp.</span>'); render(); });
+      });
+    };
+    inp.click();
   }
   function infoMonedas() {
     const fila = (t, c) => `<li><span>${esc(t)}</span><span class="chip" style="--c:var(--butter)">+${c} <span class="coin"></span></span></li>`;

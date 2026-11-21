@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacVistas: [], sobres: 0, recuerdos: [], visitas: [], amigos: [],
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacVistas: [], sobres: 0, recuerdos: [], visitas: [], amigos: [], perfil: null,
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -79,6 +79,7 @@ window.STORE = (function () {
         s.idea = d.idea || null; s.sumo = d.sumo || []; s.hallazgos = d.hallazgos || {}; s.reac = d.reac || {};
         s.reacVistas = [...new Set([...(d.reacVistas || []), ...s.reacVistas])];
         s.sobres = d.sobres || 0;
+        if (!String(s.perfil || '').startsWith('data:')) s.perfil = d.perfil || null;
         ['recuerdos', 'visitas', 'amigos'].forEach((k) => { s[k] = [...new Set([...(d[k] || []), ...(s[k] || [])])]; });
         s.regalosVistos = [...new Set([...(d.regalosVistos || []), ...s.regalosVistos])];
       }
@@ -136,7 +137,8 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos };
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos,
+        perfil: String(s.perfil || '').startsWith('data:') ? (((s.cache.players[s.me] || {}).datos || {}).perfil || null) : s.perfil };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
     }, 400);
@@ -195,12 +197,35 @@ window.STORE = (function () {
   const api = {
     live, ready,
     onChange(f) { listeners.push(f); },
-    faceUrl(id) { return C.supabaseUrl ? pub('caras/' + id + '.webp') : 'img/caras/' + id + '.webp'; },
+    // La foto de perfil: la que cada uno eligió en la app (datos.perfil) o, si no, la de WhatsApp que puso Jero (caras/).
+    faceUrl(id) {
+      const perfil = id === s.me ? s.perfil : live ? ((s.cache.players[id] || {}).datos || {}).perfil : null;
+      if (perfil) return String(perfil).startsWith('data:') ? perfil : pub(perfil);
+      return C.supabaseUrl ? pub('caras/' + id + '.webp') : 'img/caras/' + id + '.webp';
+    },
+    tienePerfil() { return !!s.perfil; },
+    // Se ve enseguida en este celu; se sube a fotos/<id>/ (como las figuritas) y después se avisa a los demás.
+    async setPerfil(dataUrl) {
+      s.perfil = dataUrl || null; save();
+      if (!dataUrl) { pushMe(); emit(); return true; }
+      if (!client) { emit(); return true; }
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const path = `fotos/${s.me}/perfil-${Date.now()}.jpg`;
+        const up = await client.storage.from('figuritas').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+        if (up.error) throw up.error;
+        s.perfil = path; save(); pushMe(); emit();
+        return true;
+      } catch (e) {
+        console.warn('No se pudo subir la foto de perfil', e);
+        return false;
+      }
+    },
     get me() { return s.me; },
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacVistas = row.datos.reacVistas || []; s.sobres = row.datos.sobres || 0; s.recuerdos = row.datos.recuerdos || []; s.visitas = row.datos.visitas || []; s.amigos = row.datos.amigos || []; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacVistas = row.datos.reacVistas || []; s.sobres = row.datos.sobres || 0; s.recuerdos = row.datos.recuerdos || []; s.visitas = row.datos.visitas || []; s.amigos = row.datos.amigos || []; s.perfil = row.datos.perfil || null; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save(); conectarPresencia();
     },

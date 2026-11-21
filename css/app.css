@@ -353,7 +353,7 @@ span.reac { cursor: default; }
 .rec { min-width: 0; padding: 3px 3px 9px; border: 1.5px solid var(--ink); border-radius: 3px; background: #fff; cursor: pointer; display: grid; place-items: center; box-shadow: 1px 2px 0 rgba(67, 54, 90, .14); }
 .rec:nth-child(odd) { transform: rotate(-2deg); }
 .rec:nth-child(even) { transform: rotate(1.5deg); }
-.rec img { width: 100%; aspect-ratio: 1; height: auto; object-fit: cover; display: block; }
+.rec img { width: 100%; aspect-ratio: 1; height: auto; object-fit: contain; background: #fff; display: block; }
 .rec.falta { aspect-ratio: 1; cursor: default; border-style: dashed; border-color: var(--soft); color: var(--soft); background: var(--paper); font-family: var(--display); font-weight: 600; box-shadow: none; }
 .rec.falta.suerte { box-shadow: none; color: #d9a53a; }
 .amigos-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -387,6 +387,8 @@ span.reac { cursor: default; }
 .tier-chip.tier-plata { --c: #dfe2e8; }
 .tier-chip.tier-oro { --c: #f6d36b; }
 @media (prefers-reduced-motion: reduce) { .sobre, .mini-carta.tier-oro, .carta.tier-oro::before { animation: none; } }
+
+.perfil-previa { width: 150px; height: 150px; border-width: 3px; }
 
 /* ---------- balance y ranking ---------- */
 .podio { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 6px; }
