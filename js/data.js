@@ -202,7 +202,7 @@ window.DATA = (function () {
   };
 
   // Más coleccionables (además de las figuritas de misiones):
-  // - Recuerdos del verano pasado: fotos reales en el bucket (recuerdos/recuerdos.json). Llegan en sobres:
+  // - El baúl de la colonia: fotos reales en el bucket (recuerdos/recuerdos.json). Llegan en sobres:
   //   uno por día que entrás, uno por cada nivel que subís y unos de bienvenida. Las rarezas "de la suerte" salen pocas veces.
   // - Figuritas de amigos: la de cada persona se consigue con 2 de 3 cosas (reaccionar a una foto suya, visitar su altarcito, regalarle algo).
   // - Tu tarjeta sube de categoría con el nivel.

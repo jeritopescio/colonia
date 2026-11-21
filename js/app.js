@@ -725,7 +725,7 @@
 
 
   // ---------- más coleccionables: recuerdos, figuritas de amigos y tarjeta ----------
-  // Recuerdos del verano pasado: las fotos viven en el bucket (recuerdos/), no en el repo. La lista se guarda para verla sin señal.
+  // El baúl de la colonia: las fotos viven en el bucket (recuerdos/), no en el repo. La lista se guarda para verla sin señal.
   let RECUERDOS = null;
   try { RECUERDOS = JSON.parse(localStorage.getItem('colonia.recuerdos')); } catch (e) { /* sin copia */ }
   fetch(S.artUrl('recuerdos/recuerdos.json'), { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then((j) => {
@@ -759,7 +759,7 @@
             <span class="chip" style="--c:var(--butter)">+${D.COLECCION.sobres.repetido} <span class="coin"></span></span><div class="row" style="justify-content:center">${botones}</div>`;
         } else {
           if (it.suerte) SONIDO.monedas(it.suerte);
-          box.innerHTML = `<div class="eyebrow">${it.mala ? '¡Uy! De la mala suerte' : it.suerte != null ? '¡De la suerte!' : 'Recuerdo del verano pasado'}</div>
+          box.innerHTML = `<div class="eyebrow">${it.mala ? '¡Uy! De la mala suerte' : it.suerte != null ? '¡De la suerte!' : 'Del baúl de la colonia'}</div>
             <div class="polaroid recuerdo-grande pop${it.suerte != null ? ' suerte' : ''}"><img src="${recUrl(it.id)}" alt=""></div>
             <h2>${esc(it.t)}</h2>${carasDe(it.p)}
             ${it.suerte ? `<span class="chip" style="--c:var(--butter)">+${it.suerte} <span class="coin"></span></span>` : ''}
@@ -771,10 +771,10 @@
         render();
       };
       const n = S.sobres();
-      box.innerHTML = `<div class="eyebrow">Recuerdos del verano pasado</div>
+      box.innerHTML = `<div class="eyebrow">El baúl de la colonia</div>
         <button class="sobre" id="abrirSobre" aria-label="Abrir el sobre"><span class="sobre-sello" aria-hidden="true">♡</span></button>
         <h2>${n === 1 ? 'Tenés un sobre' : `Tenés ${n} sobres`}</h2>
-        <p class="small muted" style="margin:0">Cada sobre trae una foto real del viaje anterior. A veces sale una de la suerte, que da monedas.</p>
+        <p class="small muted" style="margin:0">Cada sobre trae una foto real de la colonia, de cualquier época. A veces sale una de la suerte, que da monedas.</p>
         <div class="row" style="justify-content:center"><button class="btn ghost" data-close>Después</button><button class="btn" id="abrirSobre2" style="--c:var(--rose)">Abrirlo</button></div>`;
       box.querySelectorAll('#abrirSobre, #abrirSobre2').forEach((b) => b.addEventListener('click', abrir));
     });
@@ -828,7 +828,7 @@
       const pol = (it) => (mios.has(it.id) ? `<button class="rec${it.suerte != null ? ' suerte' : ''}" data-rec="${it.id}" aria-label="${esc(it.t)}"><img src="${recUrl(it.id)}" alt="" loading="lazy"></button>`
         : `<span class="rec falta${it.suerte != null ? ' suerte' : ''}" aria-hidden="true">${it.suerte != null ? '✦' : '?'}</span>`);
       const tengo = (l) => l.filter((x) => mios.has(x.id)).length;
-      recs = `<div class="card"><div class="spread"><div><h2>Recuerdos del verano pasado</h2><span class="small muted">${tengo(comunes)} de ${comunes.length} fotos reales del viaje anterior</span></div>
+      recs = `<div class="card"><div class="spread"><div><h2>El baúl de la colonia</h2><span class="small muted">${tengo(comunes)} de ${comunes.length} fotos reales de la colonia</span></div>
           ${S.sobres() ? `<button class="btn" data-sobres style="--c:var(--rose)">Abrir sobre (${S.sobres()})</button>` : medal(tengo(comunes) === comunes.length)}</div>
         <div class="recs">${comunes.map(pol).join('')}</div>
         <div class="eyebrow">De la suerte · ${tengo(raras)} de ${raras.length}</div><div class="recs">${raras.map(pol).join('')}</div>
@@ -1182,7 +1182,7 @@
         ${entreCapitulos() ? ideasCard() : ''}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
           <div class="list">${mRow(d, 'Sacá la foto y se vuelve figurita')}</div></div>
-        ${S.sobres() && RECUERDOS ? `<button class="card sobres-hoy" data-sobres><span class="sobre chico" aria-hidden="true"><span class="sobre-sello">♡</span></span><span><b>${S.sobres() === 1 ? 'Tenés un sobre sin abrir' : `Tenés ${S.sobres()} sobres sin abrir`}</b><br><span class="small muted">Recuerdos del verano pasado</span></span><span class="chip" style="--c:var(--rose)">Abrir</span></button>` : ''}
+        ${S.sobres() && RECUERDOS ? `<button class="card sobres-hoy" data-sobres><span class="sobre chico" aria-hidden="true"><span class="sobre-sello">♡</span></span><span><b>${S.sobres() === 1 ? 'Tenés un sobre sin abrir' : `Tenés ${S.sobres()} sobres sin abrir`}</b><br><span class="small muted">Fotos del baúl de la colonia</span></span><span class="chip" style="--c:var(--rose)">Abrir</span></button>` : ''}
         <div class="card dark"><div class="spread"><div class="eyebrow">Tus misiones secretas</div><span class="small muted">dos nuevas por día</span></div>
           ${S.secretSeen() ? `<div class="list">${hoyS.map((m) => mRow(m, 'No se la muestres a nadie')).join('')}</div>${atras ? `<a class="small" href="#album" style="color:var(--b-soft)">Tenés ${atras} ${atras === 1 ? 'pendiente' : 'pendientes'} de días anteriores</a>` : ''}`
             : `<div class="secret-cover"><span class="muted">Solo vos podés verlas.${me.trip ? '' : ' Valen desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver las de hoy</button></div>`}</div>
