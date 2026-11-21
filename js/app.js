@@ -19,11 +19,15 @@
     album: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
     tienda: '<svg viewBox="0 0 24 24"><path d="M4 9h16l-1.4 11H5.4z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/></svg>',
     altar: '<svg viewBox="0 0 24 24"><path d="M2.5 11.5a9.5 8 0 0 1 19 0z"/><path d="M12 11.5v8.5M7 20.5h10"/></svg>',
+    colonia: '<svg viewBox="0 0 24 24"><circle cx="8.5" cy="8.5" r="3.2"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M3 20c.5-3.8 2.8-6 5.5-6s5 2.2 5.5 6"/><path d="M14.2 14.4c.7-.4 1.5-.6 2.3-.6 2.3 0 4 1.8 4.5 5"/></svg>',
     foto: '<svg viewBox="0 0 24 24"><rect x="4" y="2.5" width="16" height="19" rx="1.5"/><rect x="7" y="5.5" width="10" height="10" rx=".5"/></svg>',
     camara: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>',
     sombrilla: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5a9.5 8 0 0 1 19 0z"/><path d="M12 11.5v8.5M7 20.5h10"/></svg>',
   };
-  const TABS = [['hoy', 'Hoy'], ['misiones', 'Misiones'], ['album', 'Álbum'], ['altar', 'Altarcito'], ['foto', 'La foto']];
+  const TABS = [['hoy', 'Hoy'], ['album', 'Álbum'], ['colonia', 'Colonia'], ['altar', 'Altarcito'], ['foto', 'La foto']];
+  // Reacciones a las fotos de la colonia.
+  const REAC = [['corazon', '❤️', 'Corazón'], ['bien', '👍', 'Pulgar arriba'], ['mal', '👎', 'Pulgar abajo'], ['no', '❌', 'Incorrecto'], ['si', '✅', 'Correcto'], ['risa', '😂', 'Me hizo reír']];
+  const REAC_E = Object.fromEntries(REAC.map(([id, e]) => [id, e]));
 
   // ---------- la foto del 8/12 ----------
   const fotoProgress = () => fotoOverride ?? Math.min(1, S.groupXp() / D.FOTO.goal);
@@ -380,6 +384,22 @@
       zoomEn(v.z + (+b.dataset.z) * 0.7, altar.clientWidth / 2, altar.clientHeight / 2, true);
     }));
   }
+  const nombreDe = (it) => (it.sub ? it.n : it.n.toLowerCase()); // las mascotas tienen nombre propio
+  function venderSheet(k, it, venta) {
+    sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
+      <div class="art-big">${ARTE.item(it.id, colorOf({ id: it.id }, S.altar().place[k]))}</div>
+      <h2>¿Vendés ${esc(nombreDe(it))}?</h2>
+      <p class="muted" style="margin:0">Te devuelven ${venta} monedas, el 80% de lo que costó. Se va de tu altarcito.</p>
+      <div class="row" style="justify-content:center"><button class="btn ghost" data-close>${NAH}</button><button class="btn" id="siVender" data-mudo style="--c:var(--butter)">Vender por ${venta} <span class="coin"></span></button></div></div>`,
+    (bg) => bg.querySelector('#siVender').addEventListener('click', () => {
+      const c = S.vender(k);
+      bg.remove();
+      if (!c) return;
+      SONIDO.monedas(c);
+      toast(`<span class="chip" style="--c:var(--butter)">+${c} <span class="coin"></span></span><span>Vendiste ${esc(nombreDe(it))}.</span>`);
+      render();
+    }));
+  }
   function itemSheet(pid, el, editable) {
     const k = el.dataset.k, id = el.dataset.id, it = shopItem(id);
     const a = S.altar(pid);
@@ -389,13 +409,18 @@
     // Quién lo regaló, grande y tocable: lleva a su tarjeta (y de ahí a su altarcito).
     const de = inst.from && person(inst.from);
     const from = de ? `<p class="regalado">${mine ? 'Te lo regaló' : 'Se lo regaló'} <button class="amigo" data-de="${de.id}"><img class="face" src="${face(de.id)}" alt="">${esc(de.n)}</button> ♡</p>` : '';
+    // Lo que compraste se puede vender al 80% de su precio; lo regalado, no.
+    const venta = editable && mine && !inst.from && String(k).startsWith('o') ? Math.round(it.p * 0.8) : 0;
     sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
       <div class="art-big" id="big">${ARTE.item(id, cur)}</div><h2>${esc(it.n)}</h2>
       ${it.sub ? `<p class="muted" style="margin:-6px 0 0">${esc(it.sub)}</p>` : ''}${from}
       ${it.d ? `<p class="desc">${esc(it.d)}</p>` : ''}
       ${editable && it.col ? `<div class="swatches">${D.COLORS.map((c) => `<button data-c="${c}" class="${c === cur ? 'on' : ''}" style="--c:${c}" aria-label="Pintar"></button>`).join('')}</div>` : ''}
-      <div class="row" style="justify-content:center">${editable && it.side !== 'R' ? '<button class="btn ghost" id="bag">Guardar en la bolsa</button>' : ''}<button class="btn" data-close>Listo</button></div></div>`,
+      <div class="row" style="justify-content:center">${editable && it.side !== 'R' ? '<button class="btn ghost" id="bag">Guardar en la bolsa</button>' : ''}<button class="btn" data-close>Listo</button></div>
+      ${venta ? `<button class="vender" id="vender">Venderlo por ${venta} <span class="coin"></span></button>` : ''}</div>`,
     (bg) => {
+      const vb = bg.querySelector('#vender');
+      if (vb) vb.addEventListener('click', () => { bg.remove(); venderSheet(k, it, venta); });
       bg.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
         S.setPlace(k, { c: b.dataset.c });
         bg.querySelectorAll('[data-c]').forEach((x) => x.classList.toggle('on', x === b));
@@ -439,6 +464,13 @@
   const enCosta = () => ahoraAR() >= D.COSTA;
   const trabada = (m) => !!m.costa && !enCosta() && !S.photo(m.id);
   const CUANDO_COSTA = 'Se destraba en la costa, el viernes 4 a las 16 h';
+  // Hasta entonces no se muestran; cuando se destraban, un aviso una sola vez.
+  function avisarCosta() {
+    if (!S.me || !enCosta() || SKY.arDate() > SKY.TRIP.to || S.visto('aviso:costa')) return;
+    S.marcar('aviso:costa');
+    const n = D.MISSIONS.filter((m) => m.costa && !S.photo(m.id)).length;
+    if (n) toast(`<span>¡Llegaron ${n} figuritas nuevas de la costa! Ya están en tu álbum.</span>`, 5000);
+  }
   function secretasDe(pid, dia) {
     const P = D.SECRETAS, viaje = person(pid).trip && dia >= P.viajeDesde && dia <= SKY.TRIP.to;
     const lista = viaje ? P.viaje : P.todas;
@@ -472,6 +504,51 @@
     if (!mid.startsWith('dia-')) return (D.MISSIONS.find((m) => m.id === mid) || { t: 'Una misión' }).t;
     const d = mid.slice(4);
     return D.DAILY_TRIP[d] || delPool(d);
+  }
+  function tituloFoto(mid, pid) {
+    if (mid.startsWith('ruta-')) { const p = R.paradas.find((x) => 'ruta-' + x.id === mid); return p ? p.t : 'La ruta'; }
+    if (mid === D.DUO.id) return D.DUO.t;
+    const d = mid.slice(4), quien = pid && person(pid);
+    if (mid.startsWith('dia-') && quien) return (D.DAILY_PROPIA[pid] || {})[d] || (!quien.trip && D.DAILY_LEJOS[d]) || misionDe(mid);
+    return misionDe(mid);
+  }
+
+  // ---------- fotos de la colonia y reacciones ----------
+  let verFotos = 15; // cuántas se muestran en Colonia ("Ver más" suma 15)
+  const fechaFoto = (iso) => { const t = Date.parse(iso); if (!t) return ''; const d = new Date(t - 3 * 36e5); return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`; };
+  function postHTML(f) {
+    const key = f.pid + '/' + f.mision, mia = f.pid === S.me, mi = S.miReaccion(key), rs = S.reacciones(key);
+    const img = `<img class="post-foto" src="${f.url || face(f.pid)}" alt="" loading="lazy"${f.url ? '' : ' style="filter:saturate(.5) sepia(.25)"'}>`;
+    // En tus fotos no reaccionás: ves cuántas te pusieron.
+    const botones = REAC.filter(([id]) => !mia || rs[id]).map(([id, e, n]) => {
+      const c = (rs[id] || []).length;
+      return mia ? `<span class="reac"><span aria-hidden="true">${e}</span><b>${c}</b><span class="sr">${n}</span></span>`
+        : `<button class="reac${mi === id ? ' on' : ''}" data-reac="${id}" data-foto="${key}" aria-pressed="${mi === id}" aria-label="${n}${c ? ': ' + c : ''}" data-mudo><span aria-hidden="true">${e}</span>${c ? `<b>${c}</b>` : ''}</button>`;
+    }).join('');
+    const quienes = REAC.filter(([id]) => rs[id]).map(([id, e]) => `<span class="reac-quien"><span aria-hidden="true">${e}</span><span class="mini-caras">${rs[id].map((p) => `<img class="face" src="${face(p)}" alt="${esc(person(p).n)}" title="${esc(person(p).n)}">`).join('')}</span></span>`).join('');
+    return `<div class="card post" data-post="${key}"><div class="post-top"><button class="post-quien" data-carta="${f.pid}"><img class="face" src="${face(f.pid)}" alt=""><b>${esc(person(f.pid).n)}</b></button><span class="small muted">${fechaFoto(f.creada)}</span></div>
+      <p class="post-t">${esc(tituloFoto(f.mision, f.pid))}</p>${img}
+      <div class="reacs">${botones || '<span class="small muted">Todavía sin reacciones.</span>'}</div>${quienes ? `<div class="reac-quienes">${quienes}</div>` : ''}</div>`;
+  }
+  function reaccionar(b) {
+    const key = b.dataset.foto, r = b.dataset.reac;
+    S.reaccionar(key, r); SONIDO.plop();
+    const f = S.fotosColonia().find((x) => x.pid + '/' + x.mision === key), post = b.closest('.post');
+    if (!f || !post) return render();
+    post.outerHTML = postHTML(f);
+    const nb = screen.querySelector(`[data-post="${key}"] [data-reac="${r}"]`);
+    if (nb && nb.classList.contains('on')) nb.classList.add('pop');
+  }
+  // A quien subió la foto le llega el aviso: una vez por reacción, también si entra desde otro celu.
+  function avisarReacciones() {
+    const r = location.hash.slice(1);
+    if (!S.me || !r || r === 'portada' || r === 'quien' || document.hidden) return;
+    const nuevas = S.reaccionesNuevas().filter((x) => person(x.de) && REAC_E[x.r]);
+    if (!nuevas.length) return;
+    S.verReacciones(nuevas.map((x) => x.k));
+    nuevas.slice(0, 3).forEach((x, i) => setTimeout(() => toast(`<img class="face" src="${face(x.de)}" alt="" style="width:40px;height:40px"><span><b>${esc(person(x.de).n)}</b> reaccionó ${REAC_E[x.r]} a tu foto: ${esc(tituloFoto(x.foto.split('/')[1], S.me))}</span>`, 4200), i * 900));
+    if (nuevas.length > 3) setTimeout(() => toast(`<span>Y ${nuevas.length - 3} reacciones más a tus fotos. Están en Colonia.</span>`, 4200), 2700);
+    SONIDO.plop();
   }
   function countdown() {
     const today = SKY.arDate();
@@ -904,25 +981,21 @@
     },
 
     hoy() {
-      const d = daily(), L = level(S.xp), c = countdown(), fst = fotoState(), me = person(S.me);
+      const d = daily(), c = countdown(), me = person(S.me), antesFoto = SKY.arDate() <= SKY.TRIP.to;
       const hoyS = secretasDe(S.me, SKY.arDate());
       const atras = secretasHasta().filter((m) => m.dia !== SKY.arDate() && !S.photo(m.id)).length;
       const enLaCasa = !rutaVisible() && SKY.arDate() > R.ultimoDia && SKY.arDate() <= SKY.TRIP.to;
       screen.innerHTML = `${top()}
+        <p class="on-sky-soft como">Sacá la foto que pide cada misión: se vuelve figurita en tu álbum y te da monedas para tu altarcito${antesFoto ? `. Con ${D.FOTO.figus} figuritas aparecés en la foto del 8/12` : ''}.</p>
         ${enLineaHTML()}
         ${laRuta()}
         ${entreCapitulos() ? ideasCard() : ''}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
-          <div class="list">${mRow(d, 'Subí la foto y queda hecha')}</div></div>
-        ${loQueViene()}
-        <div class="card"><div class="spread"><div class="eyebrow">Tu libreta</div><span class="small muted">racha: ${S.streak()} ${S.streak() === 1 ? 'día' : 'días'}</span></div>
-          <div class="spread"><b style="font-family:var(--display)">${esc(L.n)}</b><span class="small muted">${S.xp} XP${L.next ? ' · faltan ' + (L.next.xp - S.xp) : ''}</span></div>
-          <div class="bar"><i style="width:calc(${Math.round(L.pct * 100)}% - 4px)"></i></div></div>
-        <a href="#foto" class="card" style="color:inherit;text-decoration:none"><div class="spread"><div class="eyebrow">La foto del 8/12</div><b>${fst.people.size} de ${D.PEOPLE.length}</b></div>${fotoHTML(fst, true)}
-          <span class="small muted">${esc(estadoEnFoto(S.me, fst))}.</span></a>
+          <div class="list">${mRow(d, 'Sacá la foto y se vuelve figurita')}</div></div>
         <div class="card dark"><div class="spread"><div class="eyebrow">Tus misiones secretas</div><span class="small muted">dos nuevas por día</span></div>
-          ${S.secretSeen() ? `<div class="list">${hoyS.map((m) => mRow(m, 'No se la muestres a nadie')).join('')}</div>${atras ? `<a class="small" href="#misiones" style="color:var(--b-soft)">Tenés ${atras} ${atras === 1 ? 'pendiente' : 'pendientes'} de días anteriores</a>` : ''}`
+          ${S.secretSeen() ? `<div class="list">${hoyS.map((m) => mRow(m, 'No se la muestres a nadie')).join('')}</div>${atras ? `<a class="small" href="#album" style="color:var(--b-soft)">Tenés ${atras} ${atras === 1 ? 'pendiente' : 'pendientes'} de días anteriores</a>` : ''}`
             : `<div class="secret-cover"><span class="muted">Solo vos podés verlas.${me.trip ? '' : ' Valen desde donde estés.'}</span><button class="btn" id="seeSecret" style="--c:var(--lav)">Ver las de hoy</button></div>`}</div>
+        ${loQueViene()}
         ${enLaCasa ? '<button class="btn" data-juego style="--c:var(--lav)">Jugar a ¿Quién de la colonia…?</button>' : ''}
         <a class="btn a-playa" href="#portada" style="--c:var(--celeste)">Ir a mirar el mar</a>`;
       bindMissions(screen);
@@ -950,68 +1023,78 @@
         <div class="card"><div class="leyenda small">${Object.values(TIPO).map(([col, n]) => `<span style="--c:${col}">${n}</span>`).join('')}<span class="feriado">feriado</span></div></div>`;
     },
 
-    misiones() {
-      const me = person(S.me);
-      const groups = D.SERIES.filter((s) => s.id !== 'dia').map((s) => `<div class="card"><div class="eyebrow">${esc(s.n)}</div><div class="list">${D.MISSIONS.filter((m) => m.s === s.id).map((m) => mRow(m)).join('')}</div></div>`).join('');
-      const achs = Object.entries(D.ACH).map(([k, a]) => `<span class="chip" style="--c:var(--paper)">${esc(a.t)} · +${a.c} <span class="coin"></span></span>`).join('');
-      screen.innerHTML = `${top()}
-        <h1 class="on-sky" style="font-size:1.7rem">Misiones</h1>
-        <p class="on-sky-soft" style="margin:0">Cada una se cumple subiendo la foto que pide.${me.trip ? '' : ' Las podés hacer desde donde estés.'}${enCosta() ? '' : ' Las de la costa se destraban el viernes 4 a las 16 h.'}</p>
-        <div class="card"><div class="eyebrow">Hoy</div><div class="list">${mRow(daily())}${mRow(D.DUO, 'De a dos')}</div></div>
-        ${rutaMisiones().length ? `<div class="card"><div class="eyebrow">La ruta</div><p class="small muted" style="margin:0">Cuando alguien de tu auto sube la foto de una parada, el auto avanza en Hoy. La saca quien no maneja.</p>
-          <div class="list">${rutaMisiones().map((m) => mRow(m)).join('')}</div></div>` : ''}
-        ${secretasCard()}
-        ${groups}
-        <div class="card"><div class="eyebrow">Logros que llegan solos</div><p class="small muted" style="margin:0">No hay que hacer nada: la app los da cuando pasa.</p><div class="row">${achs}</div></div>`;
-      bindMissions(screen);
-    },
-
+    // Álbum: cada figurita es una misión. Vacía, dice qué foto sacar; llena, tiene tu foto. Solo se ven las que se pueden hacer.
     album() {
       const medal = (on) => `<svg class="medal" viewBox="0 0 46 46"><g filter="url(#crayon)" stroke="#43365a" stroke-width="2.2"><path d="M15 3l8 14 8-14" fill="${on ? '#a9d6f0' : 'none'}"/><circle cx="23" cy="28" r="14" fill="${on ? '#ffe39a' : '#fffaf1'}" stroke-dasharray="${on ? '0' : '4 4'}"/><path d="M23 20l2.4 5 5.4.6-4 3.7 1.1 5.3-4.9-2.7-4.9 2.7 1.1-5.3-4-3.7 5.4-.6z" fill="${on ? '#f6a38f' : 'none'}"/></g></svg>`;
-      const dias = Object.keys(S.photos()).filter((k) => k.startsWith('dia-')).sort();
-      const rutaAlbum = miVehiculo() && (rutaAbierta() || R.paradas.some((p) => S.photo('ruta-' + p.id)));
-      const series = [...D.SERIES, ...(rutaAlbum ? [{ id: 'ruta', n: 'La ruta' }] : [])].map((s) => {
-        const ms = s.id === 'dia' ? dias.map((id) => ({ id, t: 'Del ' + id.slice(-2) + '/' + id.slice(9, 11) }))
-          : s.id === 'ruta' ? R.paradas.map((p) => ({ id: 'ruta-' + p.id, t: (miVehiculo().micro && p.micro) || p.t, xp: R.xp })) : D.MISSIONS.filter((m) => m.s === s.id);
-        if (s.id === 'dia' && !ms.length) return '';
+      const me = person(S.me), fst = fotoState(), antesFoto = SKY.arDate() <= SKY.TRIP.to;
+      const slot = (m, conteo) => {
+        const ph = S.photo(m.id), n = conteo ? S.doneBy(m.id).length : 0;
+        return `<button class="slot${ph ? '' : ' vacia'}" data-a="${m.id}" aria-label="${esc(m.t)}${ph ? '' : ': sacar la foto'}">${ph ? `<img src="${ph}" alt="">` : `<span class="ph">${IC.camara}<span>${esc(m.t)}</span></span>`}${n ? `<span class="chip n" style="--c:var(--paper)">${n}/${D.PEOPLE.length}</span>` : ''}</button>`;
+      };
+      const tarjeta = (titulo, nota, ms, todas, conteo = true) => {
+        if (!ms.length) return '';
         const done = ms.filter((m) => S.photo(m.id)).length;
-        const full = s.id !== 'dia' && done === ms.length;
-        return `<div class="card"><div class="spread"><div><h2>${esc(s.n)}</h2><span class="small muted">${done} de ${ms.length} figuritas</span></div>${s.id === 'dia' ? '' : medal(full)}</div>
-          <div class="slots">${ms.map((m) => { const ph = S.photo(m.id); const n = s.id === 'dia' ? 0 : S.doneBy(m.id).length;
-            return `<button class="slot${trabada(m) ? ' trabada' : ''}" data-a="${m.id}" aria-label="${esc(m.t)}">${ph ? `<img src="${ph}" alt="">` : `<span class="ph">${trabada(m) ? IC.sombrilla : ''}${esc(m.t)}</span>`}${n ? `<span class="chip n" style="--c:var(--paper)">${n}/13</span>` : ''}</button>`; }).join('')}</div></div>`;
+        return `<div class="card"><div class="spread"><div><h2>${esc(titulo)}</h2><span class="small muted">${nota || `${done} de ${ms.length} figuritas`}</span></div>${todas ? medal(todas.every((m) => S.photo(m.id))) : ''}</div>
+          <div class="slots">${ms.map((m) => slot(m, conteo)).join('')}</div></div>`;
+      };
+      const dias = Object.keys(S.photos()).filter((k) => k.startsWith('dia-')).sort().reverse().map((id) => ({ id, t: misionDe(id) }));
+      const ruta = miVehiculo() && (rutaAbierta() || R.paradas.some((p) => S.photo('ruta-' + p.id))) ? R.paradas.map((p) => ({ id: 'ruta-' + p.id, t: (miVehiculo().micro && p.micro) || p.t, xp: R.xp })) : [];
+      const series = D.SERIES.filter((s) => s.id !== 'dia').map((s) => {
+        const todas = D.MISSIONS.filter((m) => m.s === s.id);
+        return tarjeta(s.n, null, todas.filter((m) => !trabada(m)), todas);
       }).join('');
+      screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">Álbum</h1>
+        <p class="on-sky-soft" style="margin:0">Cada figurita es una misión: tocá una vacía, sacá la foto que pide y queda pegada.${me.trip ? '' : ' Las podés hacer desde donde estés.'}</p>
+        <div class="card album-resumen"><div class="spread"><b style="font-family:var(--display);font-size:1.3rem">${S.figuritas(S.me)} ${S.figuritas(S.me) === 1 ? 'figurita' : 'figuritas'}</b><span class="chip" style="--c:var(--butter)">+10 <span class="coin"></span> cada una</span></div>
+          ${antesFoto ? `<a href="#foto" class="small" style="color:inherit">${fst.people.has(S.me) ? 'Ya estás en la foto del 8/12 ♡' : S.me === D.FOTO.ultimo ? 'Aparecés último en la foto del 8/12, cuando estén todos' : esc(estadoEnFoto(S.me, fst)) + ' para aparecer en la foto del 8/12'}</a>` : ''}</div>
+        ${tarjeta('La ruta', 'Cuando alguien de tu auto sube la foto de una parada, el auto avanza en Hoy.', ruta, null, false)}
+        ${series}
+        ${tarjeta('De a dos', 'Una para hacer con alguien.', [D.DUO], null)}
+        ${tarjeta('Del día', `${dias.length} ${dias.length === 1 ? 'misión del día hecha' : 'misiones del día hechas'}`, dias, null, false)}
+        ${secretasCard()}`;
+      bindMissions(screen);
+      screen.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
+        const id = b.dataset.a;
+        const m = allMissions().find((x) => x.id === id) || { id, t: tituloFoto(id), xp: 20 };
+        const who = new Set(S.doneBy(id).map((p) => p.id));
+        const strip = D.PEOPLE.filter((p) => p.id !== S.me && who.has(p.id)).map((p) => {
+          const theirs = S.photoOf(p.id, id);
+          return `<figure>${theirs ? `<img class="sq" src="${theirs}" alt="" loading="lazy">` : `<img class="sq" src="${face(p.id)}" alt="" style="filter:saturate(.5) sepia(.25)">`}<figcaption>${esc(p.n)}</figcaption></figure>`;
+        }).join('');
+        const hecha = S.photo(id);
+        sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
+          ${hecha ? `<div class="polaroid"><img src="${hecha}" alt=""></div>` : ''}
+          <h2>${esc(m.t)}</h2>
+          ${hecha ? '' : `<p class="small muted" style="margin:0">Sacá esta foto y se vuelve tu figurita: +${m.xp || 20} de experiencia y +10 monedas.</p>`}
+          ${strip ? `<div style="width:100%;text-align:left"><div class="eyebrow">${hecha ? 'Las de los demás' : 'Ya la sacaron'}</div><div class="strip">${strip}</div></div>` : ''}
+          <div class="row" style="justify-content:center">${hecha ? '<button class="btn ghost" id="go">Cambiar mi foto</button><button class="btn" data-close>Listo</button>'
+            : `<button class="btn ghost" data-close>${NAH}</button><button class="btn" id="go" style="--c:var(--mint)">Sacar la foto</button>`}</div></div>`,
+        (bg) => { const g = bg.querySelector('#go'); if (g) g.addEventListener('click', () => { bg.remove(); askPhoto(m); }); });
+      }));
+    },
+
+    // Colonia: las fotos de todos, de la más nueva a la más vieja, con reacciones. Arriba las tarjetas; abajo, los vestigios de la beta.
+    colonia() {
+      const fotos = S.fotosColonia(), ver = fotos.slice(0, verFotos);
       const tarjetas = [S.me, ...D.PEOPLE.map((p) => p.id).filter((id) => id !== S.me)].map((id) => {
         const c = (CARTAS && CARTAS[id]) || {}, n = esc(person(id).n);
         return `<button class="mini-carta${c.foil ? ' foil' : ''}" data-carta="${id}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}" aria-label="Ver la tarjeta de ${n}"><img src="${face(id)}" alt=""><b>${n}</b></button>`;
       }).join('');
-      screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">Álbum</h1>
-        <div class="card"><div><h2>Tarjetas de la colonia</h2><span class="small muted">Tocá a alguien para ver la suya.</span></div><div class="tarjetas">${tarjetas}</div></div>
-        <p class="on-sky-soft" style="margin:0">Tus figuritas. Tocá una para ver las de todos.</p>${series}
+      screen.innerHTML = `${top()}<h1 class="on-sky" style="font-size:1.7rem">Colonia</h1>
+        <div class="card"><div><h2>Tarjetas de la colonia</h2><span class="small muted">Tocá a alguien para ver la suya y visitar su altarcito.</span></div><div class="tarjetas">${tarjetas}</div></div>
+        <p class="on-sky-soft" style="margin:0">Las fotos de todos, de la más nueva a la más vieja. Reaccioná con un toque.</p>
+        ${ver.length ? ver.map(postHTML).join('') : '<div class="card"><p class="muted" style="margin:0">Todavía nadie subió fotos. Sacá la primera desde el álbum.</p></div>'}
+        ${fotos.length > verFotos ? `<button class="btn" id="masFotos" style="--c:var(--paper);justify-self:center">Ver más fotos (${fotos.length - verFotos})</button>` : ''}
         <div class="card"><div><h2>Vestigios de la beta</h2><span class="small muted">Las primeras fotos de la colonia, de cuando la app todavía se estaba armando.</span></div>
           <div class="vestigios">${D.VESTIGIOS.map(([pid, mid], i) => `<button class="vest" data-vest="${i}" aria-label="Foto de ${esc(person(pid).n)}"><img src="${vestigioUrl(pid, mid)}" alt="" loading="lazy"><span class="small">${esc(person(pid).n)}</span></button>`).join('')}</div></div>
-        ${DEMO ? '<p class="proto">Modo demo: las fotos de los demás son de ejemplo.</p>' : ''}`;
+        ${DEMO ? '<p class="proto">Modo demo: las fotos de los demás se muestran con su cara.</p>' : ''}`;
+      const mas = $('#masFotos'); if (mas) mas.addEventListener('click', () => { verFotos += 15; render(); });
       screen.querySelectorAll('[data-vest]').forEach((b) => b.addEventListener('click', () => {
         const [pid, mid, fecha] = D.VESTIGIOS[+b.dataset.vest];
         sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
           <div class="polaroid"><img src="${vestigioUrl(pid, mid)}" alt=""></div>
           <h2>${esc(misionDe(mid))}</h2><p class="small muted" style="margin:0">De ${esc(person(pid).n)}, el ${fecha}, en plena beta.</p>
           <button class="btn" data-close>Listo</button></div>`);
-      }));
-      screen.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
-        const id = b.dataset.a;
-        const m = allMissions().find((x) => x.id === id) || { id, t: 'Misión del día' };
-        const who = new Set(S.doneBy(id).map((p) => p.id));
-        const strip = D.PEOPLE.map((p) => {
-          const mine = p.id === S.me && S.photo(id);
-          const theirs = !mine && S.photoOf(p.id, id);
-          const inner = mine ? `<img class="sq" src="${mine}" alt="">` : theirs ? `<img class="sq" src="${theirs}" alt="" loading="lazy">` : who.has(p.id) ? `<img class="sq" src="${face(p.id)}" alt="" style="filter:saturate(.5) sepia(.25)">` : '<span class="sq no"></span>';
-          return `<figure>${inner}<figcaption>${esc(p.n)}</figcaption></figure>`;
-        }).join('');
-        const cerrada = trabada(m), hecha = S.photo(id);
-        sheet(`<div style="display:grid;gap:12px"><h2>${esc(m.t)}</h2>${cerrada ? `<p class="small muted" style="margin:0">${CUANDO_COSTA}.</p>` : ''}<div class="strip">${strip}</div>
-          ${DEMO ? '<p class="small muted" style="margin:0">En modo demo, las fotos de los demás se muestran con su cara.</p>' : ''}
-          <div class="row" style="justify-content:flex-end">${hecha || cerrada ? '' : `<button class="btn" id="go" style="--c:var(--mint)">Subir la mía</button>`}<button class="btn ghost" data-close>${hecha || cerrada ? 'Cerrar' : NAH}</button></div></div>`,
-        (bg) => { const g = bg.querySelector('#go'); if (g) g.addEventListener('click', () => { bg.remove(); askPhoto(m); }); });
       }));
     },
 
@@ -1164,6 +1247,7 @@
         ${fila('Entrar de madrugada', D.ACH.noctambulo.c)}
         ${fila('Completar una serie del álbum', D.ACH.serie.c)}
         ${fila('Hacer tu primer regalo', D.ACH.regalo.c)}
+        <li><span>Vender algo de tu altarcito (lo regalado no)</span><span class="chip" style="--c:var(--butter)">80% <span class="coin"></span></span></li>
       </ul></div>
       <div><h2>Para qué sirven</h2><p>Se gastan en el kiosco: cosas para tu altarcito playero o regalos para el altarcito de otra persona. Lo más caro también pide subir de nivel.</p></div>
       <div class="row" style="justify-content:center"><button class="btn" id="irKiosco" style="--c:var(--butter)">Ir al kiosco</button><button class="btn ghost" data-close>Cerrar</button></div></div>`,
@@ -1178,6 +1262,7 @@
     else if (e.target.closest('[data-idea]')) dejarIdea();
     else if (e.target.closest('[data-resumen]')) finDeCapitulo(true);
     else if (e.target.closest('[data-sumo]')) { S.sumarme(e.target.closest('[data-sumo]').dataset.sumo); SONIDO.plop(); render(); }
+    else if (e.target.closest('[data-reac]')) reaccionar(e.target.closest('[data-reac]'));
   });
 
   // ---------- sonido de cada botón ----------
@@ -1225,6 +1310,7 @@
   function go(r) { if (location.hash === '#' + r) render(); else location.hash = r; }
   function render() {
     let r = location.hash.slice(1) || 'portada';
+    if (r === 'misiones') r = 'album'; // Misiones quedó adentro del álbum
     if (!SCREENS[r]) r = 'portada';
     if (r !== 'portada' && r !== 'quien' && !S.me) r = 'quien';
     if (r === 'quien' && S.me) r = 'hoy';
@@ -1236,7 +1322,7 @@
     const cur = r === 'kiosco' ? 'altar' : r === 'calendario' ? 'hoy' : r;
     tabs.innerHTML = TABS.map(([k, l]) => `<a href="#${k}" class="${k === cur ? 'on' : ''}" ${k === cur ? 'aria-current="page"' : ''}>${IC[k]}<span>${l}</span></a>`).join('');
     const dev = $('#devbtn'); if (dev) dev.hidden = r === 'portada';
-    if (r !== 'portada' && r !== 'quien') setTimeout(() => finDeCapitulo() || mostrarRegalos(), 700);
+    if (r !== 'portada' && r !== 'quien') { setTimeout(() => finDeCapitulo() || mostrarRegalos(), 700); setTimeout(avisarReacciones, 1400); setTimeout(avisarCosta, 1000); }
   }
   addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
   SKY.onChange(() => { const r = location.hash.slice(1); if (r === 'portada' || r === '' || r === 'hoy' || r === 'calendario') { const w = document.querySelectorAll('.weather'); w.forEach((el) => (el.textContent = weatherLine(SKY.state()))); } });
@@ -1295,6 +1381,7 @@
     if (ev && ev.uploadFailed) toast('<span>No se pudo subir la foto. Queda guardada y se reintenta cuando haya señal.</span>', 4500);
     avisarBocinas();
     if (!document.querySelector('.sheet-bg') && !dragging) render();
+    avisarReacciones();
   });
 
   SKY.start();

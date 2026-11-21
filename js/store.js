@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {},
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacVistas: [],
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -33,6 +33,11 @@ window.STORE = (function () {
   [['rochi', 'Un finde largo en las sierras, con pileta'], ['nico', 'Repetir la costa, pero una semana entera'], ['juli', 'Una colonia de invierno con guiso y juegos de mesa']]
     .forEach(([id, t], i) => { DEMO[id].idea = { t, en: `2027-01-1${i + 1}T12:00:00Z` }; });
   DEMO.pachi.sumo = ['rochi']; DEMO.juani.sumo = ['rochi', 'juli']; DEMO.rich.sumo = ['nico'];
+  const REAC_DEMO = ['corazon', 'bien', 'mal', 'no', 'si', 'risa'];
+  D.PEOPLE.forEach((p) => {
+    const r = seeded('reac' + p.id); DEMO[p.id].reac = {};
+    D.PEOPLE.forEach((q) => { if (q.id !== p.id) DEMO[q.id].done.forEach((m) => { if (r() < 0.3) DEMO[p.id].reac[q.id + '/' + m] = REAC_DEMO[Math.floor(r() * 6)]; }); });
+  });
 
   const levelOf = (xp) => { let i = 0; D.LEVELS.forEach((l, j) => { if (xp >= l.xp) i = j; }); return i; };
 
@@ -62,7 +67,8 @@ window.STORE = (function () {
         s.xp = mine.xp; s.coins = mine.monedas;
         const d = mine.datos;
         s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null; s.bocinas = d.bocinas || {};
-        s.idea = d.idea || null; s.sumo = d.sumo || []; s.hallazgos = d.hallazgos || {};
+        s.idea = d.idea || null; s.sumo = d.sumo || []; s.hallazgos = d.hallazgos || {}; s.reac = d.reac || {};
+        s.reacVistas = [...new Set([...(d.reacVistas || []), ...s.reacVistas])];
         s.regalosVistos = [...new Set([...(d.regalosVistos || []), ...s.regalosVistos])];
       }
     }
@@ -119,7 +125,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos };
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacVistas: s.reacVistas.slice(-400) };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
     }, 400);
@@ -173,6 +179,7 @@ window.STORE = (function () {
   addEventListener('online', () => { if (client) { pull().then(emit).catch(() => {}); uploadPending(); } });
 
   const others = () => s.cache.players;
+  const reacDe = (pid) => (pid === s.me ? s.reac : live ? ((s.cache.players[pid] || {}).datos || {}).reac || {} : DEMO[pid].reac || {});
 
   const api = {
     live, ready,
@@ -182,7 +189,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacVistas = row.datos.reacVistas || []; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save(); conectarPresencia();
     },
@@ -232,7 +239,7 @@ window.STORE = (function () {
         owned = (r && r.datos && r.datos.owned) || []; place = (r && r.datos && r.datos.place) || {};
         regalos = s.cache.regalos.filter((g) => g.para === pid).map((g) => ({ id: g.id, from: g.de, item: g.item }));
       }
-      const items = owned.map((id, i) => ({ k: 'o' + i, id: fix(id) }))
+      const items = owned.map((id, i) => (id ? { k: 'o' + i, id: fix(id) } : null)).filter(Boolean)
         .concat(regalos.filter((g) => g.id).map((g) => ({ k: 'g' + g.id, id: fix(g.item), from: g.from })));
       // Un solo refugio: si hay carpa, la sombrilla no se usa.
       const hasCarpa = items.some((x) => x.id === 'carpa');
@@ -269,6 +276,51 @@ window.STORE = (function () {
       });
       return { total: Object.values(por).reduce((a, b) => a + b, 0), por };
     },
+    // Vender algo que compraste (lo regalado no): devuelve el 80% de su precio. Queda un hueco en owned para no correr las claves.
+    vender(k) {
+      const i = +String(k).slice(1), id = String(k)[0] === 'o' && s.owned[i];
+      if (!id) return 0;
+      const it = D.SHOP.find((x) => x.id === id) || D.SHOP.find((x) => x.id === D.ALIAS[id]);
+      const c = it ? Math.round(it.p * 0.8) : 0;
+      s.owned[i] = null; delete s.place[k]; s.coins += c; save(); pushMe();
+      return c;
+    },
+
+    // ---------- fotos de la colonia y reacciones ----------
+    // Todas las fotos subidas (menos las de misiones secretas), de la más nueva a la más vieja. url null en demo: se usa la cara.
+    fotosColonia() {
+      let out;
+      if (live) {
+        out = s.cache.figs.map((x) => ({ pid: x.jugador, mision: x.mision, url: x.jugador === s.me && s.photos[x.mision] ? s.photos[x.mision] : pub(x.foto), creada: x.creada || '' }));
+        Object.entries(s.photos).forEach(([m, u]) => { if (String(u).startsWith('data:') && !out.some((x) => x.pid === s.me && x.mision === m)) out.push({ pid: s.me, mision: m, url: u, creada: new Date().toISOString() }); });
+      } else {
+        out = D.PEOPLE.filter((p) => p.id !== s.me).flatMap((p) => DEMO[p.id].done.map((m, j) => ({ pid: p.id, mision: m, url: null, creada: `2026-11-${String(10 + ((p.id.length * 3 + j * 5) % 11)).padStart(2, '0')}T1${j % 10}:00:00Z` })))
+          .concat(Object.entries(s.photos).map(([m, u]) => ({ pid: s.me, mision: m, url: u, creada: new Date().toISOString() })));
+      }
+      return out.filter((x) => !x.mision.startsWith('sec-')).sort((a, b) => String(b.creada).localeCompare(String(a.creada)));
+    },
+    // Cada persona tiene una reacción por foto (datos.reac['jugador/mision'] = 'risa'). Tocar la misma la saca.
+    reaccionar(foto, r) { if (s.reac[foto] === r) delete s.reac[foto]; else s.reac[foto] = r; save(); pushMe(); },
+    miReaccion(foto) { return s.reac[foto] || null; },
+    reacciones(foto) {
+      const out = {};
+      D.PEOPLE.forEach((p) => { const r = reacDe(p.id)[foto]; if (r) (out[r] = out[r] || []).push(p.id); });
+      return out;
+    },
+    // Las que otros pusieron en tus fotos y todavía no viste (el aviso sale una sola vez, también desde otro celu).
+    reaccionesNuevas() {
+      const out = [];
+      D.PEOPLE.forEach((p) => {
+        if (p.id === s.me) return;
+        Object.entries(reacDe(p.id)).forEach(([foto, r]) => {
+          const k = p.id + '|' + foto + '|' + r;
+          if (foto.startsWith(s.me + '/') && !s.reacVistas.includes(k)) out.push({ de: p.id, foto, r, k });
+        });
+      });
+      return out;
+    },
+    verReacciones(ks) { s.reacVistas = [...new Set([...s.reacVistas, ...ks])]; save(); pushMe(); },
+
     // Botellas y galletas que encontraste en tu altarcito: { botella: [{ dia, i }], galleta: [...] } (i = cuál mensaje).
     hallazgos(tipo) { return (s.hallazgos && s.hallazgos[tipo]) || []; },
     hallado(tipo, dia) { return api.hallazgos(tipo).some((h) => h.dia === dia); },

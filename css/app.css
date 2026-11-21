@@ -310,6 +310,31 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 .para-quien { grid-template-columns: auto 1fr; align-items: center; }
 .para-quien .face { width: 52px; height: 52px; }
 
+/* ---------- álbum y colonia ---------- */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.como { margin: 0; font-size: .95rem; line-height: 1.25; }
+.slot.vacia .ph { gap: 4px; align-content: center; }
+.slot.vacia .ph svg { width: 22px; height: 22px; stroke: var(--soft); justify-self: center; }
+.slot.vacia:hover .ph, .slot.vacia:focus-visible .ph { border-color: var(--ink); color: var(--ink); }
+.album-resumen a { text-decoration: underline wavy var(--rose) 1.5px; text-underline-offset: 4px; }
+.post { gap: 8px; }
+.post-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.post-quien { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; font: inherit; color: var(--ink); cursor: pointer; }
+.post-quien .face { width: 36px; height: 36px; border-width: 2px; }
+.post-t { margin: 0; font-family: "Patrick Hand", var(--hand); font-size: 1.1rem; line-height: 1.2; }
+.post-foto { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; border: 2.5px solid var(--ink); border-radius: 12px 14px 10px 16px; background: var(--paper); }
+.reacs { display: flex; flex-wrap: wrap; gap: 6px; }
+.reac { display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 3px 10px; border: 2px solid var(--ink); border-radius: 99px; background: var(--paper); color: var(--ink); font-family: var(--display); font-weight: 600; font-size: .95rem; cursor: pointer; }
+.reac span[aria-hidden] { font-size: 1.15rem; line-height: 1; }
+.reac.on { background: var(--butter); box-shadow: 0 2px 0 var(--ink); }
+span.reac { cursor: default; }
+.reac.pop span[aria-hidden] { display: inline-block; animation: reac-pop .4s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes reac-pop { 40% { transform: scale(1.5) rotate(-12deg); } }
+.reac-quienes { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.reac-quien { display: inline-flex; align-items: center; gap: 5px; }
+.vender { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border: 0; background: none; color: var(--soft); font: inherit; font-size: .92rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .reac.pop span[aria-hidden] { animation: none; } }
+
 /* ---------- quién está en la colonia ---------- */
 #enLinea:empty { display: none; }
 .en-linea { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 14px; background: var(--card); border: 2.5px solid var(--ink); border-radius: 99px; justify-self: start; max-width: 100%; }
