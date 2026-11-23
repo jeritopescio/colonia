@@ -114,6 +114,18 @@ h2 { font-size: 1.2rem; }
 .cover .mirar::before { border-color: var(--on-sky); }
 .a-playa { justify-self: center; color: var(--ink); text-decoration: none; }
 body.quieto .cover > * { opacity: 0; pointer-events: none; }
+/* Mirar el mar: una capa que recibe los toques, y un "volver" discreto abajo. */
+.mirar-capa { position: fixed; inset: 0; z-index: 15; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.volver-mirar { position: absolute; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 6px 16px; border: 1.5px solid color-mix(in srgb, var(--on-sky) 45%, transparent); border-radius: 99px; background: color-mix(in srgb, var(--paper) 30%, transparent); color: var(--on-sky); font-family: var(--display); font-size: .9rem; opacity: .7; cursor: pointer; animation: pop .6s ease-out; }
+/* Chispitas: cada una gira y se aleja (rotar + correr a la vez dibuja la espiral), en 1 segundo. */
+.chispas { position: fixed; z-index: 16; width: 0; height: 0; pointer-events: none; }
+.chispas i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2); border-radius: 50%; box-shadow: 0 0 4px 1px rgba(255, 255, 255, .75); opacity: 0; animation: espiral 1s cubic-bezier(.2, .6, .3, 1) forwards; }
+@keyframes espiral { from { transform: rotate(var(--a)) translateX(2px) scale(1); opacity: 1; } 70% { opacity: .85; } to { transform: rotate(calc(var(--a) + var(--g))) translateX(var(--r)) scale(.3); opacity: 0; } }
+/* La personita: de espaldas en la orilla, mirando el horizonte. */
+#sky .personita { position: absolute; z-index: 3; left: 50%; top: 90%; transform: translate(-50%, -100%); aspect-ratio: 24 / 60; animation: aparece 1.6s ease-out both; }
+#sky .personita svg { display: block; width: 100%; height: 100%; overflow: visible; }
+@keyframes aparece { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .chispas { display: none; } }
 
 /* gaviotas del inicio */
 #gaviotas { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; transition: opacity 1.5s; }

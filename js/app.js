@@ -784,7 +784,8 @@
       <h2>${esc(m.t)}</h2>
       ${r ? `<div class="xp-sube"><div class="spread"><b class="xp-nivel">Nivel ${La.i + 1} · ${esc(La.n)}</b><span class="chip xp-gana" style="--c:var(--mint)">+${r.xp} XP</span></div>
           ${barraXp(antes)}<p class="small muted xp-falta">${esc(faltaXp(antes, true))}</p></div>
-        <span class="chip" style="--c:var(--butter)">+${r.coins} <span class="coin"></span></span>` : '<p class="muted small">Cambiaste la foto de esta misión: la experiencia se da una sola vez por misión.</p>'}
+        <div class="row" style="justify-content:center"><span class="chip" style="--c:var(--butter)">+${r.coins} <span class="coin"></span></span>${res.out.some((o) => o.sobre) ? '<span class="chip" style="--c:var(--rose)">+1 sobre del baúl</span>' : ''}</div>
+        <p class="small muted" style="margin:0">${res.out.some((o) => o.sobre) ? 'Cada 2 fotos de misiones te llega un sobre.' : 'Con una foto de misión más te llega un sobre del baúl.'}</p>` : '<p class="muted small">Cambiaste la foto de esta misión: la experiencia se da una sola vez por misión.</p>'}
       ${serie ? `<p><b>Serie completa:</b> ${esc(D.SERIES.find((x) => x.id === serie.serie).n)}. +${D.ACH.serie.c} monedas y medallita.</p>` : ''}
       <p class="muted small">${esc(avisoFoto())}</p>
       <button class="btn" data-close>Seguir</button></div>`, (bg) => { if (r) subirBarra(bg, S.xp, res.levelUp); });
@@ -832,7 +833,7 @@
   // Cartel de felicitaciones al subir de nivel: qué cambió y qué se destrabó.
   function felicitar(n) {
     const lv = n + 1, tier = D.COLECCION.tarjeta.find((x) => x.lv === lv);
-    const nuevos = D.SHOP.filter((it) => it.lv === lv && ARTE.has(it.id));
+    const nuevos = D.SHOP.filter((it) => it.lv === lv && !it.retirado && ARTE.has(it.id));
     const colores = ['var(--coral)', 'var(--mint)', 'var(--butter)', 'var(--celeste)', 'var(--lav)', 'var(--rose)'];
     const confeti = Array.from({ length: 30 }, (_, k) => {
       const a = (k / 30) * Math.PI * 2 + Math.random() * 0.4, d = 90 + Math.random() * 90;
@@ -974,7 +975,7 @@
           ${S.sobres() ? `<button class="btn" data-sobres style="--c:var(--rose);flex:none;white-space:nowrap">Abrir sobre (${S.sobres()})</button>` : medal(tengo(comunes) === comunes.length)}</div>
         <div class="recs">${comunes.map(pol).join('')}</div>
         <div class="eyebrow">De la suerte · ${tengo(raras)} de ${raras.length}</div><div class="recs">${raras.map(pol).join('')}</div>
-        <p class="small muted" style="margin:0">Te llega un sobre por cada día que entrás y por cada nivel que subís.</p></div>`;
+        <p class="small muted" style="margin:0">Te llega un sobre por cada día que entrás, por cada nivel que subís y cada 2 fotos de misiones.</p></div>`;
     }
     const amigos = D.PEOPLE.filter((p) => p.id !== S.me), mis = new Set(S.misAmigos());
     const amigosCard = `<div class="card"><div class="spread"><div><h2>Figuritas de amigos</h2><span class="small muted">${amigos.filter((p) => mis.has(p.id)).length} de ${amigos.length}</span></div>${medal(amigos.every((p) => mis.has(p.id)))}</div>
@@ -1290,10 +1291,7 @@
       </section>`;
       $('#enter').addEventListener('click', () => go(S.me ? 'hoy' : 'quien'));
       $('#sonido').addEventListener('click', INICIO.alternar);
-      $('#mirar').addEventListener('click', () => {
-        document.body.classList.add('quieto');
-        setTimeout(() => addEventListener('click', () => document.body.classList.remove('quieto'), { once: true, capture: true }), 0);
-      });
+      $('#mirar').addEventListener('click', mirarMar);
     },
 
     quien() {
@@ -1461,7 +1459,7 @@
           <span class="ic" style="--c:var(--paper)">${ARTE.item(it.id, it.col)}</span>
           <span>${esc(it.n)}</span><span class="small">${locked ? 'nivel ' + it.lv : blocked ? 'ya tenés' : it.p + ' <span class="coin"></span>'}</span>${para && !locked ? `<span class="small xp-regalo">+${D.xpRegalo(it.p)} XP</span>` : ''}</button>`;
       };
-      const grupo = (f) => D.SHOP.filter((x) => ARTE.has(x.id) && f(x)).sort((a, b) => a.p - b.p).map(cell).join('');
+      const grupo = (f) => D.SHOP.filter((x) => ARTE.has(x.id) && !x.retirado && f(x)).sort((a, b) => a.p - b.p).map(cell).join('');
       const bloque = (t, nota, f) => { const h = grupo(f); return h ? `<div class="card"><div class="eyebrow">${t}</div>${nota ? `<p class="small muted" style="margin:0">${nota}</p>` : ''}<div class="shop">${h}</div></div>` : ''; };
       const para = regalarA && person(regalarA);
       screen.innerHTML = `${top()}
@@ -1678,7 +1676,7 @@
   function mostrarRegalos() {
     const r = location.hash.slice(1);
     if (!S.me || !r || r === 'portada' || r === 'quien' || document.hidden || document.querySelector('.sheet-bg')) return;
-    const nuevos = S.regalosNuevos().filter((g) => shopItem(g.item) && person(g.from));
+    const nuevos = S.regalosNuevos().filter((g) => shopItem(g.item) && !shopItem(g.item).retirado && person(g.from));
     if (!nuevos.length) return;
     S.verRegalos(nuevos.map((g) => g.id));
     const uno = nuevos.length === 1, primero = nuevos[0];
@@ -1706,7 +1704,9 @@
     if (r !== 'portada' && r !== 'quien' && !S.me) r = 'quien';
     if (r === 'quien' && S.me) r = 'hoy';
     if (r !== 'kiosco') regalarA = null; // el modo "regalarle a alguien" dura mientras estás en el kiosco
+    if (r !== 'portada') salirDelMar();
     actualizarDorados();
+    if (S.devuelto && S.me) { const n = S.devuelto; S.devuelto = 0; setTimeout(() => toast(`<span class="chip" style="--c:var(--butter)">+${n} <span class="coin"></span></span><span>Sacamos el buzo del kiosco: te devolvimos lo que pagaste.</span>`, 5000), 1200); }
     SCREENS[r]();
     screen.querySelectorAll('img:not([decoding])').forEach((i) => { i.decoding = 'async'; }); // que decodificar fotos no trabe el scroll
     if (fotoPorArmar) setTimeout(() => armarFoto(screen), 300);
@@ -1747,6 +1747,88 @@
         bg.querySelectorAll('[data-traer]').forEach((b) => b.addEventListener('click', () => { forzado[b.dataset.traer] = true; bg.remove(); go('altar'); }));
       });
     });
+  }
+
+  // ---------- mirar el mar ----------
+  // Se esconde todo y queda la playa. Tocar deja chispitas que giran en espiral y una nota de la música, una octava más arriba.
+  function mirarMar() {
+    document.body.classList.add('quieto');
+    const capa = document.createElement('div');
+    capa.className = 'mirar-capa';
+    capa.innerHTML = '<button class="volver-mirar" data-mudo>volver</button>';
+    document.body.appendChild(capa);
+    capa.querySelector('.volver-mirar').addEventListener('click', salirDelMar);
+    capa.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.volver-mirar')) return;
+      chispas(e.clientX, e.clientY);
+      INICIO.toque((e.clientX / innerWidth) * 2 - 1);
+    });
+    ponerPersonita();
+  }
+  function salirDelMar() {
+    document.body.classList.remove('quieto');
+    document.querySelectorAll('.mirar-capa, #sky .personita').forEach((n) => n.remove());
+  }
+  const CHISPA = ['#ffffff', '#fff6d8', '#ffe39a', '#c9ecfa', '#f9d9e4'];
+  function chispas(x, y) {
+    const c = document.createElement('div');
+    c.className = 'chispas'; c.style.left = x + 'px'; c.style.top = y + 'px';
+    c.innerHTML = Array.from({ length: 12 }, (_, i) => {
+      const giro = (150 + Math.random() * 170) * (i % 2 ? 1 : -1);
+      return `<i style="--a:${Math.round(i * 30 + Math.random() * 24)}deg;--g:${Math.round(giro)}deg;--r:${Math.round(12 + Math.random() * 22)}px;--s:${(1.6 + Math.random() * 1.8).toFixed(1)}px;background:${CHISPA[i % CHISPA.length]}"></i>`;
+    }).join('');
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 1100);
+  }
+  // La personita: quien entra, chiquita y de espaldas en la orilla, mirando el horizonte.
+  // EN PRUEBA: solo aparece con ?persona en la dirección (?persona=juani para ver a otra persona). Faltan las estaturas reales.
+  // pelo, largo (0 corto, 1 colita, 2 largo, 3 rodete), gorra, remera, ab = short o pantalón (abL: 1 si es largo), cm.
+  const PERSONITAS = {
+    jero: { pelo: '#2b211c', largo: 0, rem: '#7d9b55', ab: '#6b4a32', cm: 175 },
+    viqui: { pelo: '#8a6a4c', largo: 2, rem: '#2e2a33', ab: '#d9c3a2', cm: 165 },
+    pachi: { pelo: '#c9a46c', largo: 3, rem: '#f4f1ea', ab: '#9fb4c8', abL: 1, cm: 165 },
+    juani: { pelo: '#e2c27a', largo: 2, rem: '#cfae86', ab: '#7f9fc0', cm: 165 },
+    nico: { pelo: '#2b211c', largo: 0, rem: '#4a4650', ab: '#3a3640', abL: 1, cm: 178 },
+    rochi: { pelo: '#4a3024', largo: 2, rem: '#f6f2ee', ab: '#5fb896', cm: 162 },
+    jose: { pelo: '#231a16', largo: 0, rem: '#6d6a70', ab: '#6b5038', cm: 175 },
+    nachote: { pelo: '#231a16', largo: 0, rem: '#3a3438', ab: '#2f2b30', abL: 1, cm: 178 },
+    juli: { pelo: '#2b1d17', largo: 1, rem: '#2b282e', ab: '#a9c0d6', cm: 162 },
+    rich: { pelo: '#231a16', largo: 0, gorra: '#1f1d22', rem: '#a7a9ad', ab: '#2f3f68', cm: 180 },
+    sofi: { pelo: '#6b4632', largo: 2, rem: '#f0b9a8', ab: '#7f9fc0', cm: 163 },
+    chino: { pelo: '#231a16', largo: 0, rem: '#4f6f8f', ab: '#5b5348', cm: 175 },
+    grego: { pelo: '#3a2a20', largo: 0, rem: '#e7e1d6', ab: '#56708a', cm: 177 },
+  };
+  function personitaSVG(o) {
+    const piel = '#efc4a0', tinta = '#43365a', espejo = (d) => d.replace(/(-?\d*\.?\d+) (-?\d*\.?\d+)/g, (m, x, y) => `${(24 - x).toFixed(1)} ${y}`);
+    const brazo = 'M7.3 19.2C6.4 22.4 5.9 27 6.2 31.4C6.5 32.5 7.7 32.4 7.9 31.4C7.9 27.2 8.2 23 8.9 19.8Z';
+    const pierna = 'M8.3 37.2L11.3 37.2L11 54.4L8.9 54.4C8.5 48.6 8.2 42.6 8.3 37.2Z';
+    const abajo = o.abL
+      ? `<path d="M7.7 30.4L16.3 30.4L16 54.7L12.9 54.7L12 36.2L11.1 54.7L8 54.7Z" fill="${o.ab}"/>`
+      : `<path d="${pierna}" fill="${piel}"/><path d="${espejo(pierna)}" fill="${piel}"/><path d="M7.7 30.4L16.3 30.4L16.8 38.4L12.6 38.4L12 35.2L11.4 38.4L7.2 38.4Z" fill="${o.ab}"/>`;
+    const pelo = o.largo === 2 ? `<path d="M7.6 8.8C7 14 7.3 19.4 8.5 24.2C10.7 25 13.3 25 15.5 24.2C16.7 19.4 17 14 16.4 8.8Z" fill="${o.pelo}"/>`
+      : o.largo === 1 ? `<path d="M11.2 12C10.9 15 11.3 17.6 12 19C12.7 17.6 13.1 15 12.8 12Z" fill="${o.pelo}"/>` : '';
+    const orejas = o.largo === 2 ? '' : `<circle cx="7.5" cy="9.6" r=".8" fill="${piel}"/><circle cx="16.5" cy="9.6" r=".8" fill="${piel}"/>`;
+    const arriba = o.largo === 3 ? `<circle cx="12" cy="3.9" r="2" fill="${o.pelo}"/>` : '';
+    const gorra = o.gorra ? `<path d="M7.4 8.4A4.6 4.6 0 0 1 16.6 8.4Z" fill="${o.gorra}"/><path d="M10.6 8.3h2.8" stroke="${o.gorra}" stroke-width="1.2"/>` : '';
+    return `<svg viewBox="0 0 24 60" aria-hidden="true"><g stroke="${tinta}" stroke-width=".7" stroke-linejoin="round" stroke-linecap="round">
+      <ellipse cx="12" cy="55.6" rx="6.6" ry="1.2" fill="rgba(67,54,90,.22)" stroke="none"/>
+      ${abajo}<ellipse cx="9.9" cy="55" rx="1.4" ry=".6" fill="#6f5f80"/><ellipse cx="14.1" cy="55" rx="1.4" ry=".6" fill="#6f5f80"/>
+      <path d="${brazo}" fill="${piel}"/><path d="${espejo(brazo)}" fill="${piel}"/>
+      <path d="M10.8 12.6h2.4v4h-2.4z" fill="${piel}"/>
+      <path d="M7 17.4C7.7 16.2 9.6 15.8 12 15.8C14.4 15.8 16.3 16.2 17 17.4L18.3 21.4L16.7 22.1L16.3 31L7.7 31L7.3 22.1L5.7 21.4Z" fill="${o.rem}"/>
+      ${pelo}${orejas}${arriba}<circle cx="12" cy="9" r="4.6" fill="${o.pelo}"/>${gorra}</g></svg>`;
+  }
+  function ponerPersonita() {
+    const q = new URLSearchParams(location.search);
+    if (!q.has('persona')) return;
+    const pid = PERSONITAS[q.get('persona')] ? q.get('persona') : (PERSONITAS[S.me] ? S.me : 'jero');
+    const o = PERSONITAS[pid], sky = document.getElementById('sky');
+    if (!sky || sky.querySelector('.personita')) return;
+    const el = document.createElement('div');
+    el.className = 'personita';
+    el.style.height = Math.round(o.cm * 0.17) + 'px';
+    el.innerHTML = personitaSVG(o);
+    sky.appendChild(el);
   }
 
   // ---------- quién está en la colonia ----------

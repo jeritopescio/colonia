@@ -359,7 +359,7 @@ window.DATA = (function () {
     { id: 'puchos', n: 'Atado de puchos', p: 20, lv: 1, d: 'El último. Eso dijiste el verano pasado.' },
     { id: 'naipes', n: 'Mazo para el truco', p: 20, lv: 1, d: 'Quien no mienta, que reparta.' },
     { id: 'mate', n: 'Mate y termo', p: 25, lv: 1, col: '#b6e5cd', d: 'Lavado a la tercera ronda, defendido hasta la última.' },
-    { id: 'buzo', n: 'Buzo', p: 25, lv: 1, col: '#a9d6f0', d: 'Para cuando baja el sol y juraste que no ibas a tener frío.' },
+    { id: 'buzo', n: 'Buzo', p: 25, lv: 1, retirado: true, col: '#a9d6f0', d: 'Para cuando baja el sol y juraste que no ibas a tener frío.' },
     { id: 'rabas', n: 'Rabas con limón', p: 28, lv: 1, d: 'La gaviota ya las vio.' },
     { id: 'tejos', n: 'Tejos', p: 30, lv: 1, col: '#f6a38f', d: 'Deporte nacional de orilla. Se mide con la ojota y se discute igual.' },
     { id: 'salvavidas', n: 'Salvavidas', p: 30, lv: 1, col: '#f6a38f', d: 'Nadie lo necesita hasta que todos lo quieren.' },

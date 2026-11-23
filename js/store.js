@@ -86,6 +86,16 @@ window.STORE = (function () {
     }
     if (s.me) s.cache.figs.filter((x) => x.jugador === s.me).forEach((x) => { if (!String(s.photos[x.mision] || '').startsWith('data:')) s.photos[x.mision] = pub(x.foto); });
     save();
+    devolverRetirados();
+  }
+  // Lo que se sacó del kiosco (retirado: true en D.SHOP): se devuelve lo que se pagó, una sola vez, a quien lo compró o lo regaló.
+  function devolverRetirados() {
+    if (!s.me) return;
+    const ret = (id) => { const it = D.SHOP.find((x) => x.id === id); return it && it.retirado ? it : null; };
+    let n = 0;
+    s.owned.forEach((id, i) => { const it = id && ret(id); if (it) { s.owned[i] = null; delete s.place['o' + i]; s.coins += it.p; n += it.p; } });
+    s.cache.regalos.forEach((g) => { const it = g.de === s.me && ret(g.item); if (it && !s.ach['devuelto:' + g.id]) { s.ach['devuelto:' + g.id] = 1; s.coins += it.p; n += it.p; } });
+    if (n) { api.devuelto = (api.devuelto || 0) + n; save(); pushMe(); }
   }
   function subscribe() {
     client.channel('colonia')
@@ -284,7 +294,8 @@ window.STORE = (function () {
         regalos = s.cache.regalos.filter((g) => g.para === pid).map((g) => ({ id: g.id, from: g.de, item: g.item }));
       }
       const items = owned.map((id, i) => (id ? { k: 'o' + i, id: fix(id) } : null)).filter(Boolean)
-        .concat(regalos.filter((g) => g.id).map((g) => ({ k: 'g' + g.id, id: fix(g.item), from: g.from })));
+        .concat(regalos.filter((g) => g.id).map((g) => ({ k: 'g' + g.id, id: fix(g.item), from: g.from })))
+        .filter((x) => !(D.SHOP.find((y) => y.id === x.id) || {}).retirado);
       // Un solo refugio: si hay carpa, la sombrilla no se usa.
       const hasCarpa = items.some((x) => x.id === 'carpa');
       let refugio = null;
@@ -474,6 +485,9 @@ window.STORE = (function () {
       const out = [];
       if (first) {
         s.xp += xp; s.coins += 10; out.push({ xp, coins: 10 });
+        // Cada 2 fotos de misiones, un sobre del baúl (se cuenta desde el 23/11, no hacia atrás).
+        s.ach.fotosSobre = (s.ach.fotosSobre || 0) + 1;
+        if (s.ach.fotosSobre >= 2) { s.ach.fotosSobre = 0; s.sobres = (s.sobres || 0) + 1; out.push({ sobre: 1 }); }
         const m = D.MISSIONS.find((x) => x.id === mid);
         if (m) {
           const all = D.MISSIONS.filter((x) => x.s === m.s);
@@ -558,6 +572,7 @@ window.STORE = (function () {
       while (set.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); }
       return n;
     },
+    fotosParaSobre() { return s.ach.fotosSobre || 0; },
     xpOf(id) {
       if (id === s.me) return s.xp;
       return live ? (others()[id] ? others()[id].xp : 0) : DEMO[id].xp;

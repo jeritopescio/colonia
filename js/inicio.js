@@ -148,6 +148,13 @@ window.INICIO = (function () {
       tFrase += azar(0.5, 2.6) * PULSO;
     }
 
+    // Un toque en el mar: una nota de la escala una octava arriba de la melodía, casi siempre del acorde que está sonando.
+    function toque(p) {
+      const t = ctx.currentTime + 0.01;
+      const a = ACORDES[Math.floor(Math.max(0, t - t0) / ACORDE) % ACORDES.length];
+      nota(t, (Math.random() < 0.6 ? uno(a.meta) : uno(ESCALA)) + 12, azar(0.3, 0.44), Math.max(-0.8, Math.min(0.8, p + azar(-0.1, 0.1))));
+    }
+
     function hasta(T) {
       const ahora = ctx.currentTime + 0.05;
       tAcorde = Math.max(tAcorde, ahora - ACORDE); tFrase = Math.max(tFrase, ahora); tOla = Math.max(tOla, ahora);
@@ -166,7 +173,7 @@ window.INICIO = (function () {
       vivos.clear();
       master.disconnect(); comp.disconnect(); rev.disconnect();
     }
-    return { hasta, nivel, gaviota, cerrar, master };
+    return { hasta, nivel, gaviota, cerrar, master, toque };
   }
 
   // ---------- encendido y apagado ----------
@@ -270,6 +277,7 @@ window.INICIO = (function () {
       gaviotasOff(); acomodar();
     },
     alternar,
+    toque(p) { if (motor && !corte) motor.toque(p); }, // p: de -1 (izquierda) a 1 (derecha)
     sonando: () => !!motor && !corte,
     _motor: crearMotor, // para medir la música sin parlantes
   };
