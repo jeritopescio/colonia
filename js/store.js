@@ -115,15 +115,20 @@ window.STORE = (function () {
 
   // ---------- quién está en la colonia ----------
   // Presencia en vivo de Supabase: no se guarda nada. Cada celu avisa que está mientras tiene la app a la vista.
-  const enLinea = new Set();
-  let presencia = null, listo = false, listoT;
+  const enLinea = new Set(), enElMar = new Set(); // enElMar: quienes están en "mirar el mar" ahora
+  let presencia = null, listo = false, listoT, mirando = false;
+  const anunciar = () => { if (presencia && !document.hidden) presencia.track(mirando ? { desde: Date.now(), mar: true } : { desde: Date.now() }); };
   function conectarPresencia() {
     if (!client || !s.me || presencia) return;
     presencia = client.channel('presencia', { config: { presence: { key: s.me } } });
     presencia
       .on('presence', { event: 'sync' }, () => {
-        enLinea.clear();
-        Object.entries(presencia.presenceState()).forEach(([id, ps]) => { if (id !== s.me && ps.length) enLinea.add(id); });
+        enLinea.clear(); enElMar.clear();
+        Object.entries(presencia.presenceState()).forEach(([id, ps]) => {
+          if (id === s.me || !ps.length) return;
+          enLinea.add(id);
+          if (ps.some((p) => p.mar)) enElMar.add(id);
+        });
         listeners.forEach((f) => f({ presencia: true }));
       })
       // Solo avisa de quien llega después: los que ya estaban llegan juntos en los primeros segundos.
@@ -134,13 +139,23 @@ window.STORE = (function () {
       .subscribe((st) => {
         if (st !== 'SUBSCRIBED') return;
         listo = false; clearTimeout(listoT); listoT = setTimeout(() => { listo = true; }, 4000);
-        if (!document.hidden) presencia.track({ desde: Date.now() });
+        anunciar();
       });
   }
   document.addEventListener('visibilitychange', () => {
     if (!presencia) return;
-    if (document.hidden) presencia.untrack(); else presencia.track({ desde: Date.now() });
+    if (document.hidden) presencia.untrack(); else anunciar();
   });
+  // Avisa a los demás que estás (o ya no) mirando el mar. En el modo demo, al rato aparece Rochi mirando también.
+  let demoMarT;
+  function mirarElMar(si) {
+    if (mirando === !!si) return;
+    mirando = !!si;
+    if (live) { anunciar(); return; }
+    clearTimeout(demoMarT);
+    if (si) demoMarT = setTimeout(() => { enElMar.add('rochi'); listeners.forEach((f) => f({ presencia: true })); }, 2500);
+    else enElMar.clear();
+  }
 
   let pushT;
   function pushMe() {
@@ -249,6 +264,8 @@ window.STORE = (function () {
     },
     // Quiénes tienen la app abierta ahora (sin contarte a vos).
     conectados() { return [...enLinea]; },
+    mirarElMar,
+    enElMar() { return [...enElMar]; },
     usedElsewhere(id) { const r = s.cache.players[id]; return !!(live && r && r.datos && r.datos.v); },
     forget() { const c = s.cache; s = blank(); s.cache = c; save(); },
     get xp() { return s.xp; },
@@ -306,6 +323,20 @@ window.STORE = (function () {
         else rest.push(x);
       });
       return { refugio, items: rest, place };
+    },
+    // Lotes de playa: ach.lote = cuántos compró (0 a 3). El ancho del altarcito es el del último.
+    lote(pid) {
+      pid = pid || s.me;
+      const ach = pid === s.me ? s.ach : live ? (((s.cache.players[pid] || {}).datos || {}).ach || {}) : {};
+      return Math.min(D.LOTES.length, +ach.lote || 0);
+    },
+    loteAncho(pid) { const n = api.lote(pid); return n ? D.LOTES[n - 1].ancho : 1; },
+    comprarLote() {
+      const it = D.LOTES[api.lote()];
+      if (!it || s.coins < it.p || levelOf(s.xp) + 1 < it.lv) return null;
+      s.coins -= it.p; s.ach.lote = api.lote() + 1;
+      save(); pushMe();
+      return it;
     },
     hasRefugio(pid, which) {
       const a = api.altar(pid);
@@ -506,6 +537,7 @@ window.STORE = (function () {
       s.coins -= item.p;
       if (to && to !== s.me) {
         if (!s.ach.regalo) { s.ach.regalo = 1; s.coins += D.ACH.regalo.c; }
+        s.ach.regalados = Math.max(api.regalosHechos(), s.ach.regalados || 0) + 1;
         const xpGanada = sumarXp(D.xpRegalo(item.p)); // regalar suma experiencia (comprar para vos, no)
         // Se agrega enseguida a lo guardado, así aparece en su altarcito sin esperar.
         api.regaloEnCamino = client
@@ -523,8 +555,58 @@ window.STORE = (function () {
         return xpGanada;
       }
       s.owned.push(item.id);
+      s.ach['compra:' + item.id] = 1; // para el logro de coleccionista: cuenta cosas distintas, aunque después las vendas
       save(); pushMe();
       return 'o' + (s.owned.length - 1);
+    },
+
+    // ---------- logros por escalones (D.LOGROS) ----------
+    // Regalos que hiciste: los de la base y, por si todavía no llegaron, los que anotó este celu.
+    regalosHechos() { return Math.max(live ? s.cache.regalos.filter((r) => r.de === s.me).length : 0, s.ach.regalados || 0); },
+    // Cuánto llevás en cada logro y cuánto es "todo" donde corresponde. baulTotal lo pasa la app (el baúl vive en el bucket).
+    logroValor(id, baulTotal) {
+      if (id === 'regalos') return api.regalosHechos();
+      if (id === 'fotos') return Object.keys(s.photos).length;
+      if (id === 'compras') return new Set(s.owned.filter(Boolean).concat(Object.keys(s.ach).filter((k) => k.startsWith('compra:')).map((k) => k.slice(7)))).size;
+      if (id === 'racha') {
+        const dias = [...new Set(s.days)].sort();
+        let mejor = 0, n = 0, prev = null;
+        dias.forEach((d) => { n = prev && Date.parse(d) - Date.parse(prev) === 864e5 ? n + 1 : 1; mejor = Math.max(mejor, n); prev = d; });
+        return Math.max(mejor, s.ach.rachaMax || 0);
+      }
+      if (id === 'dias') return Math.max(s.days.length, s.ach.diasMax || 0);
+      if (id === 'reacciones') return Object.keys(s.reac).length;
+      if (id === 'baul') return baulTotal ? Math.floor((100 * (s.recuerdos || []).length) / baulTotal) : 0;
+      if (id === 'hallazgos') return api.hallazgos('botella').length + api.hallazgos('galleta').length;
+      if (id === 'visitas') return (s.visitas || []).filter((p) => p !== s.me).length;
+      return 0;
+    },
+    // 'todo': todos los altarcitos de los demás, o todo el kiosco (sin la sombrilla ni la carpa, que no se pueden tener juntas).
+    logroMeta(id, m) {
+      if (m !== 'todo') return m;
+      return id === 'visitas' ? D.PEOPLE.length - 1 : D.SHOP.filter((x) => !x.retirado && x.side !== 'R').length;
+    },
+    logros(baulTotal) {
+      return D.LOGROS.map((l) => {
+        const v = api.logroValor(l.id, baulTotal);
+        const pasos = l.pasos.map((p, i) => ({ meta: api.logroMeta(l.id, p[0]), todo: p[0] === 'todo', c: p[1] || 0, s: p[2] || 0, ok: !!s.ach['logro:' + l.id + ':' + i] }));
+        return Object.assign({}, l, { v, pasos });
+      });
+    },
+    // Cobra los escalones a los que ya llegaste y todavía no cobraste. Devuelve la lista de lo nuevo.
+    cobrarLogros(baulTotal) {
+      if (!s.me) return [];
+      const nuevos = [];
+      s.ach.rachaMax = Math.max(s.ach.rachaMax || 0, api.logroValor('racha'));
+      s.ach.diasMax = Math.max(s.ach.diasMax || 0, s.days.length);
+      api.logros(baulTotal).forEach((l) => l.pasos.forEach((p, i) => {
+        if (p.ok || l.v < p.meta || (l.id === 'baul' && !baulTotal)) return;
+        s.ach['logro:' + l.id + ':' + i] = 1;
+        s.coins += p.c; s.sobres = (s.sobres || 0) + p.s;
+        nuevos.push({ l, i, meta: p.meta, todo: p.todo, c: p.c, s: p.s });
+      }));
+      if (nuevos.length) { save(); pushMe(); }
+      return nuevos;
     },
 
     // Corre al entrar: entrada del día, racha, noctámbulo y premio matutino (primera persona del día desde las 5).

@@ -120,39 +120,42 @@
   const vistas = {};       // zoom de cada altarcito: sobrevive a los redibujos
   let dragging = false;
 
-  function spot(pid, it, place) {
+  // Con lotes, la playa mide K pantallas de ancho. Lo guardado (place.x) va en pantallas (0 a K): lo que ya estaba acomodado no se mueve.
+  // En la página, .mundo mide K veces el ancho y las posiciones y anchos van en fracción del mundo (x / K).
+  function spot(pid, it, place, K = 1) {
     const p = place[it.k];
     if (p && p.x != null) return p;
     const r = rnd(pid + it.k), zona = zonaDe(it.id), [a, b] = ZONAS[zona];
-    return Object.assign({}, p, { x: 0.12 + r() * 0.76, y: zona === 'arena' ? a + 0.1 + r() * (b - a - 0.12) : a + r() * (b - a) });
+    return Object.assign({}, p, { x: 0.12 + r() * (K - 0.24), y: zona === 'arena' ? a + 0.1 + r() * (b - a - 0.12) : a + r() * (b - a) });
   }
-  const itWidth = (id, y) => (y == null ? ARTE.size(id).w / 4 : ARTE.size(id).w / 4 * ESCALA * escala(id, y)).toFixed(2) + '%';
-  const itStyle = (id, x, y, z, flat) => `left:${(x * 100).toFixed(2)}%;top:${(y * 100).toFixed(2)}%;width:${itWidth(id, flat ? null : y)};z-index:${z}`;
+  const itWidth = (id, y, K = 1) => ((y == null ? ARTE.size(id).w / 4 : ARTE.size(id).w / 4 * ESCALA * escala(id, y)) / K).toFixed(2) + '%';
+  const itStyle = (id, x, y, z, flat, K = 1) => `left:${(x * 100).toFixed(2)}%;top:${(y * 100).toFixed(2)}%;width:${itWidth(id, flat ? null : y, K)};z-index:${z}`;
+  const FONDO_LOTE = { 1.5: 'fondo-15', 2: 'fondo-2', 3: 'fondo-3' };
   const colorOf = (it, p) => (p && p.c) || shopItem(it.id).col || null;
   const ordenIt = (a, b) => RANGO[zonaDe(a.id)] - RANGO[zonaDe(b.id)] || area(b.id) - area(a.id) || a.y - b.y;
   const zDe = (id, i) => (zonaDe(id) === 'mar' ? 1 : i + 4); // mar 1, refugio 2, cartel 3, el resto arriba
-  function itHTML(pid, it, p, i) {
-    const sh = shopItem(it.id), h = hash(pid + it.k), art = ARTE.item(it.id, colorOf(it, p));
+  function itHTML(pid, it, p, i, K = 1) {
+    const sh = shopItem(it.id), h = hash(pid + it.k), art = ARTE.item(it.id, colorOf(it, p)), x = clamp(p.x, 0.02, K - 0.02) / K;
     const clip = sh.anim === 'salta' || sh.anim === 'cola';
     const vars = sh.anim ? `;--t:${(7 + (h % 40) / 10).toFixed(1)}s;--d:-${((h >> 3) % 70 / 10).toFixed(1)}s` : '';
-    return `<div class="it${zonaDe(it.id) === 'mar' ? ' mar' : ''}${sh.anim ? ' ' + sh.anim : ''}" data-k="${it.k}" data-id="${it.id}" data-x="${p.x}" data-y="${p.y}" style="${itStyle(it.id, p.x, p.y, zDe(it.id, i))}${vars}">${clip ? `<span class="recorte">${art}</span>` : art}</div>`;
+    return `<div class="it${zonaDe(it.id) === 'mar' ? ' mar' : ''}${sh.anim ? ' ' + sh.anim : ''}" data-k="${it.k}" data-id="${it.id}" data-x="${x}" data-y="${p.y}" style="${itStyle(it.id, x, p.y, zDe(it.id, i), false, K)}${vars}">${clip ? `<span class="recorte">${art}</span>` : art}</div>`;
   }
   // ---------- hallazgos: la botella del mar y la galleta de arroz ----------
   // Aparecen solas en tu altarcito algunos días. Se abren tocándolas y dan monedas; si no la abrís ese día, se la lleva la marea.
   const HZ = D.HALLAZGOS;
   const forzado = {}; // panel de prueba: hace aparecer una ya
-  function hallazgoHoy(tipo) {
+  function hallazgoHoy(tipo, K = 1) {
     const h = HZ[tipo], dia = SKY.arDate();
     if (!S.me || dia < HZ.desde || S.hallado(tipo, dia)) return null;
     const r = rnd(tipo + S.me + dia), sale = r() < h.prob, hora = h.de + r() * (h.a - h.de);
     if (!forzado[tipo] && (!sale || SKY.arMinute() < hora)) return null;
-    return { tipo, x: 0.16 + r() * 0.68, y: tipo === 'botella' ? 0.47 + r() * 0.025 : 0.64 + r() * 0.26 };
+    return { tipo, K, x: 0.16 + r() * (K - 0.32), y: tipo === 'botella' ? 0.47 + r() * 0.025 : 0.64 + r() * 0.26 };
   }
   function hallazgoHTML(h) {
-    const w = (ARTE.size(h.tipo).w / 4 * ESCALA * (h.tipo === 'botella' ? 0.9 : persp(h.y))).toFixed(2);
+    const K = h.K || 1, w = (ARTE.size(h.tipo).w / 4 * ESCALA * (h.tipo === 'botella' ? 0.9 : persp(h.y)) / K).toFixed(2);
     const que = h.tipo === 'botella' ? 'Una botella llegó del mar' : 'Hay algo enterrado en la arena';
     return `<div class="it hallazgo ${h.tipo}${h.tipo === 'botella' ? ' mar flota' : ''}" data-hallazgo="${h.tipo}" role="button" tabindex="0" aria-label="${que}"
-      style="left:${(h.x * 100).toFixed(2)}%;top:${(h.y * 100).toFixed(2)}%;width:${w}%;z-index:60">${ARTE.item(h.tipo)}<i class="brillo" aria-hidden="true">✦</i></div>`;
+      style="left:${(h.x / K * 100).toFixed(2)}%;top:${(h.y * 100).toFixed(2)}%;width:${w}%;z-index:60">${ARTE.item(h.tipo)}<i class="brillo" aria-hidden="true">✦</i></div>`;
   }
   const SIN_TILDE = { á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u', Á: 'A', É: 'E', Í: 'I', Ó: 'O', Ú: 'U' };
   const sinTilde = (t) => t.replace(/[áéíóúüÁÉÍÓÚ]/g, (c) => SIN_TILDE[c]);
@@ -229,19 +232,21 @@
       <ul class="hallados">${todos.map(fila).join('')}</ul><button class="btn ghost" data-close>Listo</button></div>`);
   }
   function altarHTML(pid, editable) {
-    const a = S.altar(pid);
-    const placed = a.items.map((it) => ({ it, p: spot(pid, it, a.place) })).filter((x) => !x.p.off)
+    const a = S.altar(pid), K = S.loteAncho(pid);
+    const placed = a.items.map((it) => ({ it, p: spot(pid, it, a.place, K) })).filter((x) => !x.p.off)
       .sort((u, v) => ordenIt({ id: u.it.id, y: u.p.y }, { id: v.it.id, y: v.p.y }));
     const R = a.refugio;
-    const ref = R ? `<div class="it fixed" data-k="${R.k}" data-id="${R.id}" style="${itStyle(R.id, REFUGIO[R.id].x, REFUGIO[R.id].y, 2, true)}">${ARTE.item(R.id, colorOf(R, a.place[R.k]))}</div>` : '';
+    const ref = R ? `<div class="it fixed" data-k="${R.k}" data-id="${R.id}" style="${itStyle(R.id, REFUGIO[R.id].x / K, REFUGIO[R.id].y, 2, true, K)}">${ARTE.item(R.id, colorOf(R, a.place[R.k]))}</div>` : '';
     const name = person(pid).n;
     const cw = ARTE.cartelIA ? 23 : (Math.max(60, Math.min(110, 14 + name.length * 7.2)) + 4) / 4;
-    return `<div class="altar${editable ? ' edit' : ''}${ARTE.pintado ? ' pintado' : ''}" data-pid="${pid}"><div class="mundo">
+    // Dirección completa: un url() relativo dentro de una variable se resolvería desde css/, no desde la página.
+    const fondo = K > 1 && FONDO_LOTE[K] ? `;--fondo:url(${new URL(`img/altar/${FONDO_LOTE[K]}.webp?v=1`, location.href).href})` : '';
+    return `<div class="altar${editable ? ' edit' : ''}${ARTE.pintado ? ' pintado' : ''}${K > 1 ? ' ancho' : ''}" data-pid="${pid}" data-k="${K}"><div class="mundo" style="width:${K * 100}%${fondo}">
       ${ARTE.pintado ? '' : '<i class="nube" style="left:10%;top:7%;width:22%"></i><i class="nube" style="left:64%;top:14%;width:15%"></i>'}
       ${ref}
-      <div class="it fixed cartel" style="left:86%;top:57%;width:${cw}%;z-index:3">${ARTE.cartel(esc(name))}</div>
-      ${placed.map(({ it, p }, i) => itHTML(pid, it, p, i)).join('')}
-      ${editable && pid === S.me ? ['botella', 'galleta'].map(hallazgoHoy).filter(Boolean).map(hallazgoHTML).join('') : ''}
+      <div class="it fixed cartel" style="left:${((K - 0.14) / K * 100).toFixed(2)}%;top:57%;width:${(cw / K).toFixed(2)}%;z-index:3">${ARTE.cartel(esc(name))}</div>
+      ${placed.map(({ it, p }, i) => itHTML(pid, it, p, i, K)).join('')}
+      ${editable && pid === S.me ? ['botella', 'galleta'].map((t) => hallazgoHoy(t, K)).filter(Boolean).map(hallazgoHTML).join('') : ''}
       ${!a.items.length && !R ? `<div class="vacio">${editable ? 'Tu playa está vacía.<br>Pasá por el kiosco.' : 'Todavía está vacía.'}</div>` : ''}
     </div><div class="zoombar"><button data-z="-1" aria-label="Alejar">−</button><button data-z="1" aria-label="Acercar">+</button></div></div>`;
   }
@@ -289,7 +294,9 @@
   // Dos dedos: zoom. Doble toque en la arena: acerca o aleja.
   function bindAltar(altar, editable) {
     const pid = altar.dataset.pid, box = altar.querySelector('.mundo');
-    const v = vistas[pid] || (vistas[pid] = { z: 1, x: 0, y: 0 });
+    // Con lotes (K > 1) la playa es más ancha que el cuadro: abre alejada para verla entera (ZMIN) y se puede acercar.
+    const K = +altar.dataset.k || 1, ZMIN = 1 / K;
+    const v = vistas[pid] && vistas[pid].k === K ? vistas[pid] : (vistas[pid] = { z: ZMIN, x: 0, y: 0, k: K });
     const MOVE = 'onpointerrawupdate' in window ? 'pointerrawupdate' : 'pointermove', LIFT = 0.04;
     const pts = new Map();
     let g = null, tapT = 0, tapX = 0, tapY = 0;
@@ -302,15 +309,18 @@
     });
 
     const aLocal = (cx, cy) => { const r = altar.getBoundingClientRect(); return [cx - r.left - altar.clientLeft, cy - r.top - altar.clientTop]; };
+    // Si la playa queda más chica que el cuadro, se centra (arriba sigue el cielo y abajo la arena); si no, se puede recorrer.
+    const puedeMover = () => v.z > 1.001 || altar.clientWidth * K * v.z > altar.clientWidth + 1;
     const aplicar = () => {
-      v.x = clamp(v.x, altar.clientWidth * (1 - v.z), 0);
-      v.y = clamp(v.y, altar.clientHeight * (1 - v.z), 0);
-      const hay = v.z > 1.001;
-      box.style.transform = hay ? `translate3d(${v.x.toFixed(1)}px,${v.y.toFixed(1)}px,0) scale(${v.z.toFixed(3)})` : '';
-      altar.classList.toggle('zoom', hay);
+      const W = altar.clientWidth, H = altar.clientHeight, ww = W * K * v.z, hh = H * v.z;
+      v.x = ww <= W + 0.5 ? (W - ww) / 2 : clamp(v.x, W - ww, 0);
+      v.y = hh <= H + 0.5 ? (H - hh) / 2 : clamp(v.y, H - hh, 0);
+      const igual = Math.abs(v.z - 1) < 0.001 && Math.abs(v.x) < 0.5 && Math.abs(v.y) < 0.5;
+      box.style.transform = igual ? '' : `translate3d(${v.x.toFixed(1)}px,${v.y.toFixed(1)}px,0) scale(${v.z.toFixed(3)})`;
+      altar.classList.toggle('zoom', puedeMover());
     };
     const zoomEn = (z, cx, cy, suave) => {
-      const nz = clamp(z, 1, ZMAX), k = nz / v.z;
+      const nz = clamp(z, ZMIN, ZMAX), k = nz / v.z;
       v.x = cx - (cx - v.x) * k; v.y = cy - (cy - v.y) * k; v.z = nz;
       if (suave) { box.classList.add('suave'); setTimeout(() => box.classList.remove('suave'), 220); }
       aplicar();
@@ -323,7 +333,7 @@
       const t = g, el = t.el, id = el.dataset.id, x0 = +el.dataset.x, y0 = +el.dataset.y, p0 = escala(id, y0);
       const [ymin, ymax] = ZONAS[zonaDe(id)], r = box.getBoundingClientRect(), W = box.offsetWidth, H = box.offsetHeight;
       const shadow = document.createElement('i'); shadow.className = 'ground';
-      shadow.style.width = (ARTE.size(id).w / 4 * ESCALA * 0.7) + '%';
+      shadow.style.width = (ARTE.size(id).w / 4 * ESCALA * 0.7 / K) + '%';
       const d = g = { tipo: 'drag', el, id, pointer: t.pointer, x0, y0, ymin, ymax, rw: r.width, rh: r.height, sx: t.lx, sy: t.ly, gx: x0, gy: y0, fy: y0, moved: false, shadow };
       d.paint = () => {
         el.style.transform = `${PIE} translate3d(${((d.gx - x0) * W).toFixed(1)}px,${((d.fy - y0) * H).toFixed(1)}px,0) scale(${(escala(id, d.gy) / p0).toFixed(3)})`;
@@ -339,9 +349,9 @@
       const d = g, el = d.el; g = null;
       d.shadow.remove(); el.classList.remove('held'); el.style.transform = '';
       el.dataset.x = d.gx; el.dataset.y = d.gy;
-      el.style.left = (d.gx * 100) + '%'; el.style.top = (d.gy * 100) + '%'; el.style.width = itWidth(d.id, d.gy);
+      el.style.left = (d.gx * 100) + '%'; el.style.top = (d.gy * 100) + '%'; el.style.width = itWidth(d.id, d.gy, K);
       caer(el, box, Math.max(d.gy - d.fy, 0.03), () => { restack(box); dragging = false; });
-      if (d.moved) S.setPlace(el.dataset.k, { x: +d.gx.toFixed(4), y: +d.gy.toFixed(4) });
+      if (d.moved) S.setPlace(el.dataset.k, { x: +(d.gx * K).toFixed(4), y: +d.gy.toFixed(4) });
     }
 
     altar.addEventListener('pointerdown', (e) => {
@@ -370,7 +380,7 @@
         if (e.pointerId !== g.pointer) return;
         const dx = e.clientX - g.sx, dy = e.clientY - g.sy, dist = Math.hypot(dx, dy);
         if (dist > 6) g.moved = true;
-        g.gx = clamp(g.x0 + dx / g.rw, 0.05, 0.95);
+        g.gx = clamp(g.x0 + dx / g.rw, 0.05 / K, 1 - 0.05 / K);
         const ay = clamp(g.y0 + dy / g.rh, 0.04, 0.99);
         g.gy = clamp(ay, g.ymin, g.ymax);
         g.fy = Math.min(ay, g.gy - LIFT * Math.min(1, dist / 26));
@@ -387,7 +397,7 @@
         g.lx = e.clientX; g.ly = e.clientY;
         if (Math.hypot(e.clientX - g.sx, e.clientY - g.sy) > SLOP) {
           sinEspera();
-          g = v.z > 1.001 ? { tipo: 'pan', lx: e.clientX, ly: e.clientY } : { tipo: 'nada' };
+          g = puedeMover() ? { tipo: 'pan', lx: e.clientX, ly: e.clientY } : { tipo: 'nada' };
         }
       }
     });
@@ -406,14 +416,14 @@
       if (t.huevo) { abrirHallazgo(t.huevo); return; }
       if (t.el) { SONIDO.si(); itemSheet(pid, t.el, editable); return; }
       const now = performance.now(), [x, y] = aLocal(e.clientX, e.clientY);
-      if (now - tapT < 320 && Math.hypot(x - tapX, y - tapY) < 34) { tapT = 0; zoomEn(v.z > 1.01 ? 1 : 2, x, y, true); }
+      if (now - tapT < 320 && Math.hypot(x - tapX, y - tapY) < 34) { tapT = 0; zoomEn(v.z > ZMIN * 1.01 ? ZMIN : Math.max(1, 2 * ZMIN), x, y, true); }
       else { tapT = now; tapX = x; tapY = y; }
     };
     altar.addEventListener('pointerup', fin);
     altar.addEventListener('pointercancel', fin);
     box.querySelectorAll('[data-hallazgo]').forEach((b) => b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirHallazgo(b); } }));
     // Mientras se arrastra o hay zoom, el dedo es de la playa y no de la página.
-    altar.addEventListener('touchmove', (e) => { if ((g && g.tipo === 'drag') || v.z > 1.001 || e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    altar.addEventListener('touchmove', (e) => { if ((g && g.tipo === 'drag') || puedeMover() || e.touches.length > 1) e.preventDefault(); }, { passive: false });
     altar.addEventListener('gesturestart', (e) => e.preventDefault());
     altar.addEventListener('contextmenu', (e) => e.preventDefault());
     altar.addEventListener('wheel', (e) => {
@@ -957,6 +967,44 @@
     });
   }
 
+  // ---------- logros por escalones ----------
+  // Se cobran solos (monedas y sobres, nunca experiencia). Si llegan varios juntos, un solo cartelito.
+  const baulTotal = () => (RECUERDOS ? RECUERDOS.items.length : 0);
+  const premioLogro = (p) => [p.c ? `${p.c} <span class="coin"></span>` : '', p.s ? `${p.s} ${p.s === 1 ? 'sobre' : 'sobres'}` : ''].filter(Boolean).join(' + ');
+  function fraseLogro(n) {
+    if (n.todo) return n.l.id === 'visitas' ? 'Visitaste todos los altarcitos' : 'Compraste todo el kiosco';
+    if (n.l.id === 'baul') return `Completaste el ${n.meta}% del baúl`;
+    if (n.l.id === 'racha') return `${n.meta} días seguidos entrando`;
+    return `${n.meta} ${n.l.u}`;
+  }
+  function revisarLogros() {
+    if (!S.me) return;
+    const nuevos = S.cobrarLogros(baulTotal());
+    if (!nuevos.length) return;
+    const c = nuevos.reduce((a, n) => a + n.c, 0), so = nuevos.reduce((a, n) => a + n.s, 0);
+    const chips = `${c ? `<span class="chip" style="--c:var(--butter)">+${c} <span class="coin"></span></span>` : ''}${so ? `<span class="chip" style="--c:var(--rose)">+${so} ${so === 1 ? 'sobre' : 'sobres'}</span>` : ''}`;
+    const texto = nuevos.length === 1 ? `<b>¡Logro!</b> ${esc(fraseLogro(nuevos[0]))}.` : `<b>¡${nuevos.length} logros nuevos!</b> ${nuevos.map((n) => esc(fraseLogro(n))).join(' · ')}.`;
+    toast(`<span class="logro-ic" aria-hidden="true">${nuevos[0].l.ic}</span><span>${texto}</span>${chips}`, 5200);
+    if (c) SONIDO.monedas(c); else SONIDO.si();
+    if (['album', 'altar', 'kiosco'].includes(location.hash.slice(1)) && !document.querySelector('.sheet-bg') && !dragging) setTimeout(render, 500);
+  }
+  function logrosHTML() {
+    const ls = S.logros(baulTotal());
+    const hechos = ls.reduce((n, l) => n + l.pasos.filter((p) => p.ok).length, 0), total = ls.reduce((n, l) => n + l.pasos.length, 0);
+    const fila = (l) => {
+      const sig = l.pasos.find((p) => !p.ok), meta = sig ? sig.meta : l.pasos[l.pasos.length - 1].meta;
+      const pct = sig ? Math.min(100, (100 * l.v) / meta) : 100;
+      const cuanto = l.id === 'baul' ? `Tenés el ${l.v}% del baúl · próxima meta: ${meta}%` : `${Math.min(l.v, meta)} de ${meta} ${l.u}`;
+      return `<li class="logro${sig ? '' : ' listo'}"><span class="logro-ic" aria-hidden="true">${l.ic}</span><div>
+        <div class="spread"><b>${esc(l.t)}</b><span class="small">${sig ? premioLogro(sig) : '✓ completo'}</span></div>
+        <span class="bar logro-bar"><i style="width:${pct.toFixed(1)}%"></i></span>
+        <span class="small muted">${sig ? esc(cuanto) : `Completaste los ${l.pasos.length} escalones.`}</span>
+        <span class="escalones" aria-label="${l.pasos.filter((p) => p.ok).length} de ${l.pasos.length} escalones">${l.pasos.map((p) => `<i class="${p.ok ? 'ok' : ''}"></i>`).join('')}</span></div></li>`;
+    };
+    return `<div class="card"><div class="spread"><div><h2>Logros</h2><span class="small muted">Se cobran solos al llegar a cada meta: monedas y sobres del baúl.</span></div><b class="cuenta-logros">${hechos}/${total}</b></div>
+      <ul class="logros">${ls.map(fila).join('')}</ul></div>`;
+  }
+
   // Tu tarjeta sube de categoría con el nivel: bronce, plata y oro.
   const tierDe = (nivel) => [...D.COLECCION.tarjeta].reverse().find((t) => nivel >= t.lv) || null;
   const tierDePid = (pid) => tierDe(level(pid === S.me ? S.xp : S.xpOf(pid)).i + 1);
@@ -985,7 +1033,7 @@
     const tarjeta = `<div class="card"><div><h2>Tu tarjeta</h2><span class="small muted">Sube de categoría con tu nivel. Vas por el ${nv}.</span></div>
       <div class="tiers">${D.COLECCION.tarjeta.map((t) => `<button class="tier${nv >= t.lv ? '' : ' falta'}" data-carta aria-label="Tarjeta de ${t.n.toLowerCase()}${nv >= t.lv ? '' : ', nivel ' + t.lv}">
         <span class="mini-carta tier-${t.id}" style="--el:${ELEMENTO[c.e] || 'var(--butter)'}"><img src="${face(S.me)}" alt=""><b>${esc(yo.n)}</b></span><span class="small">${t.n} · nivel ${t.lv}</span></button>`).join('')}</div></div>`;
-    return `<h2 class="on-sky" style="font-size:1.3rem;margin:6px 0 0">Más coleccionables</h2>${recs}${amigosCard}${tarjeta}`;
+    return `<h2 class="on-sky" style="font-size:1.3rem;margin:6px 0 0">Más coleccionables</h2>${recs}${logrosHTML()}${amigosCard}${tarjeta}`;
   }
 
   // ---------- calendario ----------
@@ -1436,7 +1484,7 @@
       screen.innerHTML = `${top()}
         <div class="spread"><h1 class="on-sky" style="font-size:1.7rem">Tu altarcito playero</h1><a class="btn" href="#kiosco" style="--c:var(--butter);text-decoration:none">Kiosco</a></div>
         <div class="card">${altarHTML(S.me, true)}
-          <p class="small muted" style="margin:0">Mantené apretada una cosa para moverla. Tocala para verla, pintarla o guardarla. Con dos dedos te acercás.</p>${bolsaHTML()}
+          <p class="small muted" style="margin:0">Mantené apretada una cosa para moverla. Tocala para verla, pintarla o guardarla. ${S.loteAncho() > 1 ? 'Con dos dedos te acercás y te alejás; acercado, deslizá para recorrer tu playa.' : 'Con dos dedos te acercás.'}${D.LOTES[S.lote()] ? ' ¿Te queda chica? En el kiosco hay lotes de playa.' : ''}</p>${bolsaHTML()}
           ${nHallazgos() ? `<button class="btn ghost hallados-btn" id="misHallazgos">Lo que trajo el mar (${nHallazgos()})</button>` : ''}</div>
         <div class="card"><div class="eyebrow">Altarcitos de la colonia</div>
           <div class="faces visit">${D.PEOPLE.filter((p) => p.id !== S.me).map((p) => `<button class="pick" data-v="${p.id}"><img class="face" src="${face(p.id)}" alt=""><span class="small">${esc(p.n)}</span></button>`).join('')}</div></div>`;
@@ -1462,10 +1510,18 @@
       const grupo = (f) => D.SHOP.filter((x) => ARTE.has(x.id) && !x.retirado && f(x)).sort((a, b) => a.p - b.p).map(cell).join('');
       const bloque = (t, nota, f) => { const h = grupo(f); return h ? `<div class="card"><div class="eyebrow">${t}</div>${nota ? `<p class="small muted" style="margin:0">${nota}</p>` : ''}<div class="shop">${h}</div></div>` : ''; };
       const para = regalarA && person(regalarA);
+      // Lotes de playa: el que sigue, de a uno. Agrandan tu altarcito hacia el costado.
+      const lote = D.LOTES[S.lote()], loteBloq = lote && lote.lv > L + 1;
+      const veces = (k) => String(k).replace('.', ',');
+      const loteCard = !para && lote ? `<div class="card lote-card"><div class="eyebrow">Más playa para tu altarcito</div><div class="spread">
+          <div><b>${esc(lote.n)}</b><p class="small muted" style="margin:2px 0 0">${esc(lote.d)} Queda ${veces(lote.ancho)} veces más ancho.</p></div>
+          <button class="btn" id="lote" style="--c:var(--celeste)"${loteBloq ? ' aria-disabled="true"' : ''}>${loteBloq ? 'nivel ' + lote.lv : lote.p + ' <span class="coin"></span>'}</button></div></div>` : '';
+      const tengo = S.logroValor('compras'), hay = S.logroMeta('compras', 'todo');
       screen.innerHTML = `${top()}
         <div class="spread"><h1 class="on-sky" style="font-size:1.7rem">Kiosco</h1>${para ? '<button class="btn ghost" id="noRegalar">Volver a su altarcito</button>' : '<a class="btn ghost" href="#altar" style="text-decoration:none">Volver al altarcito</a>'}</div>
         ${para ? `<div class="card para-quien"><img class="face" src="${face(para.id)}" alt=""><div><b>Elegí algo para ${esc(para.n)}</b><p class="small muted" style="margin:0">Va directo a su altarcito, con tu nombre. Regalar suma experiencia: 1 XP cada 2 monedas.</p></div></div>`
-          : '<p class="on-sky-soft" style="margin:0">Todo lo que comprás va a tu altarcito playero. Si lo regalás, además suma experiencia: 1 XP cada 2 monedas. Tocá tus monedas para ver cómo juntar más.</p>'}
+          : `<p class="on-sky-soft" style="margin:0">Todo lo que comprás va a tu altarcito playero. Si lo regalás, además suma experiencia: 1 XP cada 2 monedas. <b>Compraste ${Math.min(tengo, hay)} de las ${hay} cosas del kiosco.</b></p>`}
+        ${loteCard}
         ${bloque('De fondo', 'Va atrás de todo. Si tenés la carpa, la sombrilla ya no hace falta.', (x) => x.side === 'R' || x.z === 'fondo')}
         ${bloque('En el mar', 'Flotan o saltan en el agua, detrás de la arena.', (x) => x.z === 'mar')}
         ${bloque('En la arena', '', (x) => x.side !== 'R' && !x.z)}`;
@@ -1514,6 +1570,27 @@
       }));
       const nr = $('#noRegalar');
       if (nr) nr.addEventListener('click', () => { const p = regalarA; regalarA = null; go('altar'); visit(p); });
+      const lb = $('#lote');
+      if (lb) lb.addEventListener('click', () => {
+        if (loteBloq) return toast(`<span>${esc(lote.n)} se desbloquea en el nivel ${lote.lv}.</span>`);
+        const ancho = (k) => `<div class="lote-dibujo" style="--k:${k}"><i></i></div>`;
+        sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
+          <div class="eyebrow">Más playa</div><h2>${esc(lote.n)}</h2><p class="desc">${esc(lote.d)}</p>
+          <div class="lote-antes">${ancho(S.loteAncho())}<span aria-hidden="true">→</span>${ancho(lote.ancho)}</div>
+          <p class="small muted" style="margin:0">Lo que ya acomodaste queda donde está. Las cosas que nunca moviste se reparten por la playa nueva. Alejate con dos dedos (o con −) para ver todo.</p>
+          ${S.coins >= lote.p ? `<button class="btn" id="siLote" data-mudo style="--c:var(--celeste)">Comprar por ${lote.p} <span class="coin"></span></button>` : `<p class="muted" style="margin:0">Te faltan ${lote.p - S.coins} monedas.</p>`}
+          <button class="btn ghost" data-close>${NAH}</button></div>`,
+        (bg) => {
+          const si = bg.querySelector('#siLote');
+          if (si) si.addEventListener('click', () => {
+            const it = S.comprarLote();
+            if (!it) return;
+            bg.remove(); SONIDO.monedas(it.p, -1);
+            toast(`<span>¡Listo! Tu altarcito ahora es ${veces(it.ancho)} veces más ancho. Mové tus cosas a la playa nueva.</span>`, 4500);
+            go('altar');
+          });
+        });
+      });
     },
 
     foto() {
@@ -1697,6 +1774,7 @@
 
   // ---------- navegación ----------
   function go(r) { if (location.hash === '#' + r) render(); else location.hash = r; }
+  let logrosT = null;
   function render() {
     let r = location.hash.slice(1) || 'portada';
     if (r === 'misiones') r = 'album'; // Misiones quedó adentro del álbum
@@ -1716,7 +1794,7 @@
     const cur = r === 'kiosco' ? 'altar' : r === 'calendario' ? 'hoy' : r;
     tabs.innerHTML = TABS.map(([k, l]) => `<a href="#${k}" class="${k === cur ? 'on' : ''}" ${k === cur ? 'aria-current="page"' : ''}>${IC[k]}<span>${l}</span></a>`).join('');
     const dev = $('#devbtn'); if (dev) dev.hidden = r === 'portada';
-    if (r !== 'portada' && r !== 'quien') { setTimeout(() => finDeCapitulo() || mostrarRegalos() || mostrarSobres(), 700); setTimeout(revisarAmigos, 1800); setTimeout(avisarReacciones, 1400); setTimeout(avisarCosta, 1000); }
+    if (r !== 'portada' && r !== 'quien') { setTimeout(() => finDeCapitulo() || mostrarRegalos() || mostrarSobres(), 700); setTimeout(revisarAmigos, 1800); setTimeout(avisarReacciones, 1400); setTimeout(avisarCosta, 1000); clearTimeout(logrosT); logrosT = setTimeout(revisarLogros, 2600); }
   }
   addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
   SKY.onChange(() => { const r = location.hash.slice(1); if (r === 'portada' || r === '' || r === 'hoy' || r === 'calendario') { const w = document.querySelectorAll('.weather'); w.forEach((el) => (el.textContent = weatherLine(SKY.state()))); } });
@@ -1750,7 +1828,10 @@
   }
 
   // ---------- mirar el mar ----------
-  // Se esconde todo y queda la playa. Tocar deja chispitas que giran en espiral y una nota de la música, una octava más arriba.
+  // Se esconde todo y queda la playa. Tocar deja chispitas que giran en espiral y una nota de la música, una octava más arriba:
+  // más abajo, más grave; más arriba, más aguda. Dejar el dedo apoyado suma un colchón que oscila (lento abajo, rápido y bajito arriba).
+  let dedo = null; // el dedo apoyado: { id, t (para empezar el colchón), pad, halo, ult }
+  const SOSTENER_MS = 320;
   function mirarMar() {
     document.body.classList.add('quieto');
     const capa = document.createElement('div');
@@ -1758,77 +1839,220 @@
     capa.innerHTML = '<button class="volver-mirar" data-mudo>volver</button>';
     document.body.appendChild(capa);
     capa.querySelector('.volver-mirar').addEventListener('click', salirDelMar);
+    const alto = (e) => 1 - e.clientY / innerHeight, lado = (e) => (e.clientX / innerWidth) * 2 - 1;
     capa.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.volver-mirar')) return;
       chispas(e.clientX, e.clientY);
-      INICIO.toque((e.clientX / innerWidth) * 2 - 1);
+      INICIO.toque(lado(e), alto(e));
+      nombrarPersonita(e.clientX, e.clientY);
+      if (dedo) return; // un solo colchón a la vez; los otros dedos solo tocan notas
+      try { capa.setPointerCapture(e.pointerId); } catch (err) { /* sin captura igual anda */ }
+      const d = (dedo = { id: e.pointerId, x: e.clientX, y: e.clientY, ult: 0 });
+      d.t = setTimeout(() => {
+        if (dedo !== d) return;
+        d.pad = INICIO.sostener(1 - d.y / innerHeight, (d.x / innerWidth) * 2 - 1);
+        d.halo = document.createElement('div');
+        d.halo.className = 'halo-dedo';
+        document.body.appendChild(d.halo);
+        moverHalo(d);
+      }, SOSTENER_MS);
     });
-    ponerPersonita();
+    capa.addEventListener('pointermove', (e) => {
+      const d = dedo;
+      if (!d || e.pointerId !== d.id) return;
+      d.x = e.clientX; d.y = e.clientY;
+      if (!d.halo) return;
+      if (d.pad) d.pad.mover(alto(e), lado(e));
+      moverHalo(d);
+      if (performance.now() - d.ult > 140) { d.ult = performance.now(); chispas(d.x, d.y, 4); }
+    });
+    const suelta = (e) => { if (dedo && e.pointerId === dedo.id) soltarDedo(); };
+    capa.addEventListener('pointerup', suelta);
+    capa.addEventListener('pointercancel', suelta);
+    if (conPersona()) S.mirarElMar(true); // los demás que estén mirando el mar te ven en su orilla
+    ponerPersonitas();
+  }
+  // El halo late al mismo ritmo que el colchón: lento abajo, rápido arriba.
+  function moverHalo(d) {
+    const a = Math.max(0, Math.min(1, 1 - d.y / innerHeight));
+    d.halo.style.left = d.x + 'px'; d.halo.style.top = d.y + 'px';
+    d.halo.style.setProperty('--p', (1 / (0.35 * Math.pow(8 / 0.35, a)) / 2).toFixed(3) + 's');
+    d.halo.style.opacity = (1 - 0.5 * a).toFixed(2);
+  }
+  function soltarDedo() {
+    const d = dedo;
+    if (!d) return;
+    dedo = null; clearTimeout(d.t);
+    if (d.pad) d.pad.soltar();
+    if (d.halo) { const h = d.halo; h.classList.add('fuera'); setTimeout(() => h.remove(), 900); }
   }
   function salirDelMar() {
+    soltarDedo();
     document.body.classList.remove('quieto');
-    document.querySelectorAll('.mirar-capa, #sky .personita').forEach((n) => n.remove());
+    document.querySelectorAll('.mirar-capa').forEach((n) => n.remove());
+    sacarPersonitas();
+    S.mirarElMar(false);
   }
   const CHISPA = ['#ffffff', '#fff6d8', '#ffe39a', '#c9ecfa', '#f9d9e4'];
-  function chispas(x, y) {
+  function chispas(x, y, cuantas = 12) {
     const c = document.createElement('div');
     c.className = 'chispas'; c.style.left = x + 'px'; c.style.top = y + 'px';
-    c.innerHTML = Array.from({ length: 12 }, (_, i) => {
+    c.innerHTML = Array.from({ length: cuantas }, (_, i) => {
       const giro = (150 + Math.random() * 170) * (i % 2 ? 1 : -1);
-      return `<i style="--a:${Math.round(i * 30 + Math.random() * 24)}deg;--g:${Math.round(giro)}deg;--r:${Math.round(12 + Math.random() * 22)}px;--s:${(1.6 + Math.random() * 1.8).toFixed(1)}px;background:${CHISPA[i % CHISPA.length]}"></i>`;
+      return `<i style="--a:${Math.round((i * 360) / cuantas + Math.random() * 24)}deg;--g:${Math.round(giro)}deg;--r:${Math.round(12 + Math.random() * 22)}px;--s:${(1.6 + Math.random() * 1.8).toFixed(1)}px;background:${CHISPA[i % CHISPA.length]}"></i>`;
     }).join('');
     document.body.appendChild(c);
     setTimeout(() => c.remove(), 1100);
   }
-  // La personita: quien entra, chiquita y de espaldas en la orilla, mirando el horizonte.
-  // EN PRUEBA: solo aparece con ?persona en la dirección (?persona=juani para ver a otra persona). Faltan las estaturas reales.
-  // pelo, largo (0 corto, 1 colita, 2 largo, 3 rodete), gorra, remera, ab = short o pantalón (abL: 1 si es largo), cm.
+  // ---------- la personita ----------
+  // Quien mira el mar, chiquita y de espaldas en la orilla. Si alguien más está mirando el mar en ese momento, aparece también.
+  // Los colores salen del cielo: de día, apagados y con la luz del lugar (más grises si está nublado); al atardecer, a contraluz;
+  // de noche, una silueta negra. Se mueve sola: respira, mira a los costados, camina un poco por la orilla y a veces se sienta.
+  // EN PRUEBA: solo con ?persona en la dirección (?persona=juani para verte como otra persona).
+  // pelo, largo (0 corto, 1 colita, 2 largo, 3 rodete), gorra, rem (remera), ab (short o pantalón; abL: 1 si es largo), cm.
   const PERSONITAS = {
-    jero: { pelo: '#2b211c', largo: 0, rem: '#7d9b55', ab: '#6b4a32', cm: 175 },
-    viqui: { pelo: '#8a6a4c', largo: 2, rem: '#2e2a33', ab: '#d9c3a2', cm: 165 },
-    pachi: { pelo: '#c9a46c', largo: 3, rem: '#f4f1ea', ab: '#9fb4c8', abL: 1, cm: 165 },
-    juani: { pelo: '#e2c27a', largo: 2, rem: '#cfae86', ab: '#7f9fc0', cm: 165 },
+    jero: { pelo: '#2b211c', largo: 0, rem: '#7d9b55', ab: '#6b4a32', cm: 173 },
+    viqui: { pelo: '#8a6a4c', largo: 2, rem: '#2e2a33', ab: '#d9c3a2', cm: 152 },
+    pachi: { pelo: '#c9a46c', largo: 3, rem: '#f4f1ea', ab: '#9fb4c8', abL: 1, cm: 150 },
+    juani: { pelo: '#e2c27a', largo: 2, rem: '#cfae86', ab: '#7f9fc0', cm: 168 },
     nico: { pelo: '#2b211c', largo: 0, rem: '#4a4650', ab: '#3a3640', abL: 1, cm: 178 },
-    rochi: { pelo: '#4a3024', largo: 2, rem: '#f6f2ee', ab: '#5fb896', cm: 162 },
-    jose: { pelo: '#231a16', largo: 0, rem: '#6d6a70', ab: '#6b5038', cm: 175 },
-    nachote: { pelo: '#231a16', largo: 0, rem: '#3a3438', ab: '#2f2b30', abL: 1, cm: 178 },
-    juli: { pelo: '#2b1d17', largo: 1, rem: '#2b282e', ab: '#a9c0d6', cm: 162 },
-    rich: { pelo: '#231a16', largo: 0, gorra: '#1f1d22', rem: '#a7a9ad', ab: '#2f3f68', cm: 180 },
-    sofi: { pelo: '#6b4632', largo: 2, rem: '#f0b9a8', ab: '#7f9fc0', cm: 163 },
-    chino: { pelo: '#231a16', largo: 0, rem: '#4f6f8f', ab: '#5b5348', cm: 175 },
-    grego: { pelo: '#3a2a20', largo: 0, rem: '#e7e1d6', ab: '#56708a', cm: 177 },
+    rochi: { pelo: '#4a3024', largo: 2, rem: '#f6f2ee', ab: '#5fb896', cm: 165 },
+    jose: { pelo: '#231a16', largo: 0, rem: '#6d6a70', ab: '#6b5038', cm: 150 },
+    nachote: { pelo: '#231a16', largo: 0, rem: '#3a3438', ab: '#2f2b30', abL: 1, cm: 169 },
+    juli: { pelo: '#2b1d17', largo: 1, rem: '#2b282e', ab: '#a9c0d6', cm: 170 },
+    rich: { pelo: '#231a16', largo: 0, gorra: '#1f1d22', rem: '#a7a9ad', ab: '#2f3f68', cm: 179 },
+    sofi: { pelo: '#6b4632', largo: 2, rem: '#f0b9a8', ab: '#7f9fc0', cm: 170 },
+    chino: { pelo: '#231a16', largo: 0, rem: '#4f6f8f', ab: '#5b5348', cm: 174 },
+    grego: { pelo: '#3a2a20', largo: 0, rem: '#e7e1d6', ab: '#56708a', cm: 179 },
   };
+  const PX_CM = 0.17; // a qué distancia están: 1,73 m son unos 29 px
+  const conPersona = () => new URLSearchParams(location.search).has('persona');
+  const quienMira = () => { const q = new URLSearchParams(location.search).get('persona'); return PERSONITAS[q] ? q : PERSONITAS[S.me] ? S.me : 'jero'; };
+
+  // Colores: el cielo deja los suyos en el :root como #rrggbb.
+  const rgbDe = (c) => {
+    c = String(c).trim();
+    if (c[0] === '#') { const h = c.length === 4 ? [...c.slice(1)].map((x) => x + x).join('') : c.slice(1, 7); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); }
+    const m = c.match(/[\d.]+/g);
+    return m ? m.slice(0, 3).map(Number) : [128, 128, 128];
+  };
+  const hexDe = (v) => '#' + v.map((x) => Math.round(clamp(x, 0, 255)).toString(16).padStart(2, '0')).join('');
+  const mezclar = (a, b, t) => { const x = rgbDe(a), y = rgbDe(b); return hexDe(x.map((v, i) => v + (y[i] - v) * t)); };
+  const lumDe = (c) => { const [r, g, b] = rgbDe(c); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
+  const apagado = (c, k) => { const l = lumDe(c) * 255; return mezclar(c, hexDe([l, l, l]), k); };
+  const NOCHE = '#16121d';
+  function paletaPersonita(o) {
+    const cs = getComputedStyle(document.documentElement), v = (k, d) => cs.getPropertyValue(k).trim() || d;
+    const dia = clamp((lumDe(v('--sky-top', '#7fc5ee')) - 0.3) / 0.28, 0, 1); // 0 de noche, 1 de día
+    const luz = mezclar(v('--sky-hor', '#eef6f1'), v('--sand', '#f4e3c5'), 0.5);
+    // De día: mitad de saturado, teñido con la luz del lugar y apenas a la sombra. Con menos luz se va a la silueta.
+    const tono = (c) => mezclar(NOCHE, mezclar(mezclar(apagado(c, 0.5), luz, 0.28), '#4a4258', 0.1), dia);
+    return {
+      '--piel': tono('#e9bf9c'), '--pelo': tono(o.pelo), '--rem': tono(o.rem), '--ab': tono(o.ab), '--gorra': tono(o.gorra || o.pelo), '--zap': tono('#6f5f80'),
+      '--tinta': mezclar(NOCHE, mezclar('#43365a', luz, 0.35), dia), '--sombra': `rgba(40, 32, 56, ${(0.2 * dia).toFixed(3)})`,
+    };
+  }
+  const espejoX = (d) => d.replace(/(-?\d*\.?\d+) (-?\d*\.?\d+)/g, (m, x, y) => `${(24 - x).toFixed(1)} ${y}`);
+  // Por partes, para moverlas: piernas (caminar), rodillas (sentada), "sube" (lo de arriba baja al sentarse), cabeza (mirar a los costados).
   function personitaSVG(o) {
-    const piel = '#efc4a0', tinta = '#43365a', espejo = (d) => d.replace(/(-?\d*\.?\d+) (-?\d*\.?\d+)/g, (m, x, y) => `${(24 - x).toFixed(1)} ${y}`);
+    const P = o.abL ? 'ab' : 'piel'; // de qué color se ven las piernas
     const brazo = 'M7.3 19.2C6.4 22.4 5.9 27 6.2 31.4C6.5 32.5 7.7 32.4 7.9 31.4C7.9 27.2 8.2 23 8.9 19.8Z';
     const pierna = 'M8.3 37.2L11.3 37.2L11 54.4L8.9 54.4C8.5 48.6 8.2 42.6 8.3 37.2Z';
-    const abajo = o.abL
-      ? `<path d="M7.7 30.4L16.3 30.4L16 54.7L12.9 54.7L12 36.2L11.1 54.7L8 54.7Z" fill="${o.ab}"/>`
-      : `<path d="${pierna}" fill="${piel}"/><path d="${espejo(pierna)}" fill="${piel}"/><path d="M7.7 30.4L16.3 30.4L16.8 38.4L12.6 38.4L12 35.2L11.4 38.4L7.2 38.4Z" fill="${o.ab}"/>`;
-    const pelo = o.largo === 2 ? `<path d="M7.6 8.8C7 14 7.3 19.4 8.5 24.2C10.7 25 13.3 25 15.5 24.2C16.7 19.4 17 14 16.4 8.8Z" fill="${o.pelo}"/>`
-      : o.largo === 1 ? `<path d="M11.2 12C10.9 15 11.3 17.6 12 19C12.7 17.6 13.1 15 12.8 12Z" fill="${o.pelo}"/>` : '';
-    const orejas = o.largo === 2 ? '' : `<circle cx="7.5" cy="9.6" r=".8" fill="${piel}"/><circle cx="16.5" cy="9.6" r=".8" fill="${piel}"/>`;
-    const arriba = o.largo === 3 ? `<circle cx="12" cy="3.9" r="2" fill="${o.pelo}"/>` : '';
-    const gorra = o.gorra ? `<path d="M7.4 8.4A4.6 4.6 0 0 1 16.6 8.4Z" fill="${o.gorra}"/><path d="M10.6 8.3h2.8" stroke="${o.gorra}" stroke-width="1.2"/>` : '';
-    return `<svg viewBox="0 0 24 60" aria-hidden="true"><g stroke="${tinta}" stroke-width=".7" stroke-linejoin="round" stroke-linecap="round">
-      <ellipse cx="12" cy="55.6" rx="6.6" ry="1.2" fill="rgba(67,54,90,.22)" stroke="none"/>
-      ${abajo}<ellipse cx="9.9" cy="55" rx="1.4" ry=".6" fill="#6f5f80"/><ellipse cx="14.1" cy="55" rx="1.4" ry=".6" fill="#6f5f80"/>
-      <path d="${brazo}" fill="${piel}"/><path d="${espejo(brazo)}" fill="${piel}"/>
-      <path d="M10.8 12.6h2.4v4h-2.4z" fill="${piel}"/>
-      <path d="M7 17.4C7.7 16.2 9.6 15.8 12 15.8C14.4 15.8 16.3 16.2 17 17.4L18.3 21.4L16.7 22.1L16.3 31L7.7 31L7.3 22.1L5.7 21.4Z" fill="${o.rem}"/>
-      ${pelo}${orejas}${arriba}<circle cx="12" cy="9" r="4.6" fill="${o.pelo}"/>${gorra}</g></svg>`;
+    const cadera = o.abL ? 'M7.7 30.4L16.3 30.4L16.5 38.6L7.5 38.6Z' : 'M7.7 30.4L16.3 30.4L16.8 38.4L12.6 38.4L12 35.2L11.4 38.4L7.2 38.4Z';
+    const pelo = o.largo === 2 ? '<path class="pelo" d="M7.6 8.8C7 14 7.3 19.4 8.5 24.2C10.7 25 13.3 25 15.5 24.2C16.7 19.4 17 14 16.4 8.8Z"/>'
+      : o.largo === 1 ? '<path class="pelo" d="M11.2 12C10.9 15 11.3 17.6 12 19C12.7 17.6 13.1 15 12.8 12Z"/>' : '';
+    const orejas = o.largo === 2 ? '' : '<circle class="piel" cx="7.5" cy="9.6" r=".8"/><circle class="piel" cx="16.5" cy="9.6" r=".8"/>';
+    const rodete = o.largo === 3 ? '<circle class="pelo" cx="12" cy="3.9" r="2"/>' : '';
+    const gorra = o.gorra ? '<path class="gorra" d="M7.4 8.4A4.6 4.6 0 0 1 16.6 8.4Z"/>' : '';
+    return `<svg viewBox="0 0 24 60" aria-hidden="true"><g class="trazo">
+      <ellipse class="sombra" cx="12" cy="55.6" rx="6.6" ry="1.2"/>
+      <g class="piernas"><g class="pierna i"><path class="${P}" d="${pierna}"/><ellipse class="zap" cx="9.9" cy="55" rx="1.4" ry=".6"/></g>
+        <g class="pierna d"><path class="${P}" d="${espejoX(pierna)}"/><ellipse class="zap" cx="14.1" cy="55" rx="1.4" ry=".6"/></g></g>
+      <g class="rodillas"><ellipse class="${P}" cx="5.2" cy="46.4" rx="1.6" ry="2.4"/><ellipse class="${P}" cx="18.8" cy="46.4" rx="1.6" ry="2.4"/></g>
+      <g class="sube"><g class="respira">
+        <path class="ab" d="${cadera}"/>
+        <path class="piel" d="${brazo}"/><path class="piel" d="${espejoX(brazo)}"/>
+        <path class="piel" d="M10.8 12.6h2.4v4h-2.4z"/>
+        <path class="rem" d="M7 17.4C7.7 16.2 9.6 15.8 12 15.8C14.4 15.8 16.3 16.2 17 17.4L18.3 21.4L16.7 22.1L16.3 31L7.7 31L7.3 22.1L5.7 21.4Z"/>
+        <g class="cabeza">${pelo}${orejas}${rodete}<circle class="pelo" cx="12" cy="9" r="4.6"/>${gorra}</g>
+      </g></g></g></svg>`;
   }
-  function ponerPersonita() {
-    const q = new URLSearchParams(location.search);
-    if (!q.has('persona')) return;
-    const pid = PERSONITAS[q.get('persona')] ? q.get('persona') : (PERSONITAS[S.me] ? S.me : 'jero');
-    const o = PERSONITAS[pid], sky = document.getElementById('sky');
-    if (!sky || sky.querySelector('.personita')) return;
-    const el = document.createElement('div');
-    el.className = 'personita';
-    el.style.height = Math.round(o.cm * 0.17) + 'px';
-    el.innerHTML = personitaSVG(o);
-    sky.appendChild(el);
+
+  const enEscena = new Map(); // pid → { el, x (en % del ancho), casa (de dónde no se aleja), t (lo próximo que hace) }
+  const LUGARES = [50, 32, 68, 21, 79, 41, 59, 13, 87, 26, 74, 36, 64];
+  const sinMovimiento = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function pintarPersonita(el) { Object.entries(paletaPersonita(PERSONITAS[el.dataset.pid])).forEach(([k, v]) => el.style.setProperty(k, v)); }
+  SKY.onChange(() => enEscena.forEach((p) => pintarPersonita(p.el)));
+  // Vos en el medio; quienes estén mirando el mar al mismo tiempo, a los costados. Quien se va, se desvanece.
+  function ponerPersonitas() {
+    const sky = document.getElementById('sky');
+    if (!sky || !conPersona() || !document.querySelector('.mirar-capa')) return;
+    const yo = quienMira();
+    const ids = [yo].concat(S.enElMar().filter((id) => id !== S.me && id !== yo && PERSONITAS[id]));
+    enEscena.forEach((p, id) => {
+      if (ids.includes(id)) return;
+      clearTimeout(p.t); p.el.classList.add('se-va'); setTimeout(() => p.el.remove(), 900);
+      enEscena.delete(id);
+    });
+    ids.forEach((id) => {
+      if (enEscena.has(id)) return;
+      const usados = [...enEscena.values()].map((p) => p.casa);
+      const casa = LUGARES.find((x) => !usados.includes(x)) || 10 + Math.random() * 80;
+      const el = document.createElement('div');
+      el.className = 'personita'; el.dataset.pid = id;
+      el.style.height = Math.round(PERSONITAS[id].cm * PX_CM) + 'px';
+      el.style.left = casa + '%';
+      el.innerHTML = personitaSVG(PERSONITAS[id]);
+      pintarPersonita(el);
+      sky.appendChild(el);
+      const p = { el, x: casa, casa, t: null };
+      enEscena.set(id, p);
+      p.t = setTimeout(() => vivir(p), 2000 + Math.random() * 3000);
+    });
+  }
+  function sacarPersonitas() {
+    enEscena.forEach((p) => clearTimeout(p.t));
+    enEscena.clear();
+    document.querySelectorAll('#sky .personita').forEach((n) => n.remove());
+  }
+  // Lo que hace cada personita, sola: mirar a un costado, caminar un poco por la orilla o sentarse un rato.
+  function vivir(p) {
+    const el = p.el, despues = (ms) => { p.t = setTimeout(() => vivir(p), ms); };
+    if (!el.isConnected || sinMovimiento) return;
+    if (el.classList.contains('sentada')) { el.classList.remove('sentada'); return despues(1800 + Math.random() * 2500); }
+    const r = Math.random();
+    if (r < 0.4) {
+      const lado = Math.random() < 0.5 ? 'mira-i' : 'mira-d';
+      el.classList.add(lado);
+      setTimeout(() => el.classList.remove(lado), 1400 + Math.random() * 1800);
+      return despues(4000 + Math.random() * 4000);
+    }
+    if (r < 0.8) {
+      const otros = [...enEscena.values()].filter((q) => q !== p).map((q) => q.x);
+      const ir = (dir) => clamp(p.x + dir * (5 + Math.random() * 11), Math.max(6, p.casa - 16), Math.min(94, p.casa + 16));
+      let destino = ir(Math.random() < 0.5 ? -1 : 1);
+      if (otros.some((x) => Math.abs(x - destino) < 6)) destino = ir(destino < p.x ? 1 : -1); // no se pisan: si hay alguien ahí, va para el otro lado
+      if (otros.some((x) => Math.abs(x - destino) < 6)) return despues(3000);
+      const seg = Math.abs(destino - p.x) * 0.26; // unos 15 px por segundo en un celu: paso de playa
+      el.style.setProperty('--andar', seg.toFixed(2) + 's');
+      el.classList.add('camina');
+      el.style.left = destino.toFixed(1) + '%';
+      p.x = destino;
+      setTimeout(() => el.classList.remove('camina'), seg * 1000);
+      return despues(seg * 1000 + 2500 + Math.random() * 3500);
+    }
+    el.classList.add('sentada');
+    return despues(9000 + Math.random() * 14000);
+  }
+  if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
+  // Tocar una personita muestra de quién es.
+  function nombrarPersonita(x, y) {
+    const el = [...document.querySelectorAll('#sky .personita')].find((n) => { const r = n.getBoundingClientRect(); return x > r.left - 12 && x < r.right + 12 && y > r.top - 14 && y < r.bottom + 8; });
+    if (!el || el.querySelector('.globito')) return;
+    const g = document.createElement('span');
+    g.className = 'globito'; g.textContent = person(el.dataset.pid) ? person(el.dataset.pid).n : el.dataset.pid;
+    el.appendChild(g);
+    setTimeout(() => g.remove(), 2400);
   }
 
   // ---------- quién está en la colonia ----------
@@ -1852,7 +2076,7 @@
   // Cambios de los demás en vivo: se vuelve a dibujar la pantalla (las hojas abiertas no se tocan).
   S.onChange((ev) => {
     if (ev && ev.llego) return avisarLlegada(ev.llego);
-    if (ev && ev.presencia) { const el = $('#enLinea'); if (el) el.outerHTML = enLineaHTML(); return; }
+    if (ev && ev.presencia) { const el = $('#enLinea'); if (el) el.outerHTML = enLineaHTML(); ponerPersonitas(); return; }
     if (ev && ev.gift) setTimeout(mostrarRegalos, 300);
     if (ev && ev.uploadFailed) toast('<span>No se pudo subir la foto. Queda guardada y se reintenta cuando haya señal.</span>', 4500);
     avisarBocinas();

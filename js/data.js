@@ -326,6 +326,27 @@ window.DATA = (function () {
     'regalo': { t: 'Regalaste algo', c: 5 },
   };
 
+  // Logros por escalones: se cobran solos al llegar a cada meta. Dan monedas (c) y sobres del baúl (s), nunca experiencia.
+  // pasos: [meta, monedas, sobres]; meta 'todo' = el total que corresponda (todo el kiosco, todos los altarcitos).
+  const LOGROS = [
+    { id: 'regalos', t: 'Regalos', u: 'regalos hechos', ic: '🎁', pasos: [[3, 25], [5, 50], [10, 0, 1], [20, 100, 1]] },
+    { id: 'fotos', t: 'Fotos de misiones', u: 'fotos', ic: '📸', pasos: [[10, 30], [25, 60], [50, 100, 1], [100, 200, 2]] },
+    { id: 'compras', t: 'Coleccionista del kiosco', u: 'cosas distintas compradas para vos', ic: '🛍️', pasos: [[5, 20], [15, 50], [30, 0, 1], ['todo', 300]] },
+    { id: 'racha', t: 'Racha', u: 'días seguidos (tu mejor racha)', ic: '🔥', pasos: [[7, 50, 1], [14, 100, 1], [30, 300, 2]] },
+    { id: 'dias', t: 'Presente', u: 'días que entraste', ic: '📅', pasos: [[10, 50], [30, 150]] },
+    { id: 'reacciones', t: 'Reacciones', u: 'fotos con tu reacción', ic: '💬', pasos: [[10, 20], [50, 50], [100, 0, 1]] },
+    { id: 'baul', t: 'El baúl', u: '% del baúl', ic: '🧳', pasos: [[25, 50], [50, 100], [100, 300]] },
+    { id: 'hallazgos', t: 'Cosas que trajo el mar', u: 'botellas y galletas abiertas', ic: '🍾', pasos: [[5, 50], [15, 0, 1]] },
+    { id: 'visitas', t: 'De visita', u: 'altarcitos visitados', ic: '🏖️', pasos: [[5, 20], ['todo', 50]] },
+  ];
+
+  // Lotes de playa: agrandan el altarcito hacia los costados (ancho = cuántas pantallas entra). Se compran una vez, en orden.
+  const LOTES = [
+    { id: 'lote1', n: 'Lote de al lado', ancho: 1.5, p: 300, lv: 6, d: 'Medio altarcito más de arena. Los vecinos todavía no se enteraron.' },
+    { id: 'lote2', n: 'Lote doble', ancho: 2, p: 800, lv: 12, d: 'El doble de playa. Ya podés poner la sombrilla lejos de todo.' },
+    { id: 'lote3', n: 'La playa entera', ancho: 3, p: 1500, lv: 18, d: 'De punta a punta. Si alguien pasa, paga peaje.' },
+  ];
+
   // Kiosco: todo lo que se compra va al altarcito playero de cada uno.
   // side R = refugio (va de fondo y no se mueve; la carpa reemplaza a la sombrilla).
   // z = zona: 'mar' (flota o salta en el agua), 'fondo' (atrás de la arena); sin z, en la arena.
@@ -457,5 +478,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { LOGROS, LOTES, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

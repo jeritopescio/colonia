@@ -67,22 +67,24 @@ window.INICIO = (function () {
     }
 
     // Maza con fieltro: fundamental redonda, parciales apenas desafinados que se apagan rápido y un soplido al golpear.
-    function nota(t, n, v, p) {
-      const dur = azar(3.3, 4.8), f = hz(n) * (1 + azar(-0.0009, 0.0009));
-      const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.frequency.value = 2500; fil.Q.value = 0.3;
+    // Entra y sale con un fundido corto (desde cero, en línea recta) para que no haga clic. "suave": sin el parcial más agudo y con menos soplido.
+    function nota(t, n, v, p, suave) {
+      const dur = azar(3.3, 4.8), f = hz(n) * (1 + azar(-0.0009, 0.0009)), entra = azar(0.014, 0.022);
+      const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.frequency.value = suave ? 2200 : 2500; fil.Q.value = 0.3;
       const pan = paneo(p); fil.connect(pan); enviar(pan, 0.72, 0.62);
-      [[1, 1, 1], [2, 0.2, 0.52], [3.01, 0.055, 0.28], [4.17, 0.022, 0.13]].forEach(([m, a, d]) => {
-        const o = ctx.createOscillator(), g = ctx.createGain();
+      [[1, 1, 1], [2, 0.2, 0.52], [3.01, 0.055, 0.28], [4.17, 0.022, 0.13]].slice(0, suave ? 3 : 4).forEach(([m, a, d]) => {
+        const o = ctx.createOscillator(), g = ctx.createGain(), fin = t + dur * d;
         o.type = 'sine'; o.frequency.value = f * m;
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.15 * v * a, t + azar(0.02, 0.034));
-        g.gain.exponentialRampToValueAtTime(0.0001, t + dur * d);
-        o.connect(g); g.connect(fil); vive(o, [t, t + dur * d + 0.03]);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.15 * v * a, t + entra);
+        g.gain.exponentialRampToValueAtTime(0.0004, fin);
+        g.gain.linearRampToValueAtTime(0, fin + 0.03);
+        o.connect(g); g.connect(fil); vive(o, [t, fin + 0.06]);
       });
       const s = ctx.createBufferSource(), sf = ctx.createBiquadFilter(), sg = ctx.createGain();
-      s.buffer = ruido; sf.type = 'bandpass'; sf.frequency.value = f * 1.5; sf.Q.value = 0.9;
-      sg.gain.setValueAtTime(0.0001, t); sg.gain.exponentialRampToValueAtTime(0.012 * v, t + 0.012); sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
-      s.connect(sf); sf.connect(sg); sg.connect(fil); vivos.add(s); s.onended = () => vivos.delete(s); s.start(t, azar(0, 4), 0.12);
+      s.buffer = ruido; sf.type = 'bandpass'; sf.frequency.value = Math.min(f * 1.5, 2600); sf.Q.value = 0.9;
+      sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime((suave ? 0.005 : 0.012) * v, t + 0.012); sg.gain.exponentialRampToValueAtTime(0.0004, t + 0.1); sg.gain.linearRampToValueAtTime(0, t + 0.115);
+      s.connect(sf); sf.connect(sg); sg.connect(fil); vivos.add(s); s.onended = () => vivos.delete(s); s.start(t, azar(0, 4), 0.13);
       if (registro) registro.notas.push(t);
     }
 
@@ -148,11 +150,67 @@ window.INICIO = (function () {
       tFrase += azar(0.5, 2.6) * PULSO;
     }
 
-    // Un toque en el mar: una nota de la escala una octava arriba de la melodía, casi siempre del acorde que está sonando.
-    function toque(p) {
-      const t = ctx.currentTime + 0.01;
-      const a = ACORDES[Math.floor(Math.max(0, t - t0) / ACORDE) % ACORDES.length];
-      nota(t, (Math.random() < 0.6 ? uno(a.meta) : uno(ESCALA)) + 12, azar(0.3, 0.44), Math.max(-0.8, Math.min(0.8, p + azar(-0.1, 0.1))));
+    // Un toque en el mar: una nota de la escala una octava arriba de la melodía. Más abajo en la pantalla, más grave; más arriba, más aguda,
+    // con un poco de azar (a veces sale la vecina). Toda la escala es pentatónica de fa: encaja con cualquiera de los tres acordes.
+    // Se programa 35 ms adelante: si el celu tarda en avisarle al audio, la nota igual arranca desde cero y no hace clic.
+    const ARRIBA = [77, 79, 81, 84, 86, 89, 91, 93, 96];
+    const lado = (p) => Math.max(-0.8, Math.min(0.8, p));
+    const acordeAhora = () => Math.floor(Math.max(0, ctx.currentTime - t0) / ACORDE) % ACORDES.length;
+    function toque(p, alto) {
+      const i = Math.round(Math.max(0, Math.min(1, alto)) * (ARRIBA.length - 1) + azar(-0.7, 0.7));
+      nota(ctx.currentTime + 0.035, ARRIBA[Math.max(0, Math.min(ARRIBA.length - 1, i))], azar(0.3, 0.42), lado(p + azar(-0.1, 0.1)), true);
+    }
+
+    // Dejar el dedo apoyado: un colchón de sierras suaves por un filtro que resuena (otra textura que el de fondo, que es de triángulos).
+    // Toca tres notas del acorde que suena y, si cambia el acorde, se desliza a las nuevas. Una onda lenta mueve el volumen y el filtro:
+    // con el dedo abajo oscila lento; arriba, rápido y más bajito.
+    function sostener(alto, p) {
+      const t = ctx.currentTime + 0.035, notas = (j) => { const m = ACORDES[j].meta; return [m[0], m[1], m[3]]; };
+      let ia = acordeAhora();
+      const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.Q.value = 5; fil.frequency.value = 900;
+      const trem = ctx.createGain(); trem.gain.value = 0.68;
+      const vol = ctx.createGain(); vol.gain.value = 1;
+      const env = ctx.createGain(); env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(1, t + 0.7);
+      const pan = paneo(lado(p));
+      fil.connect(trem); trem.connect(vol); vol.connect(env); env.connect(pan); enviar(pan, 0.5, 0.9);
+      const lfo = ctx.createOscillator(), lfoA = ctx.createGain(), lfoF = ctx.createGain();
+      lfo.type = 'sine'; lfoA.gain.value = 0.32; lfoF.gain.value = 420;
+      lfo.connect(lfoA); lfoA.connect(trem.gain); lfo.connect(lfoF); lfoF.connect(fil.frequency);
+      vive(lfo, [t, null]);
+      const oscs = [];
+      notas(ia).forEach((n, v) => {
+        const g = ctx.createGain(); g.gain.value = v === 2 ? 0.05 : 0.072; g.connect(fil);
+        [-1, 1].forEach((l) => {
+          const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz(n); o.detune.value = l * azar(5, 9);
+          o.connect(g); vive(o, [t, null]); oscs.push({ o, v });
+        });
+      });
+      function mover(a, q) {
+        a = Math.max(0, Math.min(1, a));
+        const ahora = ctx.currentTime;
+        lfo.frequency.setTargetAtTime(0.35 * Math.pow(8 / 0.35, a), ahora, 0.06); // de 0,35 a 8 oscilaciones por segundo
+        vol.gain.setTargetAtTime(1 - 0.6 * a, ahora, 0.08);
+        fil.frequency.setTargetAtTime(780 + 520 * a, ahora, 0.1);
+        if (pan.pan && q != null) pan.pan.setTargetAtTime(lado(q), ahora, 0.1);
+      }
+      mover(alto, null);
+      const vigia = setInterval(() => {
+        const j = acordeAhora();
+        if (j === ia) return;
+        ia = j; const ns = notas(j);
+        oscs.forEach(({ o, v }) => o.frequency.setTargetAtTime(hz(ns[v]), ctx.currentTime, 0.35));
+      }, 250);
+      let suelto = false;
+      function soltar() {
+        if (suelto) return;
+        suelto = true; clearInterval(vigia);
+        const ahora = ctx.currentTime, g = env.gain;
+        if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(ahora); else { const v = g.value; g.cancelScheduledValues(ahora); g.setValueAtTime(v, ahora); }
+        g.linearRampToValueAtTime(0, ahora + 1.4);
+        oscs.forEach(({ o }) => { try { o.stop(ahora + 1.5); } catch (e) { /* ya paró */ } });
+        try { lfo.stop(ahora + 1.5); } catch (e) { /* ya paró */ }
+      }
+      return { mover, soltar };
     }
 
     function hasta(T) {
@@ -173,7 +231,7 @@ window.INICIO = (function () {
       vivos.clear();
       master.disconnect(); comp.disconnect(); rev.disconnect();
     }
-    return { hasta, nivel, gaviota, cerrar, master, toque };
+    return { hasta, nivel, gaviota, cerrar, master, toque, sostener };
   }
 
   // ---------- encendido y apagado ----------
@@ -277,7 +335,9 @@ window.INICIO = (function () {
       gaviotasOff(); acomodar();
     },
     alternar,
-    toque(p) { if (motor && !corte) motor.toque(p); }, // p: de -1 (izquierda) a 1 (derecha)
+    // p: de -1 (izquierda) a 1 (derecha); alto: de 0 (abajo de la pantalla) a 1 (arriba).
+    toque(p, alto) { if (motor && !corte) motor.toque(p, alto == null ? 0.5 : alto); },
+    sostener(alto, p) { return motor && !corte ? motor.sostener(alto, p) : null; },
     sonando: () => !!motor && !corte,
     _motor: crearMotor, // para medir la música sin parlantes
   };
