@@ -736,6 +736,17 @@
     if (cambio && ['album', 'hoy'].includes(location.hash.slice(1))) render();
   }).catch(() => {});
   const recUrl = (id) => S.artUrl(`recuerdos/${id}.webp?v=${(RECUERDOS && RECUERDOS.v) || 1}`);
+  // Miniatura liviana (260 px) para las grillas; la grande se baja recién al abrirla.
+  const recMini = (id) => S.artUrl(`recuerdos/mini/${id}.webp?v=${(RECUERDOS && RECUERDOS.v) || 1}`);
+  // Se ve al instante con la miniatura y se cambia por la grande cuando terminó de bajar.
+  const imgProgresiva = (id) => `<img src="${recMini(id)}" data-full="${recUrl(id)}" alt="" decoding="async">`;
+  function cargarProgresivas(root) {
+    root.querySelectorAll('img[data-full]').forEach((img) => {
+      const big = new Image();
+      big.src = img.dataset.full;
+      (big.decode ? big.decode() : Promise.resolve()).then(() => { img.src = big.src; img.removeAttribute('data-full'); }).catch(() => {});
+    });
+  }
   const recuerdo = (id) => RECUERDOS && RECUERDOS.items.find((x) => x.id === id);
   const carasDe = (ids) => (ids && ids.length ? `<span class="mini-caras rec-caras">${ids.filter(person).map((id) => `<img class="face" src="${face(id)}" alt="${esc(person(id).n)}" title="${esc(person(id).n)}">`).join('')}</span>` : '');
   // Al entrar avisa una vez si hay sobres; después se abren desde Hoy o el álbum.
@@ -760,13 +771,14 @@
         } else {
           if (it.suerte) SONIDO.monedas(it.suerte);
           box.innerHTML = `<div class="eyebrow">${it.mala ? '¡Uy! De la mala suerte' : it.suerte != null ? '¡De la suerte!' : 'Del baúl de la colonia'}</div>
-            <div class="polaroid recuerdo-grande pop${it.suerte != null ? ' suerte' : ''}"><img src="${recUrl(it.id)}" alt=""></div>
+            <div class="polaroid recuerdo-grande pop${it.suerte != null ? ' suerte' : ''}">${imgProgresiva(it.id)}</div>
             <h2>${esc(it.t)}</h2>${carasDe(it.p)}
             ${it.suerte ? `<span class="chip" style="--c:var(--butter)">+${it.suerte} <span class="coin"></span></span>` : ''}
             ${it.mala ? '<p class="small muted" style="margin:0">Tranqui: la mala suerte te dejó un sobre extra.</p>' : ''}
             <p class="small muted" style="margin:0">Tenés ${S.misRecuerdos().length} de ${RECUERDOS.items.length}.</p>
             <div class="row" style="justify-content:center">${botones}</div>`;
         }
+        cargarProgresivas(box);
         const o = box.querySelector('#otro'); if (o) o.addEventListener('click', abrir);
         render();
       };
@@ -783,8 +795,8 @@
   function verRecuerdo(id) {
     const it = recuerdo(id);
     if (!it) return;
-    sheet(`<div class="sobre-hoja"><div class="polaroid recuerdo-grande${it.suerte != null ? ' suerte' : ''}"><img src="${recUrl(it.id)}" alt=""></div>
-      <h2>${esc(it.t)}</h2>${carasDe(it.p)}<button class="btn" data-close>Listo</button></div>`);
+    sheet(`<div class="sobre-hoja"><div class="polaroid recuerdo-grande${it.suerte != null ? ' suerte' : ''}">${imgProgresiva(it.id)}</div>
+      <h2>${esc(it.t)}</h2>${carasDe(it.p)}<button class="btn" data-close>Listo</button></div>`, cargarProgresivas);
   }
 
   // Figuritas de amigos: con 2 de 3 cosas (reaccionar a una foto suya, visitar su altarcito, regalarle algo).
@@ -825,7 +837,7 @@
     let recs = '';
     if (RECUERDOS) {
       const mios = new Set(S.misRecuerdos()), comunes = RECUERDOS.items.filter((x) => x.suerte == null), raras = RECUERDOS.items.filter((x) => x.suerte != null);
-      const pol = (it) => (mios.has(it.id) ? `<button class="rec${it.suerte != null ? ' suerte' : ''}" data-rec="${it.id}" aria-label="${esc(it.t)}"><img src="${recUrl(it.id)}" alt="" loading="lazy"></button>`
+      const pol = (it) => (mios.has(it.id) ? `<button class="rec${it.suerte != null ? ' suerte' : ''}" data-rec="${it.id}" aria-label="${esc(it.t)}"><img src="${recMini(it.id)}" alt="" loading="lazy" decoding="async"></button>`
         : `<span class="rec falta${it.suerte != null ? ' suerte' : ''}" aria-hidden="true">${it.suerte != null ? '✦' : '?'}</span>`);
       const tengo = (l) => l.filter((x) => mios.has(x.id)).length;
       recs = `<div class="card"><div class="spread"><div><h2>El baúl de la colonia</h2><span class="small muted">${tengo(comunes)} de ${comunes.length} fotos reales de la colonia</span></div>
@@ -1220,7 +1232,7 @@
       const me = person(S.me), fst = fotoState(), antesFoto = SKY.arDate() <= SKY.TRIP.to;
       const slot = (m, conteo) => {
         const ph = S.photo(m.id), n = conteo ? S.doneBy(m.id).length : 0;
-        return `<button class="slot${ph ? '' : ' vacia'}" data-a="${m.id}" aria-label="${esc(m.t)}${ph ? '' : ': sacar la foto'}">${ph ? `<img src="${ph}" alt="">` : `<span class="ph">${IC.camara}<span>${esc(m.t)}</span></span>`}${n ? `<span class="chip n" style="--c:var(--paper)">${n}/${D.PEOPLE.length}</span>` : ''}</button>`;
+        return `<button class="slot${ph ? '' : ' vacia'}" data-a="${m.id}" aria-label="${esc(m.t)}${ph ? '' : ': sacar la foto'}">${ph ? `<img src="${ph}" alt="" loading="lazy" decoding="async">` : `<span class="ph">${IC.camara}<span>${esc(m.t)}</span></span>`}${n ? `<span class="chip n" style="--c:var(--paper)">${n}/${D.PEOPLE.length}</span>` : ''}</button>`;
       };
       const tarjeta = (titulo, nota, ms, todas, conteo = true) => {
         if (!ms.length) return '';
@@ -1545,6 +1557,7 @@
     if (r === 'quien' && S.me) r = 'hoy';
     if (r !== 'kiosco') regalarA = null; // el modo "regalarle a alguien" dura mientras estás en el kiosco
     SCREENS[r]();
+    screen.querySelectorAll('img:not([decoding])').forEach((i) => { i.decoding = 'async'; }); // que decodificar fotos no trabe el scroll
     if (r === 'portada') INICIO.entrar(); else INICIO.salir();
     const tabs = $('#tabs');
     tabs.hidden = !S.me || r === 'portada';
