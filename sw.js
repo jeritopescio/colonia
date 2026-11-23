@@ -2,13 +2,18 @@
    GitHub Pages manda los archivos con "guardalo 10 minutos": por eso se pide con no-cache (pregunta al servidor si cambió).
    Las imágenes van aparte: se guardan en el celu y se muestran al instante (Supabase las manda con no-cache,
    así que sin esto se vuelven a pedir cada vez que aparecen en pantalla). */
-const CACHE = 'colonia-v26';
+const CACHE = 'colonia-v27';
 const IMGS = 'colonia-img-1'; // fotos y arte: sobreviven a las actualizaciones de la app
 const MAX_IMGS = 700;
+// Los bordes de crayón se usan en todas las pantallas: quedan guardados desde que se instala la versión.
+const BORDES = ['tarjeta', 'boton', 'chip', 'aro'].map((n) => `img/crayon/${n}.png?v=1`);
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/data.js', 'js/sky.js', 'js/arte-img.js', 'js/arte.js', 'js/sonido.js', 'js/inicio.js', 'js/store.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'no-cache' })))).then(() => self.skipWaiting()));
+  e.waitUntil(Promise.all([
+    caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'no-cache' })))),
+    caches.open(IMGS).then((c) => Promise.all(BORDES.map((u) => fetch(u).then((r) => r.ok && c.put(new URL(u, self.registration.scope).href, r))))).catch(() => {}),
+  ]).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && k !== IMGS).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

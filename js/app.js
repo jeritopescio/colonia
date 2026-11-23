@@ -56,8 +56,50 @@
     const locked = (id) => (D.PEOPLE.some((p) => p.id === id) ? !st.people.has(id) : D.FOTO.pieces.some((p) => p.id === id) && !st.pieces.has(id));
     const v = R.v ? '?v=' + R.v : '';
     const img = (path, cls) => `<img class="${cls || ''}" src="${S.artUrl(path + v)}" alt="" loading="lazy" draggable="false">`;
-    return `<div class="capas ${R.silueta}${mini ? ' chica' : ''}" style="--ar:${R.ancho}/${R.alto}" role="img" aria-label="La foto de la colonia">
+    const faltan = [false, ...R.capas.map(locked)];
+    const clave = (R.v || 0) + ':' + faltan.map((f) => (f ? 1 : 0)).join('');
+    const abre = `<div class="capas ${R.silueta}${mini ? ' chica' : ''}" style="--ar:${R.ancho}/${R.alto}" role="img" aria-label="La foto de la colonia"`;
+    if (R.silueta === 'papel' && FOTO_ARMADA.has(clave)) return `${abre}><img src="${FOTO_ARMADA.get(clave)}" alt="" draggable="false"></div>`;
+    if (R.silueta === 'papel') fotoPorArmar = { clave, faltan, srcs: [R.base, ...R.capas.map((id) => 'foto/' + id + '.' + (R.ext || 'png'))].map((p) => S.artUrl(p + v)) };
+    return `${abre} data-armar="${clave}">
       ${img(R.base)}${R.capas.map((id) => img('foto/' + id + '.' + (R.ext || 'png'), locked(id) ? 'falta' : '')).join('')}</div>`;
+  }
+  // La foto armada en una sola imagen: la base, lo que ya tenés y la silueta crema con borde de lo que falta.
+  // Antes eran 17 capas del tamaño de la foto y cada silueta pasaba por 5 filtros de CSS cada vez que el celu repintaba.
+  // Se arma una vez por combinación de figuritas y queda guardada mientras la app esté abierta.
+  const FOTO_ARMADA = new Map();
+  let fotoPorArmar = null;
+  const cargarImg = (src) => new Promise((ok, mal) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = mal; im.src = src; });
+  const ARMANDO = new Map();
+  async function armarFoto(root) {
+    const el = root.querySelector('.capas[data-armar]'), p = fotoPorArmar;
+    if (!el || !p || el.dataset.armar !== p.clave) return;
+    fotoPorArmar = null;
+    if (!ARMANDO.has(p.clave)) ARMANDO.set(p.clave, componerFoto(p, el.clientWidth || 340));
+    const url = await ARMANDO.get(p.clave);
+    if (url && el.isConnected) el.innerHTML = `<img src="${url}" alt="" draggable="false">`;
+  }
+  async function componerFoto(p, anchoCss) {
+    try {
+      const ims = await Promise.all(p.srcs.map(cargarImg));
+      const W = ims[0].naturalWidth, H = ims[0].naturalHeight, o = 1.75 * W / anchoCss; // ~el grosor que daban las 4 sombras de 1,5px
+      const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+      const t = document.createElement('canvas'); t.width = W; t.height = H; const y = t.getContext('2d');
+      ims.forEach((im, i) => {
+        if (!p.faltan[i]) { x.drawImage(im, 0, 0, W, H); return; }
+        y.globalCompositeOperation = 'copy'; y.drawImage(im, 0, 0, W, H);
+        y.globalCompositeOperation = 'source-in'; y.fillStyle = '#43365a'; y.fillRect(0, 0, W, H);
+        for (const dx of [-o, 0, o]) for (const dy of [-o, 0, o]) if (dx || dy) x.drawImage(t, dx, dy);
+        y.fillStyle = '#fffff4'; y.fillRect(0, 0, W, H); // el mismo crema que daba el filtro
+        x.drawImage(t, 0, 0);
+      });
+      const b = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.92));
+      if (!b) return null;
+      const url = URL.createObjectURL(b);
+      await cargarImg(url).then((im) => im.decode && im.decode()).catch(() => {}); // que entre ya decodificada
+      FOTO_ARMADA.set(p.clave, url);
+      return url;
+    } catch (e) { return null; } // sin permiso para leer las capas: quedan las capas de siempre
   }
   const fotoHTML = (st, mini) => `<div class="foto${st.pieces.has('revelado') ? ' revelada' : ''}">${D.FOTO.modo === 'recortes' ? fotoRecortes(st, mini) : ARTE.foto(D, { faces: face, pieces: st.pieces, people: st.people })}</div>`;
 
@@ -1558,6 +1600,7 @@
     if (r !== 'kiosco') regalarA = null; // el modo "regalarle a alguien" dura mientras estás en el kiosco
     SCREENS[r]();
     screen.querySelectorAll('img:not([decoding])').forEach((i) => { i.decoding = 'async'; }); // que decodificar fotos no trabe el scroll
+    if (fotoPorArmar) setTimeout(() => armarFoto(screen), 300);
     if (r === 'portada') INICIO.entrar(); else INICIO.salir();
     const tabs = $('#tabs');
     tabs.hidden = !S.me || r === 'portada';
