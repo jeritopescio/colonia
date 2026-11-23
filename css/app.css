@@ -89,6 +89,8 @@ h2 { font-size: 1.2rem; }
 
 /* caritas */
 .face { border-radius: 50%; object-fit: cover; border: 2.5px solid var(--ink); background: var(--paper); display: block; }
+/* Racha de 5 días o más: la foto con borde dorado y un brillo (lo ven todos). */
+.face.dorado { border-color: #b9821a; box-shadow: 0 0 0 2px #ffe39a, 0 0 0 3.5px #e7ad2f, 0 0 14px 4px rgba(255, 205, 80, .75); }
 
 /* barra de xp */
 .bar { height: 14px; position: relative; }
@@ -545,6 +547,8 @@ nav.tabs a.on::before { content: ""; position: absolute; inset: 0 8%; background
 /* experiencia: cuánto falta para el próximo nivel y de dónde sale */
 .xp-bar { display: block; height: 16px; }
 .carta-xp p { margin: 0; }
+.racha-linea { color: #a8741a; font-weight: 600; }
+.item .xp-regalo { color: #2f7a56; font-weight: 700; }
 .carta-xp .spread b { font-family: var(--display); font-weight: 600; }
 .como-xp { display: grid; gap: 6px; margin-top: 6px; padding: 10px 12px; background: color-mix(in srgb, var(--mint) 38%, transparent); border-radius: 12px 16px 14px 10px; }
 .como-xp p { margin: 0; font-size: .92rem; }
@@ -610,6 +614,8 @@ details.hechas summary { cursor: pointer; color: var(--b-soft); margin-bottom: 6
 #toasts { position: fixed; z-index: 30; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: grid; gap: 8px; width: min(420px, calc(100% - 32px)); pointer-events: none; }
 .toast { pointer-events: auto; animation: pop .4s cubic-bezier(.3, 1.6, .5, 1); }
 .toast .card { grid-template-columns: auto 1fr; align-items: center; padding: 10px 14px; }
+.toast .card.xp-toast { grid-template-columns: 1fr; gap: 6px; }
+.toast .xp-toast b { font-family: var(--display); font-weight: 600; }
 
 /* ---------- panel de prueba (solo prototipo) ---------- */
 .devbtn { position: fixed; z-index: 6; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); font-size: .85rem; padding: 5px 12px; }

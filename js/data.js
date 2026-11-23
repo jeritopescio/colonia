@@ -212,6 +212,13 @@ window.DATA = (function () {
     tarjeta: [{ id: 'bronce', n: 'Bronce', lv: 5 }, { id: 'plata', n: 'Plata', lv: 10 }, { id: 'oro', n: 'Oro', lv: 15 }],
   };
 
+  // Racha: días seguidos entrando a la app. Desde el 2.º día suma experiencia (cada día un poco más, hasta el 5.º);
+  // desde el 5.º, el borde de tu foto se pone dorado para todos, hasta que un día no entres.
+  const RACHA = { xp: { 2: 5, 3: 10, 4: 15, 5: 20 }, dorado: 5 };
+  // Regalar algo del kiosco suma experiencia: 1 XP cada 2 monedas que cuesta (comprar para vos no suma).
+  const XP_REGALO = 0.5;
+  const xpRegalo = (p) => Math.max(1, Math.round(p * XP_REGALO));
+
   // Capítulos: la colonia se cuenta por temporadas. Cuando una cierra no se borra nada (álbum, altarcitos, la foto, monedas)
   // y la app sigue abierta "entre capítulos", con misión del día e ideas para el que viene.
   // El que viene se anuncia sin publicar la app, en agenda.json del bucket: "proximo": { "n": 2, "t": "Colonia de invierno", "d": "2027-07-10" }.
@@ -450,5 +457,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

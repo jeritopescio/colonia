@@ -692,7 +692,19 @@
     <ul><li><span>Misión del día</span><b>+20</b></li><li><span>Misión del día en el viaje (4 al 8/12)</span><b>+40</b></li>
       <li><span>Misiones secretas, dos nuevas por día</span><b>+30</b></li><li><span>Misiones del álbum</span><b>+20 a +35</b></li>
       <li><span>La de a dos</span><b>+${D.DUO.xp}</b></li><li><span>La ruta, por cada parada (4 y 5/12)</span><b>+${D.RUTA.xp}</b></li></ul>
-    <p>Reaccionar, regalar y entrar todos los días no dan experiencia: suman para las figuritas de amigos, los sobres del baúl y el ranking.</p></div>`;
+    <p>Además:</p>
+    <ul><li><span>Regalar algo del kiosco (1 XP cada 2 monedas)</span><b>+${D.xpRegalo(8)} a +${D.xpRegalo(Math.max(...D.SHOP.map((x) => x.p)))}</b></li>
+      <li><span>Racha: 2.º día seguido entrando</span><b>+${D.RACHA.xp[2]}</b></li><li><span>3.er día</span><b>+${D.RACHA.xp[3]}</b></li><li><span>4.º día</span><b>+${D.RACHA.xp[4]}</b></li>
+      <li><span>5.º día en adelante, y tu foto con borde dorado</span><b>+${D.RACHA.xp[5]}</b></li></ul>
+    <p>Reaccionar y comprar para vos no dan experiencia. Si un día no entrás, la racha vuelve a empezar.</p></div>`;
+  // Racha: cómo va y qué trae mañana.
+  const rachaTexto = (pid) => {
+    const n = S.rachaDe(pid), vos = pid === S.me, sig = D.RACHA.xp[Math.min(n + 1, 5)];
+    if (!n) return vos ? `Entrá mañana también y arrancás una racha: el 2.º día seguido suma +${D.RACHA.xp[2]} XP.` : 'Sin racha por ahora.';
+    const dias = n === 1 ? '1 día' : `${n} días seguidos`;
+    if (n >= D.RACHA.dorado) return `${vos ? 'Tu racha' : 'Racha'}: ${dias}. Borde dorado ✦${vos ? ` Mañana, +${sig} XP.` : ''}`;
+    return `${vos ? 'Tu racha' : 'Racha'}: ${dias}.${vos ? ` Mañana, +${sig} XP${n + 1 >= D.RACHA.dorado ? ' y borde dorado' : ''}.` : ''}`;
+  };
 
   // ---------- avisos ----------
   function toast(html, ms = 3200) {
@@ -779,10 +791,15 @@
     render();
   }
   // La barrita se llena con lo que ganaste; si pasaste de nivel, se completa, sale el cartel y arranca de nuevo.
-  function subirBarra(root, despues, nuevo) {
-    const box = root.querySelector('.xp-sube'), i = box && box.querySelector('.xp-bar i');
+  function subirBarra(root, despues, nuevo) { animarXp(root.querySelector('.xp-sube'), despues, nuevo); }
+  function animarXp(box, despues, nuevo) {
+    const i = box && box.querySelector('.xp-bar i');
     if (!i) return;
-    const poner = (xp) => { const L = level(xp); box.querySelector('.xp-nivel').textContent = `Nivel ${L.i + 1} · ${L.n}`; box.querySelector('.xp-falta').textContent = faltaXp(xp, true); };
+    const poner = (xp) => {
+      const L = level(xp), n = box.querySelector('.xp-nivel'), f = box.querySelector('.xp-falta');
+      if (n) n.textContent = `Nivel ${L.i + 1} · ${L.n}`;
+      if (f) f.textContent = faltaXp(xp, true);
+    };
     const ir = (pct, ms) => new Promise((ok) => { i.style.transition = `width ${ms}ms cubic-bezier(.3, .8, .4, 1)`; i.style.width = pct + '%'; setTimeout(ok, ms + 80); });
     setTimeout(async () => {
       if (nuevo == null) { await ir(level(despues).pct * 100, 1000); poner(despues); return; }
@@ -793,6 +810,25 @@
       await ir(level(despues).pct * 100, 800);
     }, 500);
   }
+  // Popup chico arriba (no tapa nada) con la barrita que se llena: para la racha y los regalos.
+  function toastXp(titulo, res) {
+    if (!res || !res.xp) return;
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = `<div class="card xp-toast"><div class="spread"><b>${esc(titulo)}</b><span class="chip" style="--c:var(--mint)">+${res.xp} XP</span></div>
+      ${barraXp(res.antes)}<span class="small muted xp-falta">${esc(faltaXp(res.antes, true))}</span></div>`;
+    $('#toasts').appendChild(t);
+    animarXp(t, res.despues, res.levelUp);
+    setTimeout(() => t.remove(), res.levelUp == null ? 4200 : 5200);
+  }
+  // Borde dorado en la foto de quien lleva 5 días seguidos o más (lo ven todos). Se marca cada vez que aparece una cara.
+  let dorados = new Set();
+  const actualizarDorados = () => { dorados = new Set(D.PEOPLE.filter((p) => S.rachaDe(p.id) >= D.RACHA.dorado).map((p) => face(p.id))); };
+  const marcarDorado = (im) => im.classList.toggle('dorado', dorados.has(im.getAttribute('src')));
+  new MutationObserver((cambios) => cambios.forEach((c) => c.addedNodes.forEach((n) => {
+    if (n.nodeType !== 1) return;
+    if (n.matches('img.face')) marcarDorado(n); else n.querySelectorAll('img.face').forEach(marcarDorado);
+  }))).observe(document.body, { childList: true, subtree: true });
   // Cartel de felicitaciones al subir de nivel: qué cambió y qué se destrabó.
   function felicitar(n) {
     const lv = n + 1, tier = D.COLECCION.tarjeta.find((x) => x.lv === lv);
@@ -1423,15 +1459,15 @@
         const locked = it.lv > L + 1, blocked = blockedFor(it, S.me);
         return `<button class="item${locked ? ' locked' : ''}" data-i="${it.id}" ${locked ? 'aria-disabled="true"' : ''}>
           <span class="ic" style="--c:var(--paper)">${ARTE.item(it.id, it.col)}</span>
-          <span>${esc(it.n)}</span><span class="small">${locked ? 'nivel ' + it.lv : blocked ? 'ya tenés' : it.p + ' <span class="coin"></span>'}</span></button>`;
+          <span>${esc(it.n)}</span><span class="small">${locked ? 'nivel ' + it.lv : blocked ? 'ya tenés' : it.p + ' <span class="coin"></span>'}</span>${para && !locked ? `<span class="small xp-regalo">+${D.xpRegalo(it.p)} XP</span>` : ''}</button>`;
       };
       const grupo = (f) => D.SHOP.filter((x) => ARTE.has(x.id) && f(x)).sort((a, b) => a.p - b.p).map(cell).join('');
       const bloque = (t, nota, f) => { const h = grupo(f); return h ? `<div class="card"><div class="eyebrow">${t}</div>${nota ? `<p class="small muted" style="margin:0">${nota}</p>` : ''}<div class="shop">${h}</div></div>` : ''; };
       const para = regalarA && person(regalarA);
       screen.innerHTML = `${top()}
         <div class="spread"><h1 class="on-sky" style="font-size:1.7rem">Kiosco</h1>${para ? '<button class="btn ghost" id="noRegalar">Volver a su altarcito</button>' : '<a class="btn ghost" href="#altar" style="text-decoration:none">Volver al altarcito</a>'}</div>
-        ${para ? `<div class="card para-quien"><img class="face" src="${face(para.id)}" alt=""><div><b>Elegí algo para ${esc(para.n)}</b><p class="small muted" style="margin:0">Va directo a su altarcito, con tu nombre.</p></div></div>`
-          : '<p class="on-sky-soft" style="margin:0">Todo lo que comprás va a tu altarcito playero. Tocá tus monedas para ver cómo juntar más.</p>'}
+        ${para ? `<div class="card para-quien"><img class="face" src="${face(para.id)}" alt=""><div><b>Elegí algo para ${esc(para.n)}</b><p class="small muted" style="margin:0">Va directo a su altarcito, con tu nombre. Regalar suma experiencia: 1 XP cada 2 monedas.</p></div></div>`
+          : '<p class="on-sky-soft" style="margin:0">Todo lo que comprás va a tu altarcito playero. Si lo regalás, además suma experiencia: 1 XP cada 2 monedas. Tocá tus monedas para ver cómo juntar más.</p>'}
         ${bloque('De fondo', 'Va atrás de todo. Si tenés la carpa, la sombrilla ya no hace falta.', (x) => x.side === 'R' || x.z === 'fondo')}
         ${bloque('En el mar', 'Flotan o saltan en el agua, detrás de la arena.', (x) => x.z === 'mar')}
         ${bloque('En la arena', '', (x) => x.side !== 'R' && !x.z)}`;
@@ -1449,7 +1485,7 @@
           <div class="art-big">${ARTE.item(it.id, it.col)}</div><h2>${esc(it.n)}</h2>
           ${it.sub ? `<p class="muted" style="margin:-6px 0 0">${esc(it.sub)}</p>` : ''}
           ${it.d ? `<p class="desc">${esc(it.d)}</p>` : ''}
-          <span class="chip" style="--c:var(--butter)">${it.p} <span class="coin"></span></span>
+          <div class="row" style="justify-content:center"><span class="chip" style="--c:var(--butter)">${it.p} <span class="coin"></span></span><span class="chip" style="--c:var(--mint)">+${D.xpRegalo(it.p)} XP si lo regalás</span></div>
           ${acciones !== null ? acciones : `${mineBlocked ? `<p class="small muted" style="margin:0">Ya tenés ${it.id === 'carpa' ? 'la carpa' : 'tu refugio'}. Se lo podés regalar a alguien.</p>` : ''}
           ${can ? `<div class="row" style="justify-content:center">${mineBlocked ? '' : '<button class="btn" id="forMe" data-mudo style="--c:var(--mint)">Para mí</button>'}<button class="btn" id="gift" style="--c:var(--rose)">Regalar</button></div>
             <div id="giftTo" hidden><p class="small muted" style="margin:0 0 8px">¿A quién?</p><div class="faces" style="grid-template-columns:repeat(4,1fr)">${others.map((p) => `<button class="pick" data-to="${p.id}" data-mudo><img class="face" src="${face(p.id)}" alt="" style="width:52px;height:52px"><span class="small">${esc(p.n)}</span></button>`).join('')}</div></div>`
@@ -1464,6 +1500,7 @@
             if (to) {
               Promise.resolve(S.regaloEnCamino).then(() => setTimeout(revisarAmigos, 300));
               toast(`<span class="mini">${ARTE.item(it.id, it.col)}</span><span>Le regalaste ${esc(it.n.toLowerCase())} a ${esc(person(to).n)}. Ya está en su altarcito.</span>`);
+              setTimeout(() => toastXp(`Por regalarle a ${person(to).n}`, k), 500);
               // Si venías de su altarcito, volvés ahí para verlo puesto.
               if (para) { regalarA = null; go('altar'); Promise.race([S.regaloEnCamino, new Promise((ok) => setTimeout(ok, 2500))]).then(() => visit(to)); } else render();
               return;
@@ -1530,7 +1567,7 @@
       <div class="carta-id"><h2>${esc(p.n)}</h2>${c.apodo ? `<p class="carta-apodo">${esc(c.apodo)}</p>` : ''}${c.t ? `<p>${esc(c.t)}</p>` : ''}
         ${c.s || tier ? `<div class="row">${c.s ? `<span class="chip" style="--c:var(--el)">${SIGNO[c.s] || ''}&#xFE0E; ${esc(c.s)}</span>` : ''}${tier ? `<span class="chip tier-chip tier-${tier.id}">Tarjeta de ${tier.n.toLowerCase()}</span>` : ''}</div>` : ''}</div>
       <div class="carta-sec carta-xp"><div class="spread"><b>Nivel ${L.i + 1} · ${esc(L.n)}</b><span class="small">${xp} XP</span></div>
-        ${barraXp(xp)}<p class="small muted">${esc(faltaXp(xp, vos))}</p>${vos ? COMO_XP() : ''}</div>
+        ${barraXp(xp)}<p class="small muted">${esc(faltaXp(xp, vos))}</p><p class="small racha-linea">${esc(rachaTexto(pid))}</p>${vos ? COMO_XP() : ''}</div>
       ${c.bio ? `<p class="carta-bio">${esc(c.bio)}</p>` : ''}
       ${hab ? `<div class="carta-sec"><div class="eyebrow">Habilidades</div>${hab}</div>` : ''}
       ${c.poder ? `<div class="carta-sec"><div class="eyebrow">Poder</div><p>${esc(c.poder)}</p></div>` : ''}
@@ -1632,6 +1669,8 @@
     const got = S.dailyCheck().map((k) => D.ACH[k]).concat(S.bonos());
     got.forEach((a, i) => setTimeout(() => toast(`<span class="chip" style="--c:var(--butter)">+${a.c} <span class="coin"></span></span><span>${esc(a.t)}</span>`), i * 700));
     if (got.length) { SONIDO.monedas(got.reduce((n, a) => n + a.c, 0)); setTimeout(render, got.length * 700); }
+    const rh = S.rachaHoy; S.rachaHoy = null;
+    if (rh) setTimeout(() => toastXp(rh.dias === D.RACHA.dorado ? `¡${rh.dias} días seguidos! Tu foto ya tiene borde dorado ✦` : `Racha de ${rh.dias} días seguidos${rh.dias > D.RACHA.dorado ? ' ✦' : ''}`, rh), got.length * 700 + 400);
   }
 
   // ---------- regalos que llegaron ----------
@@ -1667,6 +1706,7 @@
     if (r !== 'portada' && r !== 'quien' && !S.me) r = 'quien';
     if (r === 'quien' && S.me) r = 'hoy';
     if (r !== 'kiosco') regalarA = null; // el modo "regalarle a alguien" dura mientras estás en el kiosco
+    actualizarDorados();
     SCREENS[r]();
     screen.querySelectorAll('img:not([decoding])').forEach((i) => { i.decoding = 'async'; }); // que decodificar fotos no trabe el scroll
     if (fotoPorArmar) setTimeout(() => armarFoto(screen), 300);

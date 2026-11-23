@@ -192,6 +192,14 @@ window.STORE = (function () {
   addEventListener('online', () => { if (client) { pull().then(emit).catch(() => {}); uploadPending(); } });
 
   const others = () => s.cache.players;
+  // Suma experiencia y, si pasaste de nivel, un sobre por cada nivel nuevo.
+  function sumarXp(n) {
+    const antes = s.xp, nivelAntes = levelOf(antes);
+    s.xp += n;
+    const subio = levelOf(s.xp) - nivelAntes;
+    if (subio > 0) s.sobres = (s.sobres || 0) + subio;
+    return { xp: n, antes, despues: s.xp, levelUp: subio > 0 ? levelOf(s.xp) : null };
+  }
   const reacDe = (pid) => (pid === s.me ? s.reac : live ? ((s.cache.players[pid] || {}).datos || {}).reac || {} : DEMO[pid].reac || {});
 
   const api = {
@@ -484,6 +492,7 @@ window.STORE = (function () {
       s.coins -= item.p;
       if (to && to !== s.me) {
         if (!s.ach.regalo) { s.ach.regalo = 1; s.coins += D.ACH.regalo.c; }
+        const xpGanada = sumarXp(D.xpRegalo(item.p)); // regalar suma experiencia (comprar para vos, no)
         // Se agrega enseguida a lo guardado, así aparece en su altarcito sin esperar.
         api.regaloEnCamino = client
           ? client.from('regalos').insert({ de: s.me, para: to, item: item.id })
@@ -497,7 +506,7 @@ window.STORE = (function () {
             }).catch((e) => console.warn(e))
           : Promise.resolve();
         save(); pushMe();
-        return true;
+        return xpGanada;
       }
       s.owned.push(item.id);
       save(); pushMe();
@@ -519,6 +528,8 @@ window.STORE = (function () {
         const streak = api.streak();
         if (streak === 2) give('racha2');
         if (streak >= 3) give('racha3');
+        const xpRacha = D.RACHA.xp[Math.min(streak, 5)];
+        api.rachaHoy = xpRacha ? Object.assign({ dias: streak }, sumarXp(xpRacha)) : null;
       }
       if (min >= 300 && s.am !== today) {
         s.am = today;
@@ -527,7 +538,7 @@ window.STORE = (function () {
           : min >= 540;
         if (!someoneBefore) give('matutino');
       }
-      save(); if (got.length) pushMe();
+      save(); if (got.length || api.rachaHoy) pushMe();
       return got;
     },
     streak() {
@@ -538,6 +549,15 @@ window.STORE = (function () {
       return n;
     },
 
+    // Días seguidos que lleva entrando. Si hoy todavía no entró, cuenta desde ayer: la racha sigue viva hasta que pase un día entero sin entrar.
+    rachaDe(pid) {
+      const days = pid === s.me ? s.days : live ? ((others()[pid] || {}).datos || {}).days || [] : (DEMO[pid] || {}).days || [];
+      const set = new Set(days), d = window.SKY.arNow();
+      if (!set.has(d.toISOString().slice(0, 10))) d.setUTCDate(d.getUTCDate() - 1);
+      let n = 0;
+      while (set.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); }
+      return n;
+    },
     xpOf(id) {
       if (id === s.me) return s.xp;
       return live ? (others()[id] ? others()[id].xp : 0) : DEMO[id].xp;
