@@ -625,8 +625,7 @@ window.STORE = (function () {
       return id === 'visitas' ? D.PEOPLE.length - 1 : D.SHOP.filter((x) => !x.retirado && x.side !== 'R').length;
     },
     logros(baulTotal) {
-      const prueba = (() => { try { return !!localStorage.getItem('colonia.persona'); } catch (e) { return false; } })() || /(^|[?&])persona(&|=|$)/.test(location.search);
-      return D.LOGROS.filter((l) => !l.prueba || prueba).map((l) => {
+      return D.LOGROS.map((l) => {
         const v = api.logroValor(l.id, baulTotal);
         const pasos = l.pasos.map((p, i) => ({ meta: api.logroMeta(l.id, p[0]), todo: p[0] === 'todo', c: p[1] || 0, s: p[2] || 0, ok: !!s.ach['logro:' + l.id + ':' + i] }));
         return Object.assign({}, l, { v, pasos });

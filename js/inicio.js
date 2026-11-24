@@ -165,7 +165,7 @@ window.INICIO = (function () {
     function toque(p, alto, cuanto = 1) {
       alto = cero1(alto);
       const i = Math.max(0, Math.min(ARRIBA.length - 1, Math.round(alto * (ARRIBA.length - 1) + azar(-0.7, 0.7))));
-      const v = (0.13 + 0.33 * Math.pow(1 - alto, 0.9)) * azar(0.9, 1.05) * cuanto; // abajo 0,46; arriba nunca menos de 0,13
+      const v = (0.26 + 0.66 * Math.pow(1 - alto, 0.9)) * azar(0.9, 1.05) * cuanto; // abajo 0,92; arriba nunca menos de 0,26
       nota(ctx.currentTime + 0.035, ARRIBA[i], v, lado(p + azar(-0.1, 0.1)), true, null, 1 + 1.8 * Math.pow(1 - alto, 1.5));
     }
 
@@ -191,7 +191,7 @@ window.INICIO = (function () {
       vive(lfo, [t, null]);
       const oscs = [];
       voces().forEach((n, v) => {
-        const g = ctx.createGain(); g.gain.value = v === 2 ? 0.05 : 0.072; g.connect(fil);
+        const g = ctx.createGain(); g.gain.value = v === 2 ? 0.062 : 0.09; g.connect(fil);
         [-1, 1].forEach((l) => {
           const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz(n); o.detune.value = l * azar(5, 9);
           o.connect(g); vive(o, [t, null]); oscs.push({ o, v });

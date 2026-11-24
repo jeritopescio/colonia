@@ -738,7 +738,21 @@
 
   // ---------- fotos ----------
   let pending = null;
-  function askPhoto(m) { pending = m; $('#file').value = ''; $('#file').click(); }
+  function askPhoto(m) { pending = m; elegirFoto($('#file'), 'environment'); }
+  // En Android, Chrome abre el selector de fotos del sistema (sin cámara) cuando se piden solo imágenes. Por eso ahí se pregunta
+  // antes: "Sacar una foto" abre la cámara directo (capture) y "Elegir de la galería", el selector. En iPhone el menú ya trae la cámara.
+  const ANDROID = /Android/i.test(navigator.userAgent);
+  function elegirFoto(inp, camara) {
+    inp.value = '';
+    if (!ANDROID) { inp.removeAttribute('capture'); inp.click(); return; }
+    sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center"><div class="eyebrow">La foto</div>
+      <div class="row" style="justify-content:center"><button class="btn" id="conCamara" style="--c:var(--mint)">Sacar una foto</button><button class="btn" id="deGaleria" style="--c:var(--celeste)">Elegir de la galería</button></div>
+      <button class="btn ghost" data-close>${NAH}</button></div>`,
+    (bg) => {
+      bg.querySelector('#conCamara').addEventListener('click', () => { bg.remove(); inp.setAttribute('capture', camara); inp.click(); });
+      bg.querySelector('#deGaleria').addEventListener('click', () => { bg.remove(); inp.removeAttribute('capture'); inp.click(); });
+    });
+  }
   $('#file').addEventListener('change', async (e) => {
     const f = e.target.files[0];
     if (!f || !pending) return;
@@ -1693,7 +1707,7 @@
         if (wa) wa.addEventListener('click', () => { bg.remove(); S.setPerfil(null); toast('<span>Volviste a la foto de WhatsApp.</span>'); render(); });
       });
     };
-    inp.click();
+    elegirFoto(inp, 'user'); // la cámara de adelante, para una selfie
   }
   function infoMonedas() {
     const fila = (t, c) => `<li><span>${esc(t)}</span><span class="chip" style="--c:var(--butter)">+${c} <span class="coin"></span></span></li>`;
@@ -1988,7 +2002,8 @@
   // Se mueve sola, tranquila: respira, mira a los costados y cada tanto da unos pasos. Tocarla la sienta (al lado de alguien que
   // esté sentado, si hay); tocar a otra la saluda. Si dos se quedan sentadas juntas un rato, pasa una estrella fugaz (de noche)
   // o una bandada (de día). Con 3 o más: fogatita al atardecer y de noche; sombrilla y reposera de día.
-  // EN PRUEBA: solo con ?persona en la dirección (queda recordado en el celu; ?persona=no lo saca; ?persona=juani te muestra como otra).
+  // Para todos los que entraron a la colonia (sin elegir quién sos, el mar está solo). ?persona=juani te muestra como otra persona,
+  // para probar; ?persona=no apaga las personitas en ese celu y ?persona=si las vuelve a prender.
   // pelo, largo (0 corto, 1 colita, 2 largo, 3 rodete), gorra, rem (remera), ab (short o pantalón; abL: 1 si es largo), cm,
   // malla ('short': de baño, sin remera; 'enteriza': malla entera, del color de la remera).
   const PERSONITAS = {
@@ -2007,14 +2022,13 @@
     grego: { pelo: '#3a2a20', largo: 0, rem: '#e7e1d6', ab: '#56708a', cm: 179, malla: 'short' },
   };
   const PX_CM = 0.19; // a qué distancia están: 1,73 m son unos 33 px
-  // ?persona prende la prueba y queda guardado en este celu (así también anda la app instalada); ?persona=no la apaga.
   (() => {
-    const q = new URLSearchParams(location.search);
-    if (!q.has('persona')) return;
-    try { if (q.get('persona') === 'no') localStorage.removeItem('colonia.persona'); else localStorage.setItem('colonia.persona', q.get('persona') || '1'); } catch (e) { /* sin lugar */ }
+    const q = new URLSearchParams(location.search).get('persona');
+    if (q == null) return;
+    try { if (q === 'si' || q === '') localStorage.removeItem('colonia.persona'); else localStorage.setItem('colonia.persona', q); } catch (e) { /* sin lugar */ }
   })();
   const pruebaPersona = () => { try { return localStorage.getItem('colonia.persona'); } catch (e) { return null; } };
-  const conPersona = () => !!pruebaPersona() || /(^|[?&])persona(&|=|$)/.test(location.search);
+  const conPersona = () => !!S.me && pruebaPersona() !== 'no';
   const yoEnElMar = () => S.me || 'yo';
   const quienMira = () => { const q = new URLSearchParams(location.search).get('persona') || pruebaPersona(); return PERSONITAS[q] ? q : PERSONITAS[S.me] ? S.me : 'jero'; };
 

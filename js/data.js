@@ -338,8 +338,7 @@ window.DATA = (function () {
     { id: 'baul', t: 'El baúl', u: '% del baúl', ic: '🧳', pasos: [[25, 50], [50, 100], [100, 300]] },
     { id: 'hallazgos', t: 'Cosas que trajo el mar', u: 'botellas y galletas abiertas', ic: '🍾', pasos: [[5, 50], [15, 0, 1]] },
     { id: 'visitas', t: 'De visita', u: 'altarcitos visitados', ic: '🏖️', pasos: [[5, 20], ['todo', 50]] },
-    // prueba: solo se ve con la personita (?persona) mientras está en prueba.
-    { id: 'juntos', t: 'Mirar el mar juntos', u: 'personas con las que te sentaste a mirar el mar', ic: '🌊', prueba: true, pasos: [[1, 30], [3, 60], [6, 0, 1]] },
+    { id: 'juntos', t: 'Mirar el mar juntos', u: 'personas con las que te sentaste a mirar el mar', ic: '🌊', pasos: [[1, 30], [3, 60], [6, 0, 1]] },
   ];
   // La botella entre amigos (desde "Mirar el mar"): una por día; a quien le llega, al abrirla, estas monedas.
   const BOTELLA_AMIGO = 10;
