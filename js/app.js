@@ -990,6 +990,7 @@
     if (n.todo) return n.l.id === 'visitas' ? 'Visitaste todos los altarcitos' : 'Compraste todo el kiosco';
     if (n.l.id === 'baul') return `Completaste el ${n.meta}% del baúl`;
     if (n.l.id === 'racha') return `${n.meta} días seguidos entrando`;
+    if (n.l.id === 'juntos' && n.meta === 1) return 'Te sentaste a mirar el mar con alguien';
     return `${n.meta} ${n.l.u}`;
   }
   function revisarLogros() {
@@ -1999,9 +2000,10 @@
   // cada celu mueve su propia personita y les cuenta a los demás dónde está y qué hace (canal de presencia de Supabase).
   // Los colores salen del cielo: de día, apagados y con la luz del lugar; al atardecer, cálidos; de noche, silueta negra.
   // De día van en malla; de noche (o con lluvia), con buzo holgado con capucha y jogging.
-  // Se mueve sola, tranquila: respira, mira a los costados y cada tanto da unos pasos. Tocarla la sienta (al lado de alguien que
-  // esté sentado, si hay); tocar a otra la saluda. Si dos se quedan sentadas juntas un rato, pasa una estrella fugaz (de noche)
-  // o una bandada (de día). Con 3 o más: fogatita al atardecer y de noche; sombrilla y reposera de día.
+  // Se mueve sola, tranquila: respira, mira a los costados y cada tanto da unos pasos (también para adelante y para atrás:
+  // más cerca de la orilla se ve apenas más chica). Tocarla la sienta (en la ronda del fogón, en la lona o al lado de alguien
+  // sentado); tocar a otra la saluda. Si dos se quedan sentadas juntas un rato, pasa una estrella fugaz (de noche) o una
+  // bandada (de día). Con 3 o más: fogatita al atardecer y de noche; de día, sombrilla con su sombra y una lona.
   // Para todos los que entraron a la colonia (sin elegir quién sos, el mar está solo). ?persona=juani te muestra como otra persona,
   // para probar; ?persona=no apaga las personitas en ese celu y ?persona=si las vuelve a prender.
   // pelo, largo (0 corto, 1 colita, 2 largo, 3 rodete), gorra, rem (remera), ab (short o pantalón; abL: 1 si es largo), cm,
@@ -2101,11 +2103,22 @@
       </g></g></g></svg>`;
   }
 
-  // La escena: pid → { pid, como (a quién se parece), el, x (% del ancho), sentada, mira, mia (la mueve este celu), falsa (demo), t, visto }
+  // La escena: pid → { pid, como (a quién se parece), el, x, y (dónde pisa: % del ancho y del alto del cielo), sentada, mira,
+  // mia (la mueve este celu), falsa (demo), vaASentarse, ordenada (se sentó a propósito), miraBase, t, visto }
   const escena = new Map();
-  let relojMar = null, ultimoEstado = 0, ultimaNota = 0;
+  let relojMar = null, ultimoEstado = 0, ultimaNota = 0, rafProf = 0;
   const sinMovimiento = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const PASO_MAR = 0.55; // segundos por cada 1 % del ancho: paso lento de orilla (unos 7 px por segundo en un celu)
+  // Profundidad: más abajo es más cerca de quien mira (apenas más grande y adelante); cerca de la orilla, apenas más chica.
+  const Y_ORILLA = 70.6, Y_CERCA = 82.4;
+  const escalaY = (y) => 1 + (y - 76) * 0.014;
+  const capaY = (y) => String(Math.round(100 + (y - 60) * 10));
+  // Las distancias se miden en un celu de referencia (390 × 844 px): la ronda y los lugares quedan iguales en todos los celus.
+  const REF_W = 390, REF_H = 844;
+  const dist = (a, b) => Math.hypot((a.x - b.x) * REF_W / 100, (a.y - b.y) * REF_H / 100);
+  // Con 3 o más: fogón en el medio (al atardecer y de noche); de día, sombrilla con su lona a la derecha.
+  const FUEGO = { x: 50, y: 76.6 }, SOMBRILLA = { x: 83.5, y: 74.3 }, LONA = { x: 77.5, y: 78.2 };
+  const cosasMar = () => (escena.size < 3 ? '' : diaAhora() < 0.5 ? 'fogon' : 'sombra');
   const COLORES_AMIGO = [['#f7b3c6', '#ffd6e2'], ['#cfc0f0', '#e6defb'], ['#b6e5cd', '#dff5ea'], ['#ffe39a', '#fff2c8'], ['#a9d6f0', '#d6eefb'], ['#f6a38f', '#fcd2c6']];
   const coloresDe = (pid) => COLORES_AMIGO[hash(pid) % COLORES_AMIGO.length];
   function pintarPersonita(p) {
@@ -2119,94 +2132,192 @@
     Object.entries(paletaPersonita(PERSONITAS[p.como])).forEach(([k, v]) => p.el.style.setProperty(k, v));
   }
   SKY.onChange(() => { escena.forEach(pintarPersonita); ponerFogon(); });
-  // Dónde se para cada uno: en orden, repartidos alrededor del medio. Todos los celus calculan lo mismo.
+  // Dónde se para cada uno: en zigzag, una fila cerca de la orilla y otra más acá, con un poquito de desorden propio de cada uno.
+  // Todos los celus calculan lo mismo. Con fogón queda un hueco en el medio; con sombrilla se corren a la izquierda.
   function casas() {
-    const ids = [...escena.keys()].sort(), sep = ids.length > 6 ? 10 : 13;
-    return Object.fromEntries(ids.map((id, i) => [id, clamp(50 + (i - (ids.length - 1) / 2) * sep, 8, 92)]));
+    const ids = [...escena.keys()].sort(), n = ids.length, cosa = cosasMar();
+    const cx = cosa === 'sombra' ? 41 : 50, ancho = cosa === 'sombra' ? 64 : 80, hueco = cosa === 'fogon' ? 4 : 0;
+    const s = n > 1 ? Math.min(6.5, ancho / (n - 1)) : 0;
+    return Object.fromEntries(ids.map((id, i) => {
+      const h = hash(id), jx = (h % 97) / 96 - 0.5, jy = ((h >>> 8) % 89) / 88 - 0.5;
+      const off = (i - (n - 1) / 2) * s, atras = Math.round(i - (n - 1) / 2) % 2 === 0;
+      return [id, { x: clamp(cx + off + Math.sign(off) * hueco + jx * 1.6, 6, 94), y: (atras ? 72.9 : 79.4) + jy * 1.2 }];
+    }));
   }
-  function nuevaPersonita(pid, como, x, mia, falsa) {
+  // Los lugares para sentarse. De noche, en ronda alrededor del fogón, abierta hacia el mar (todos siguen mirándolo):
+  // los de los costados miran el fuego. De día, primero en la lona, a la sombra; después al lado.
+  function lugaresRonda(n) {
+    n = Math.max(n, 3);
+    const a = Math.max(44, 5 * n), b = a * 0.42, arco = Math.min(230, 42 * (n - 1)), t0 = 90 - arco / 2;
+    return Array.from({ length: n }, (_, k) => {
+      const t = (t0 + (k * arco) / (n - 1)) * Math.PI / 180, c = Math.cos(t);
+      return { x: FUEGO.x + (c * a / REF_W) * 100, y: FUEGO.y + (Math.sin(t) * b / REF_H) * 100, mira: c > 0.35 ? 'mira-i' : c < -0.35 ? 'mira-d' : '' };
+    });
+  }
+  function lugaresLona(n) {
+    const l = [[80.2, 76.2], [75.2, 76.3], [85.2, 76.3], [70.2, 76.5]].map(([x, y]) => ({ x, y, mira: '' }));
+    for (let k = 0; l.length < Math.max(n, 4); k++) l.push({ x: 64.4 - k * 5.6, y: 76.8 + (k % 2) * 2.2, mira: '' });
+    return l;
+  }
+  // El lugar libre para sentarse: en la ronda, el más cercano; en la lona, el primero (a la sombra).
+  function asiento(p) {
+    const cosa = cosasMar();
+    if (!cosa) return null;
+    const lugares = cosa === 'fogon' ? lugaresRonda(escena.size) : lugaresLona(escena.size);
+    const libres = lugares.filter((l) => ![...escena.values()].some((q) => q !== p && (q.sentada || q.vaASentarse) && dist(q, l) < 12));
+    const opciones = libres.length ? libres : lugares;
+    return cosa === 'fogon' ? opciones.sort((a, b) => dist(a, p) - dist(b, p))[0] : opciones[0];
+  }
+  // En qué grupo está sentada (para contar "sentarse juntos"): la ronda del fogón o la lona.
+  function grupo(p) {
+    const cosa = cosasMar();
+    if (!p.sentada || !cosa) return '';
+    if (cosa === 'fogon') return dist(p, FUEGO) < 90 ? 'ronda' : '';
+    return Math.abs(p.x - LONA.x) < 12 && Math.abs(p.y - 76.4) < 2.5 ? 'lona' : '';
+  }
+  function ubicar(p) {
+    p.el.style.left = p.x.toFixed(2) + '%';
+    p.el.style.top = p.y.toFixed(2) + '%';
+    p.el.style.height = (PERSONITAS[p.como].cm * PX_CM * escalaY(p.y)).toFixed(1) + 'px';
+    p.el.style.zIndex = capaY(p.anda ? p.anda.y0 : p.y);
+  }
+  // Mientras caminan hacia adelante o hacia atrás, cambian de capa a medida que avanzan (así nadie se le mete por delante a otro).
+  function profundidad() {
+    let alguna = false;
+    const ahora = performance.now();
+    escena.forEach((p) => {
+      const a = p.anda;
+      if (!a) return;
+      const k = Math.min(1, (ahora - a.t0) / a.ms);
+      p.el.style.zIndex = capaY(a.y0 + (a.y1 - a.y0) * k);
+      if (k < 1) alguna = true; else p.anda = null;
+    });
+    rafProf = alguna ? requestAnimationFrame(profundidad) : 0;
+  }
+  function nuevaPersonita(pid, como, x, y, mia, falsa) {
     const sky = document.getElementById('sky');
     const el = document.createElement('div');
     el.className = 'personita'; el.dataset.pid = pid;
-    el.style.height = Math.round(PERSONITAS[como].cm * PX_CM) + 'px';
-    el.style.left = x + '%';
+    const p = { pid, como, el, x, y, sentada: false, mira: '', mia, falsa, t: null, visto: Date.now(), juntos: {} };
+    ubicar(p);
     sky.appendChild(el);
-    const p = { pid, como, el, x, sentada: false, mira: '', mia, falsa, t: null, visto: Date.now(), juntos: {} };
     pintarPersonita(p);
     escena.set(pid, p);
     if (mia) p.t = setTimeout(() => vivir(p), 2500 + Math.random() * 3000);
     return p;
   }
-  // Vos y quienes estén mirando el mar ahora. Quien se va, se desvanece; los que quedan van caminando a su lugar.
+  // Vos y quienes estén mirando el mar ahora. Quien se va, se desvanece; quien llega aparece en su lugar, y los demás
+  // van caminando a acomodarse.
   function armarEscena() {
     if (!document.getElementById('sky') || !conPersona() || !document.querySelector('.mirar-capa')) return;
     const yo = yoEnElMar(), otros = S.enElMar().filter((id) => id !== yo && PERSONITAS[(escena.get(id) || {}).como || id]);
-    if (!escena.has(yo)) nuevaPersonita(yo, quienMira(), 50, true, false);
+    const nuevas = [];
+    if (!escena.has(yo)) nuevas.push(nuevaPersonita(yo, quienMira(), 50, 76, true, false));
     escena.forEach((p, id) => {
       if (id === yo || otros.includes(id) || Date.now() - p.visto < 10000) return;
       clearTimeout(p.t); p.el.classList.add('se-va'); setTimeout(() => p.el.remove(), 900);
       escena.delete(id);
     });
-    otros.forEach((id) => { if (!escena.has(id)) nuevaPersonita(id, id, 50, !S.live, !S.live); });
+    otros.forEach((id) => { if (!escena.has(id)) nuevas.push(nuevaPersonita(id, id, 50, 76, !S.live, !S.live)); });
     const c = casas();
-    escena.forEach((p, id) => { if (p.mia && !p.sentada) andarA(p, c[id]); else if (!p.mia && Math.abs(p.x - 50) < 0.1 && Date.now() - p.visto > 3000) moverA(p, c[id]); });
+    nuevas.forEach((p) => { p.x = c[p.pid].x; p.y = c[p.pid].y; ubicar(p); });
+    escena.forEach((p, id) => { if (p.mia && !nuevas.includes(p) && !p.sentada && !p.vaASentarse) andarA(p, c[id].x, c[id].y); });
     ponerFogon();
   }
   function sacarEscena() {
     escena.forEach((p) => clearTimeout(p.t));
     escena.clear();
+    cancelAnimationFrame(rafProf); rafProf = 0;
     document.querySelectorAll('#sky .personita, #sky .cosa-mar, .estrella-fugaz').forEach((n) => n.remove());
   }
   // Cuenta a los demás dónde está y qué hace tu personita.
   function publicar(p) {
     if (!p || p.falsa || p.pid !== yoEnElMar() || !conPersona()) return;
     ultimoEstado = Date.now();
-    S.enviarMar({ t: 'estado', como: p.como, x: +p.x.toFixed(1), sentada: p.sentada, mira: p.mira });
+    S.enviarMar({ t: 'estado', como: p.como, x: +p.x.toFixed(1), y: +p.y.toFixed(1), sentada: p.sentada, mira: p.mira, va: p.vaASentarse ? 1 : 0 });
   }
-  // Camina hasta x (despacio) y, si hacía falta, se levanta antes. "luego" corre al llegar.
-  function andarA(p, x, luego) {
+  // Camina hasta (x, y), despacio, y si hacía falta se levanta antes. "luego" corre al llegar.
+  function andarA(p, x, y, luego) {
     if (x == null || !p.el.isConnected) return;
-    if (p.sentada) { p.sentada = false; p.el.classList.remove('sentada'); publicar(p); return setTimeout(() => andarA(p, x, luego), 1000); }
-    moverA(p, x, luego);
+    if (p.sentada) { p.sentada = false; p.el.classList.remove('sentada'); publicar(p); clearTimeout(p.fin); p.fin = setTimeout(() => andarA(p, x, y, luego), 1000); return; }
+    moverA(p, x, y, luego);
     publicar(p);
   }
-  function moverA(p, x, luego) {
-    const seg = Math.abs(x - p.x) * PASO_MAR;
+  function moverA(p, x, y, luego) {
+    y = clamp(y == null ? p.y : y, Y_ORILLA, Y_CERCA);
+    const seg = Math.hypot(x - p.x, ((y - p.y) * REF_H) / REF_W) * PASO_MAR;
+    clearTimeout(p.fin);
     if (seg < 0.05) { if (luego) luego(); return; }
     p.el.style.setProperty('--andar', seg.toFixed(2) + 's');
     p.el.classList.add('camina');
-    p.el.style.left = x.toFixed(1) + '%';
-    p.x = x;
-    clearTimeout(p.fin);
+    p.anda = { t0: performance.now(), ms: seg * 1000, y0: p.y, y1: y };
+    p.x = x; p.y = y;
+    ubicar(p);
+    if (!rafProf) rafProf = requestAnimationFrame(profundidad);
     p.fin = setTimeout(() => { p.el.classList.remove('camina'); if (luego) luego(); }, seg * 1000);
+  }
+  // ¿Puede ir hasta d sin pasarle por encima a nadie (ni al fuego)?
+  function caminoLibre(p, d) {
+    const obstaculos = [...escena.values()].filter((q) => q !== p);
+    if (cosasMar() === 'fogon') obstaculos.push(FUEGO);
+    if (obstaculos.some((q) => dist(q, d) < 30)) return false;
+    for (let k = 1; k < 6; k++) {
+      const m = { x: p.x + ((d.x - p.x) * k) / 6, y: p.y + ((d.y - p.y) * k) / 6 };
+      if (obstaculos.some((q) => dist(q, m) < 22)) return false;
+    }
+    return true;
   }
   function sentar(p, si) {
     p.sentada = si; p.el.classList.toggle('sentada', si);
-    if (!si) p.ordenada = false;
+    if (!si) { p.ordenada = false; p.miraBase = ''; }
     publicar(p);
+  }
+  // Al levantarse de la ronda o de la lona, vuelve a su lugar (para no quedarse parada delante del fuego).
+  function levantarse(p) {
+    const g = grupo(p);
+    p.vaASentarse = false; clearTimeout(p.fin); p.el.classList.remove('camina');
+    sentar(p, false);
+    if (g) p.fin = setTimeout(() => { const c = casas()[p.pid]; if (c && !p.sentada && !p.vaASentarse) andarA(p, c.x, c.y); }, 1400);
+  }
+  // Va a sentarse: a la ronda o a la lona si las hay; si no, al lado de quien esté sentado más cerca; si no, ahí mismo.
+  function irASentarse(p) {
+    p.ordenada = true;
+    const l = asiento(p);
+    if (l) {
+      p.vaASentarse = true; p.miraBase = l.mira;
+      andarA(p, l.x, l.y, () => { p.vaASentarse = false; sentar(p, true); mirarA(p, p.miraBase, 0); });
+      return;
+    }
+    const al = [...escena.values()].filter((q) => q !== p && q.sentada).sort((a, b) => dist(a, p) - dist(b, p))[0];
+    if (!al) { sentar(p, true); return; }
+    const lado = p.x < al.x ? -1 : 1, ocupado = (x) => [...escena.values()].some((q) => q !== p && q !== al && dist(q, { x, y: al.y }) < 14);
+    let x = al.x + lado * 5.5;
+    if (x < 6 || x > 94 || ocupado(x)) x = al.x - lado * 5.5;
+    p.vaASentarse = true;
+    andarA(p, clamp(x, 6, 94), al.y, () => { p.vaASentarse = false; sentar(p, true); });
   }
   function mirarA(p, lado, ms) {
     p.mira = lado; p.el.classList.remove('mira-i', 'mira-d'); if (lado) p.el.classList.add(lado);
     publicar(p);
-    if (ms) setTimeout(() => { if (p.mira === lado) mirarA(p, '', 0); }, ms);
+    if (ms) setTimeout(() => { if (p.mira === lado) mirarA(p, p.miraBase || '', 0); }, ms);
   }
-  // Lo que hace sola: casi siempre mirar el mar; a veces a un costado; cada tanto unos pasitos cerca de su lugar.
-  // Las de prueba del modo demo además se sientan un rato, para poder probar "sentarse juntos".
+  // Lo que hace sola: casi siempre mirar el mar; a veces a un costado; cada tanto unos pasitos cerca de su lugar, para
+  // adelante, para atrás o al costado, sin pasarle por encima a nadie. Las de prueba del modo demo además se sientan un rato.
   function vivir(p) {
     const despues = (ms) => { clearTimeout(p.t); p.t = setTimeout(() => vivir(p), ms); };
     if (!p.el.isConnected || sinMovimiento) return;
-    const r = Math.random(), casa = casas()[p.pid];
-    if (p.ordenada) { if (r < 0.35) mirarA(p, Math.random() < 0.5 ? 'mira-i' : 'mira-d', 1800 + Math.random() * 1500); return despues(7000 + Math.random() * 6000); }
-    if (p.falsa && p.sentada) { if (r < 0.3) sentar(p, false); return despues(8000 + Math.random() * 6000); }
-    if (r < 0.45) mirarA(p, Math.random() < 0.5 ? 'mira-i' : 'mira-d', 1600 + Math.random() * 1800);
-    else if (r < 0.7) {
-      const otros = [...escena.values()].filter((q) => q !== p).map((q) => q.x);
-      const destino = clamp(p.x + (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3), casa - 5, casa + 5);
-      if (!otros.some((x) => Math.abs(x - destino) < 6)) andarA(p, destino);
-    } else if (p.falsa && r < 0.85) sentar(p, true);
+    const r = Math.random(), casa = casas()[p.pid], lado = () => (Math.random() < 0.5 ? 'mira-i' : 'mira-d');
+    if (p.falsa && p.sentada) { if (r < 0.3) levantarse(p); else if (r < 0.55) mirarA(p, lado(), 1800 + Math.random() * 1500); return despues(8000 + Math.random() * 6000); }
+    if (p.ordenada || p.vaASentarse) { if (r < 0.35) mirarA(p, lado(), 1800 + Math.random() * 1500); return despues(7000 + Math.random() * 6000); }
+    if (r < 0.45) mirarA(p, lado(), 1600 + Math.random() * 1800);
+    else if (r < 0.7 && casa) {
+      const cerca = { x: clamp(p.x + (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 3), casa.x - 5, casa.x + 5), y: clamp(p.y + (Math.random() - 0.5) * 3, casa.y - 2, casa.y + 2) };
+      const d = [cerca, casa].find((o) => caminoLibre(p, o));
+      if (d) andarA(p, d.x, d.y);
+    } else if (p.falsa && r < 0.85) irASentarse(p);
     despues(8000 + Math.random() * 7000);
   }
-  // Tocar tu personita la sienta (al lado de alguien sentado, si hay) o la levanta. Tocar a otra la saluda.
+  // Tocar tu personita la sienta (en la ronda, en la lona o al lado de alguien) o la levanta. Tocar a otra la saluda.
   function tocarPersonita(x, y) {
     const el = [...document.querySelectorAll('#sky .personita')].find((n) => { const r = n.getBoundingClientRect(); return x > r.left - 14 && x < r.right + 14 && y > r.top - 16 && y < r.bottom + 10; });
     const p = el && escena.get(el.dataset.pid);
@@ -2214,13 +2325,8 @@
     const yo = escena.get(yoEnElMar());
     if (p === yo) {
       SONIDO.plop();
-      if (p.sentada) { sentar(p, false); return true; }
-      const al = [...escena.values()].filter((q) => q !== p && q.sentada).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
-      p.ordenada = true;
-      if (al) {
-        const lugar = clamp(al.x + (p.x < al.x ? -5.5 : 5.5), 6, 94);
-        andarA(p, lugar, () => sentar(p, true));
-      } else sentar(p, true);
+      if (p.sentada || p.vaASentarse) { levantarse(p); return true; }
+      irASentarse(p);
       return true;
     }
     globito(p, (person(p.pid) || {}).n || p.pid);
@@ -2252,13 +2358,15 @@
   function recibirMar(m) {
     if (!m || !m.de || m.de === yoEnElMar() || !document.querySelector('.mirar-capa') || !conPersona()) return;
     if (m.t === 'hola') { publicar(escena.get(yoEnElMar())); return; }
+    const my = m.y != null ? m.y : 73.5; // las versiones viejas no mandan la profundidad
     let p = escena.get(m.de);
-    if (!p && (m.t === 'estado' || m.t === 'hola') && PERSONITAS[m.como || m.de]) p = nuevaPersonita(m.de, m.como || m.de, m.x != null ? m.x : 50, false, false);
+    if (!p && (m.t === 'estado' || m.t === 'hola') && PERSONITAS[m.como || m.de]) p = nuevaPersonita(m.de, m.como || m.de, m.x != null ? m.x : 50, my, false, false);
     if (p) p.visto = Date.now();
     if (m.t === 'estado' && p) {
-      if (m.como && m.como !== p.como && PERSONITAS[m.como]) { p.como = m.como; p.el.dataset.ropa = ''; pintarPersonita(p); }
+      if (m.como && m.como !== p.como && PERSONITAS[m.como]) { p.como = m.como; p.el.dataset.ropa = ''; pintarPersonita(p); ubicar(p); }
+      p.vaASentarse = !!m.va;
       const llegar = () => { p.sentada = !!m.sentada; p.el.classList.toggle('sentada', p.sentada); };
-      if (Math.abs(m.x - p.x) > 0.3) { p.el.classList.remove('sentada'); moverA(p, m.x, llegar); } else llegar();
+      if (Math.abs(m.x - p.x) > 0.3 || Math.abs(my - p.y) > 0.3) { p.el.classList.remove('sentada'); moverA(p, m.x, my, llegar); } else llegar();
       p.mira = m.mira || ''; p.el.classList.remove('mira-i', 'mira-d'); if (p.mira) p.el.classList.add(p.mira);
       ponerFogon();
     } else if (m.t === 'saludo' && p) {
@@ -2269,17 +2377,19 @@
       chispas(m.x * innerWidth, m.y * innerHeight, 10, coloresDe(m.de));
     }
   }
-  // Cada segundo: se cuenta cuánto llevan sentados juntos, y cada 15 s se repite el estado por si alguien no lo recibió.
+  // Cada segundo: se cuenta cuánto llevan sentados juntos (al lado, o en la misma ronda o lona), quién está a la sombra,
+  // y cada 15 s se repite el estado por si alguien no lo recibió.
   function latidoMar() {
     const yo = escena.get(yoEnElMar());
     if (!yo) return;
     if (Date.now() - ultimoEstado > 15000) publicar(yo);
     escena.forEach((q) => {
       if (q === yo) return;
-      const cerca = yo.sentada && q.sentada && Math.abs(q.x - yo.x) < 8.5;
+      const g = grupo(yo), cerca = yo.sentada && q.sentada && (dist(yo, q) < 40 || (g && g === grupo(q)));
       yo.juntos[q.pid] = cerca ? (yo.juntos[q.pid] || 0) + 1 : Math.min(yo.juntos[q.pid] || 0, 0);
       if (yo.juntos[q.pid] === 12) juntos(q);
     });
+    aLaSombra();
   }
   // Doce segundos sentados uno al lado del otro: estrella fugaz de noche, bandada de día, y cuenta para el logro.
   function juntos(q) {
@@ -2294,21 +2404,55 @@
     SONIDO.si();
     setTimeout(revisarLogros, 1600);
   }
-  // Con 3 o más mirando el mar: fogatita al atardecer y de noche; de día, sombrilla y reposera.
+  // Con 3 o más mirando el mar: fogatita al atardecer y de noche; de día, sombrilla con su sombra y una lona.
+  // Cuando aparecen, quienes ya estaban sentados (en este celu) se levantan y van a acomodarse a la ronda o a la lona.
   function ponerFogon() {
     const sky = document.getElementById('sky');
-    const hay = sky && escena.size >= 3 && document.querySelector('.mirar-capa');
-    const tipo = diaAhora() < 0.5 ? 'fogon' : 'sombra';
-    sky && sky.querySelectorAll('.cosa-mar').forEach((n) => { if (!hay || n.dataset.tipo !== tipo) { n.classList.add('se-va'); setTimeout(() => n.remove(), 900); n.dataset.tipo = 'x'; } });
-    if (!hay || sky.querySelector(`.cosa-mar[data-tipo="${tipo}"]`)) return;
-    const xs = Object.values(casas()), der = Math.min(92, Math.max(...xs) + 8);
-    const cosas = tipo === 'fogon' ? [['fogata', 50, 77.5, 26, null]] : [['sombrilla', der, 72.5, 54, '#f6a38f'], ['reposera', der - 3, 74.6, 30, '#a9d6f0']];
-    cosas.forEach(([id, x, y, w, col]) => {
-      const c = document.createElement('div');
-      c.className = `cosa-mar ${id}`; c.dataset.tipo = tipo;
-      c.style.cssText = `left:${x}%;top:${y}%;width:${w}px`;
-      c.innerHTML = ARTE.item(id, col);
-      sky.appendChild(c);
+    if (!sky) return;
+    const tipo = document.querySelector('.mirar-capa') ? cosasMar() : '';
+    sky.querySelectorAll('.cosa-mar').forEach((n) => { if (n.dataset.tipo !== tipo) { n.classList.add('se-va'); setTimeout(() => n.remove(), 900); n.dataset.tipo = 'x'; } });
+    if (!tipo) return;
+    if (!sky.querySelector(`.cosa-mar[data-tipo="${tipo}"]`)) {
+      // [qué, dónde pisa, ancho en px, color, capa (lo que está en el piso va abajo de todos)]
+      const cosas = tipo === 'fogon' ? [['fogata', FUEGO, 26, null, capaY(FUEGO.y)]]
+        : [['toalla', LONA, 76, '#a9d6f0', '3'], ['sombra-piso', SOMBRILLA, 54, null, '4'], ['sombrilla', SOMBRILLA, 54, '#f6a38f', capaY(SOMBRILLA.y)]];
+      cosas.forEach(([id, l, w, col, z]) => {
+        const c = document.createElement('div'), e = escalaY(l.y), ancho = w * e;
+        c.className = `cosa-mar ${id}`; c.dataset.tipo = tipo;
+        // la sombrilla está torcida: el palo se clava a la derecha del dibujo (al 68 % de su ancho)
+        const izq = id === 'sombrilla' ? `calc(${l.x}% - ${(0.18 * ancho).toFixed(1)}px)` : `${l.x}%`;
+        c.style.cssText = `left:${izq};top:${l.y}%;width:${ancho.toFixed(1)}px;z-index:${z}`;
+        if (id !== 'sombra-piso') c.innerHTML = ARTE.item(id, col);
+        sky.appendChild(c);
+      });
+      setTimeout(() => escena.forEach((p) => { if (p.mia && p.sentada) irASentarse(p); }), 1800);
+    }
+    if (tipo === 'sombra') sombraDelSol();
+  }
+  // La sombra de la sombrilla en la arena: debajo de la tela, corrida para el lado contrario al sol y más larga cuando el
+  // sol está bajo. Con nubes casi no se ve.
+  function sombraDelSol() {
+    const el = document.querySelector('#sky .cosa-mar.sombra-piso');
+    if (!el) return;
+    const st = SKY.state(), sx = clamp((st.minute - st.sun.rise) / (st.sun.set - st.sun.rise), 0, 1), alt = Math.sin(Math.PI * sx);
+    const w = 54 * escalaY(SOMBRILLA.y), nubes = { 'algo nublado': 0.3, nublado: 0.65, niebla: 0.8, llovizna: 0.8, lluvia: 0.9, tormenta: 0.95 }[st.kind] || 0;
+    const dx = -0.24 * w + (0.5 - sx) * 0.5 * w, dy = 0.2 * w + (1 - alt) * 0.14 * w;
+    el.style.left = `calc(${SOMBRILLA.x}% + ${dx.toFixed(1)}px)`;
+    el.style.top = `calc(${SOMBRILLA.y}% + ${dy.toFixed(1)}px)`;
+    el.style.width = (w * (1.1 + (1 - alt) * 0.35)).toFixed(1) + 'px';
+    el.style.height = (w * 0.44).toFixed(1) + 'px';
+    el.style.opacity = ((1 - nubes) * clamp(diaAhora() * 1.4 - 0.4, 0, 1)).toFixed(2);
+  }
+  // Quien queda adentro de la sombra se ve un poco más oscuro.
+  function aLaSombra() {
+    const s = document.querySelector('#sky .cosa-mar.sombra-piso:not(.se-va)'), r = s && s.getBoundingClientRect();
+    escena.forEach((p) => {
+      let adentro = false;
+      if (r && r.width && +s.style.opacity > 0.15) {
+        const q = p.el.getBoundingClientRect(), cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+        adentro = ((q.left + q.right) / 2 - cx) ** 2 / (r.width / 2) ** 2 + (q.bottom - cy) ** 2 / (r.height / 2 + 6) ** 2 < 1;
+      }
+      p.el.classList.toggle('a-la-sombra', adentro);
     });
   }
   if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
