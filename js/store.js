@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacVistas: [], sobres: 0, recuerdos: [], visitas: [], amigos: [], perfil: null,
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacVistas: [], sobres: 0, recuerdos: [], visitas: [], amigos: [], perfil: null, tiradas: [], leidas: [],
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -80,7 +80,8 @@ window.STORE = (function () {
         s.reacVistas = [...new Set([...(d.reacVistas || []), ...s.reacVistas])];
         s.sobres = d.sobres || 0;
         if (!String(s.perfil || '').startsWith('data:')) s.perfil = d.perfil || null;
-        ['recuerdos', 'visitas', 'amigos'].forEach((k) => { s[k] = [...new Set([...(d[k] || []), ...(s[k] || [])])]; });
+        ['recuerdos', 'visitas', 'amigos', 'leidas'].forEach((k) => { s[k] = [...new Set([...(d[k] || []), ...(s[k] || [])])]; });
+        s.tiradas = d.tiradas || s.tiradas || [];
         s.regalosVistos = [...new Set([...(d.regalosVistos || []), ...s.regalosVistos])];
       }
     }
@@ -131,6 +132,8 @@ window.STORE = (function () {
         });
         listeners.forEach((f) => f({ presencia: true }));
       })
+      // Mirar el mar juntos: dónde está cada personita, saludos y notas. Llega solo a los demás.
+      .on('broadcast', { event: 'mar' }, ({ payload }) => { if (payload) listeners.forEach((f) => f({ mar: payload })); })
       // Solo avisa de quien llega después: los que ya estaban llegan juntos en los primeros segundos.
       .on('presence', { event: 'join' }, ({ key, currentPresences }) => {
         if (!listo || key === s.me || (currentPresences && currentPresences.length)) return;
@@ -146,15 +149,19 @@ window.STORE = (function () {
     if (!presencia) return;
     if (document.hidden) presencia.untrack(); else anunciar();
   });
-  // Avisa a los demás que estás (o ya no) mirando el mar. En el modo demo, al rato aparece Rochi mirando también.
-  let demoMarT;
+  // Avisa a los demás que estás (o ya no) mirando el mar. En el modo demo, al rato aparecen Rochi y Nico mirando también.
+  let demoMarT = [];
   function mirarElMar(si) {
     if (mirando === !!si) return;
     mirando = !!si;
     if (live) { anunciar(); return; }
-    clearTimeout(demoMarT);
-    if (si) demoMarT = setTimeout(() => { enElMar.add('rochi'); listeners.forEach((f) => f({ presencia: true })); }, 2500);
+    demoMarT.forEach(clearTimeout); demoMarT = [];
+    if (si) [['rochi', 2500], ['nico', 6000]].forEach(([id, ms]) => demoMarT.push(setTimeout(() => { enElMar.add(id); listeners.forEach((f) => f({ presencia: true })); }, ms)));
     else enElMar.clear();
+  }
+  function enviarMar(m) {
+    if (!presencia || !live) return;
+    presencia.send({ type: 'broadcast', event: 'mar', payload: Object.assign({ de: s.me }, m) });
   }
 
   let pushT;
@@ -162,7 +169,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos,
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos, tiradas: (s.tiradas || []).slice(-20), leidas: (s.leidas || []).slice(-200),
         perfil: String(s.perfil || '').startsWith('data:') ? (((s.cache.players[s.me] || {}).datos || {}).perfil || null) : s.perfil };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
@@ -258,14 +265,44 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacVistas = row.datos.reacVistas || []; s.sobres = row.datos.sobres || 0; s.recuerdos = row.datos.recuerdos || []; s.visitas = row.datos.visitas || []; s.amigos = row.datos.amigos || []; s.perfil = row.datos.perfil || null; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacVistas = row.datos.reacVistas || []; s.sobres = row.datos.sobres || 0; s.recuerdos = row.datos.recuerdos || []; s.visitas = row.datos.visitas || []; s.amigos = row.datos.amigos || []; s.perfil = row.datos.perfil || null; s.tiradas = row.datos.tiradas || []; s.leidas = row.datos.leidas || []; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save(); conectarPresencia();
     },
     // Quiénes tienen la app abierta ahora (sin contarte a vos).
     conectados() { return [...enLinea]; },
     mirarElMar,
+    enviarMar,
     enElMar() { return [...enElMar]; },
+    // Sentarse a mirar el mar al lado de alguien (para el logro "Mirar el mar juntos").
+    sentarseCon(pid) { if (!pid || s.ach['juntos:' + pid]) return; s.ach['juntos:' + pid] = 1; save(); pushMe(); },
+
+    // ---------- la botella entre amigos ----------
+    botellaHoy() { return !!s.ach['botella:' + window.SKY.arDate()]; },
+    // Una por día. Le llega a alguien de la colonia al azar (no a vos). Queda en tus datos (tiradas) y la lee quien la recibe.
+    tirarBotella(t) {
+      t = String(t || '').trim().slice(0, 140);
+      if (!s.me || !t || api.botellaHoy()) return null;
+      const otros = D.PEOPLE.filter((p) => p.id !== s.me), para = otros[Math.floor(Math.random() * otros.length)].id;
+      s.tiradas = (s.tiradas || []).concat({ id: s.me + '-' + Date.now().toString(36), para, t, en: new Date().toISOString() }).slice(-20);
+      s.ach['botella:' + window.SKY.arDate()] = 1;
+      save(); pushMe();
+      return para;
+    },
+    // Las que te tiraron y todavía no abriste, de la más vieja a la más nueva. En el modo demo, una de Rochi.
+    botellasParaMi() {
+      const leidas = new Set(s.leidas || []);
+      let todas;
+      if (live) todas = Object.values(s.cache.players).filter((p) => p.id !== s.me).flatMap((p) => ((p.datos || {}).tiradas || []).filter((b) => b.para === s.me).map((b) => Object.assign({ de: p.id }, b)));
+      else todas = s.me && s.me !== 'rochi' ? [{ id: 'demo-botella', de: 'rochi', t: 'Ojalá este verano dure un poquito más que el anterior.', en: '2026-11-23T20:00:00Z' }] : [];
+      return todas.filter((b) => !leidas.has(b.id)).sort((a, b) => String(a.en).localeCompare(String(b.en)));
+    },
+    leerBotella(id) {
+      if (!id || (s.leidas || []).includes(id)) return false;
+      s.leidas = (s.leidas || []).concat(id); s.coins += D.BOTELLA_AMIGO;
+      save(); pushMe();
+      return true;
+    },
     usedElsewhere(id) { const r = s.cache.players[id]; return !!(live && r && r.datos && r.datos.v); },
     forget() { const c = s.cache; s = blank(); s.cache = c; save(); },
     get xp() { return s.xp; },
@@ -579,6 +616,7 @@ window.STORE = (function () {
       if (id === 'baul') return baulTotal ? Math.floor((100 * (s.recuerdos || []).length) / baulTotal) : 0;
       if (id === 'hallazgos') return api.hallazgos('botella').length + api.hallazgos('galleta').length;
       if (id === 'visitas') return (s.visitas || []).filter((p) => p !== s.me).length;
+      if (id === 'juntos') return Object.keys(s.ach).filter((k) => k.startsWith('juntos:')).length;
       return 0;
     },
     // 'todo': todos los altarcitos de los demás, o todo el kiosco (sin la sombrilla ni la carpa, que no se pueden tener juntas).
@@ -587,7 +625,8 @@ window.STORE = (function () {
       return id === 'visitas' ? D.PEOPLE.length - 1 : D.SHOP.filter((x) => !x.retirado && x.side !== 'R').length;
     },
     logros(baulTotal) {
-      return D.LOGROS.map((l) => {
+      const prueba = (() => { try { return !!localStorage.getItem('colonia.persona'); } catch (e) { return false; } })() || /(^|[?&])persona(&|=|$)/.test(location.search);
+      return D.LOGROS.filter((l) => !l.prueba || prueba).map((l) => {
         const v = api.logroValor(l.id, baulTotal);
         const pasos = l.pasos.map((p, i) => ({ meta: api.logroMeta(l.id, p[0]), todo: p[0] === 'todo', c: p[1] || 0, s: p[2] || 0, ok: !!s.ach['logro:' + l.id + ':' + i] }));
         return Object.assign({}, l, { v, pasos });

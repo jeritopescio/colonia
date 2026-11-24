@@ -35,13 +35,18 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .rain { position: absolute; inset: 0; }
 /* El mar se aclara hacia la orilla y se funde en la arena mojada: no hay línea dura. */
 .sea { position: absolute; z-index: 1; left: 0; right: 0; top: 76%; height: calc(11% + 18px); background: linear-gradient(var(--sea), color-mix(in srgb, var(--sea) 84%, #fff) 48%, color-mix(in srgb, var(--sea) 52%, #fff) 82%); -webkit-mask-image: linear-gradient(#000 76%, transparent); mask-image: linear-gradient(#000 76%, transparent); }
-.sand { position: absolute; left: 0; right: 0; top: 87%; bottom: 0; background: linear-gradient(color-mix(in srgb, var(--sea) 26%, var(--sand)), transparent 46px), radial-gradient(color-mix(in srgb, var(--ink) 11%, transparent) 1px, transparent 1.5px) 0 0 / 14px 14px, var(--sand); }
+.sand { position: absolute; left: 0; right: 0; top: 87%; bottom: -24%; background: linear-gradient(color-mix(in srgb, var(--sea) 26%, var(--sand)), transparent 46px), radial-gradient(color-mix(in srgb, var(--ink) 11%, transparent) 1px, transparent 1.5px) 0 0 / 14px 14px, var(--sand); }
 /* Olitas de puntos: dos capas que van y vienen a destiempo. */
 .orilla { position: absolute; z-index: 2; left: -5%; right: -5%; top: 76%; height: 17%; }
 .orilla canvas { position: absolute; inset: 0; width: 100%; height: 100%; will-change: transform; }
 .ola-a { animation: ola-a 10s ease-in-out infinite alternate; }
 .ola-b { opacity: .4; animation: ola-b 14s ease-in-out infinite alternate; }
 [data-sky-dark="1"] .orilla { opacity: .55; }
+/* Mirando el mar, el horizonte sube un 20 % de la pantalla (como bajar la mirada a la playa): se ve más orilla y más arena. */
+#sky .sea, #sky .orilla, #sky .sand, #sky .sky-grad { transition: transform 1.6s cubic-bezier(.4, 0, .2, 1); }
+#sky .sky-grad { transform-origin: 50% 0; }
+body.mirando #sky .sea, body.mirando #sky .orilla, body.mirando #sky .sand { transform: translateY(-20vh); transform: translateY(-20lvh); }
+body.mirando #sky .sky-grad { transform: scaleY(.74); }
 @keyframes ola-a { from { transform: translate(-7px, 5px); } to { transform: translate(8px, -5px); } }
 @keyframes ola-b { from { transform: translate(9px, -7px); } to { transform: translate(-8px, 3px); } }
 @media (prefers-reduced-motion: reduce) { .clouds i, .ola-a, .ola-b, .stars i { animation: none; } }
@@ -121,19 +126,29 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 .halo-dedo.fuera { opacity: 0 !important; transition: opacity .9s; }
 @keyframes halo-entra { from { transform: scale(.4); opacity: 0; } }
 @keyframes latido { from { transform: scale(.82); } to { transform: scale(1.12); } }
-.volver-mirar { position: absolute; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 6px 16px; border: 1.5px solid color-mix(in srgb, var(--on-sky) 45%, transparent); border-radius: 99px; background: color-mix(in srgb, var(--paper) 30%, transparent); color: var(--on-sky); font-family: var(--display); font-size: .9rem; opacity: .7; cursor: pointer; animation: pop .6s ease-out; }
+.volver-mirar { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); padding: 7px 16px; border: 1.5px solid color-mix(in srgb, var(--on-sky) 45%, transparent); border-radius: 99px; background: color-mix(in srgb, var(--paper) 30%, transparent); color: var(--on-sky); font-family: var(--display); font-size: .9rem; opacity: .7; cursor: pointer; animation: pop .6s ease-out; }
+.botella-mirar { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: max(14px, env(safe-area-inset-left, 0px)); width: 44px; height: 44px; padding: 7px; border: 1.5px solid color-mix(in srgb, var(--on-sky) 45%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--paper) 30%, transparent); opacity: .8; cursor: pointer; animation: pop .6s ease-out; }
+.botella-mirar .ai { position: relative; height: 100%; }
+.pista-mar { position: absolute; left: 50%; top: calc(74px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); text-align: center; padding: 5px 12px; border-radius: 99px; background: color-mix(in srgb, var(--paper) 55%, transparent); color: var(--ink); font-size: .85rem; pointer-events: none; animation: pop .5s ease-out .8s both; transition: opacity 1.2s; }
+.pista-mar.fuera { opacity: 0; }
+.botella-vuela { position: fixed; left: 0; top: 0; z-index: 17; width: 30px; margin: -15px 0 0 -15px; pointer-events: none; }
+.botella-vuela .ai { height: auto; aspect-ratio: var(--ar); }
+.tirar-botella { display: grid; gap: 12px; text-align: center; }
+.tirar-botella textarea { width: 100%; resize: none; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 12px 16px 14px 10px; background: #fff; color: var(--ink); font: 1.05rem var(--hand); }
+.altar .hallazgo.amigo .brillo { color: #fff; text-shadow: 0 0 4px rgba(247, 179, 198, .95), 0 0 1px var(--ink); }
 /* Chispitas: cada una gira y se aleja (rotar + correr a la vez dibuja la espiral), en 1 segundo. */
 .chispas { position: fixed; z-index: 16; width: 0; height: 0; pointer-events: none; }
 .chispas i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2); border-radius: 50%; box-shadow: 0 0 4px 1px rgba(255, 255, 255, .75); opacity: 0; animation: espiral 1s cubic-bezier(.2, .6, .3, 1) forwards; }
 @keyframes espiral { from { transform: rotate(var(--a)) translateX(2px) scale(1); opacity: 1; } 70% { opacity: .85; } to { transform: rotate(calc(var(--a) + var(--g))) translateX(var(--r)) scale(.3); opacity: 0; } }
 /* La personita: de espaldas en la orilla, mirando el horizonte. Los colores (--piel, --rem...) los pone la app según el cielo. */
-#sky .personita { position: absolute; z-index: 3; left: 50%; top: 90%; transform: translate(-50%, -100%); aspect-ratio: 24 / 60; animation: aparece 1.6s ease-out both; transition: left var(--andar, 0s) linear, opacity .9s; }
+#sky .personita { position: absolute; z-index: 3; left: 50%; top: 73.5%; transform: translate(-50%, -100%); aspect-ratio: 24 / 60; animation: aparece 1.6s ease-out both; transition: left var(--andar, 0s) linear, opacity .9s; }
 #sky .personita.se-va { opacity: 0; }
 #sky .personita svg { display: block; width: 100%; height: 100%; overflow: visible; }
 @keyframes aparece { from { opacity: 0; } }
 .personita .trazo { stroke: var(--tinta); stroke-width: .7; stroke-linejoin: round; stroke-linecap: round; transition: stroke 2s; }
 .personita .piel { fill: var(--piel); } .personita .pelo { fill: var(--pelo); } .personita .rem { fill: var(--rem); }
 .personita .ab { fill: var(--ab); } .personita .gorra { fill: var(--gorra); } .personita .zap { fill: var(--zap); }
+.personita .buzo { fill: var(--buzo); } .personita .jog { fill: var(--jog); } .personita .pliegue { fill: none; stroke-width: .5; opacity: .7; }
 .personita .sombra { fill: var(--sombra); stroke: none; transform-box: fill-box; transform-origin: center; transition: transform .9s; }
 .personita path, .personita circle, .personita ellipse { transition: fill 2s; }
 .personita g { transform-box: fill-box; }
@@ -146,22 +161,43 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 .personita.mira-d .cabeza { transform: translateX(.5px) rotate(10deg); }
 /* camina por la orilla: cada pierna se acorta cuando va adelante, y el cuerpo se hamaca */
 .personita .pierna { transform-origin: 50% 0; }
-.personita.camina .pierna { animation: paso .26s ease-in-out infinite alternate; }
-.personita.camina .pierna.d { animation-delay: -.26s; }
+.personita.camina .pierna { animation: paso .42s ease-in-out infinite alternate; }
+.personita.camina .pierna.d { animation-delay: -.42s; }
 @keyframes paso { from { transform: none; } to { transform: translateY(-.6px) scaleY(.9); } }
-.personita.camina .respira { animation: hamaca .52s ease-in-out infinite alternate; }
-@keyframes hamaca { from { transform: translateY(0) rotate(-1.6deg); } to { transform: translateY(-.5px) rotate(1.6deg); } }
+.personita.camina .respira { animation: hamaca .84s ease-in-out infinite alternate; }
+@keyframes hamaca { from { transform: translateY(0) rotate(-1.2deg); } to { transform: translateY(-.4px) rotate(1.2deg); } }
 /* se sienta: lo de arriba baja hasta la arena, las piernas se pliegan y asoman las rodillas */
 .personita .sube { transition: transform 1s cubic-bezier(.5, 0, .3, 1); }
 .personita .piernas { transform-origin: 50% 0; transition: transform .8s ease-in-out, opacity .5s .2s; }
 .personita .rodillas { opacity: 0; transition: opacity .5s; }
-.personita.sentada .sube { transform: translateY(16.6px); }
+.personita .cadera-sentada { opacity: 0; transition: opacity .4s; }
+.personita .cadera { transition: opacity .4s; }
+.personita.sentada .cadera { opacity: 0; }
+.personita.sentada .cadera-sentada { opacity: 1; transition: opacity .4s .35s; }
+.personita.sentada .sube { transform: translateY(16px); }
 .personita.sentada .piernas { transform: scaleY(.3); opacity: 0; transition: transform .8s ease-in-out, opacity .4s; }
 .personita.sentada .rodillas { opacity: 1; transition: opacity .5s .5s; }
 .personita.sentada .sombra { transform: scaleX(1.2); }
+/* saluda: levanta el brazo y lo mueve */
+.personita .brazo { transform-box: fill-box; transform-origin: 50% 4%; }
+.personita.saluda .brazo.d { animation: saluda .42s ease-in-out 5 alternate; }
+@keyframes saluda { from { transform: rotate(-158deg); } to { transform: rotate(-122deg); } }
+.personita .corazon { position: absolute; left: 50%; bottom: 100%; margin-left: -6px; color: #f28aa8; font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff; pointer-events: none; animation: corazon 1.9s ease-out forwards; }
+@keyframes corazon { from { transform: translateY(4px) scale(.4); opacity: 0; } 20% { transform: translateY(-4px) scale(1.1); opacity: 1; } to { transform: translateY(-34px) scale(.9); opacity: 0; } }
+/* con 3 o más: fogatita (atardecer y noche) o sombrilla y reposera (de día) */
+#sky .cosa-mar { position: absolute; z-index: 3; transform: translate(-50%, -100%); pointer-events: none; animation: aparece 1.6s ease-out both; transition: opacity .9s; }
+#sky .cosa-mar.se-va { opacity: 0; }
+#sky .cosa-mar .ai { height: auto; aspect-ratio: var(--ar); }
+#sky .cosa-mar.fogata { z-index: 4; }
+#sky .cosa-mar.fogata::before { content: ""; position: absolute; left: 50%; top: 55%; width: 120px; height: 70px; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(rgba(255, 190, 110, .42), rgba(255, 160, 90, .12) 45%, transparent 70%); animation: fuego 1.8s ease-in-out infinite alternate; z-index: -1; }
+@keyframes fuego { from { opacity: .75; transform: translate(-50%, -50%) scale(.94); } to { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } }
+[data-sky-dark="1"] #sky .cosa-mar.sombrilla, [data-sky-dark="1"] #sky .cosa-mar.reposera { filter: brightness(.45); }
+/* estrella fugaz: cuando dos se quedan sentados juntos de noche */
+.estrella-fugaz { position: absolute; z-index: 1; width: 110px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff); transform: rotate(20deg); animation: fugaz 1.4s ease-out forwards; pointer-events: none; }
+@keyframes fugaz { from { opacity: 0; translate: -40px 0; } 15% { opacity: 1; } to { opacity: 0; translate: 220px 80px; } }
 /* de quién es, al tocarla */
 .personita .globito { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); padding: 2px 9px; border: 1.5px solid var(--ink); border-radius: 99px; background: var(--paper); color: var(--ink); font-family: var(--display); font-size: .78rem; white-space: nowrap; animation: pop .3s ease-out; }
-@media (prefers-reduced-motion: reduce) { .chispas { display: none; } .personita .respira { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .chispas { display: none; } .personita .respira { animation: none; } #sky .sea, #sky .orilla, #sky .sand, #sky .sky-grad { transition: none; } }
 
 /* gaviotas del inicio */
 #gaviotas { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; transition: opacity 1.5s; }

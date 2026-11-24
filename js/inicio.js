@@ -68,15 +68,17 @@ window.INICIO = (function () {
 
     // Maza con fieltro: fundamental redonda, parciales apenas desafinados que se apagan rápido y un soplido al golpear.
     // Entra y sale con un fundido corto (desde cero, en línea recta) para que no haga clic. "suave": sin el parcial más agudo y con menos soplido.
-    function nota(t, n, v, p, suave) {
+    // "salida": por dónde sale (la melodía tiene la suya, para poder callarla); "armonicos": cuánto más fuertes van los parciales (las graves).
+    function nota(t, n, v, p, suave, salida, armonicos = 1) {
       const dur = azar(3.3, 4.8), f = hz(n) * (1 + azar(-0.0009, 0.0009)), entra = azar(0.014, 0.022);
-      const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.frequency.value = suave ? 2200 : 2500; fil.Q.value = 0.3;
-      const pan = paneo(p); fil.connect(pan); enviar(pan, 0.72, 0.62);
-      [[1, 1, 1], [2, 0.2, 0.52], [3.01, 0.055, 0.28], [4.17, 0.022, 0.13]].slice(0, suave ? 3 : 4).forEach(([m, a, d]) => {
+      const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.frequency.value = Math.max(suave ? 2200 : 2500, f * 1.7); fil.Q.value = 0.3;
+      const pan = paneo(p); fil.connect(pan);
+      if (salida) pan.connect(salida); else enviar(pan, 0.72, 0.62);
+      [[1, 1, 1], [2, 0.2, 0.52], [3.01, 0.055, 0.28], [4.17, 0.022, 0.13]].slice(0, suave && armonicos <= 1 ? 3 : 4).forEach(([m, a, d]) => {
         const o = ctx.createOscillator(), g = ctx.createGain(), fin = t + dur * d;
         o.type = 'sine'; o.frequency.value = f * m;
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.15 * v * a, t + entra);
+        g.gain.linearRampToValueAtTime(0.15 * v * a * (m > 1 ? armonicos : 1), t + entra);
         g.gain.exponentialRampToValueAtTime(0.0004, fin);
         g.gain.linearRampToValueAtTime(0, fin + 0.03);
         o.connect(g); g.connect(fil); vive(o, [t, fin + 0.06]);
@@ -131,7 +133,8 @@ window.INICIO = (function () {
       if (registro) registro.gaviotas.push(t);
     }
 
-    // Una frase corta: camina por la escala y descansa en una nota del acorde que esté sonando.
+    // Una frase corta: camina por la escala y descansa en una nota del acorde que esté sonando. Sale por melG, que se puede callar.
+    const melG = ctx.createGain(); enviar(melG, 0.72, 0.62);
     const t0 = arranque + 0.1;
     let tAcorde = t0, iAcorde = 0, tFrase = t0 + 5.5, tOla = t0 + 0.2, idx = 2;
     function frase() {
@@ -144,62 +147,73 @@ window.INICIO = (function () {
         idx = Math.max(0, Math.min(ESCALA.length - 1, idx + dir * uno([1, 1, 1, 2])));
         const m = fin ? (Math.random() < 0.62 ? a.meta[3] : uno(a.meta)) : ESCALA[idx];
         const arco = Math.sin(((i + 0.6) / (n + 0.2)) * Math.PI);
-        nota(tFrase + azar(-0.05, 0.05), m, 0.66 + 0.26 * arco + azar(-0.06, 0.06), lado + azar(-0.12, 0.12));
+        nota(tFrase + azar(-0.05, 0.05), m, 0.66 + 0.26 * arco + azar(-0.06, 0.06), lado + azar(-0.12, 0.12), false, melG);
         tFrase += (fin ? uno([2, 2.5, 3]) : uno([1, 1, 1.5, 2])) * PULSO;
       }
       tFrase += azar(0.5, 2.6) * PULSO;
     }
 
-    // Un toque en el mar: una nota de la escala una octava arriba de la melodía. Más abajo en la pantalla, más grave; más arriba, más aguda,
-    // con un poco de azar (a veces sale la vecina). Toda la escala es pentatónica de fa: encaja con cualquiera de los tres acordes.
+    // Un toque en el mar: una nota de la pentatónica de fa, de fa grave (abajo de la pantalla) a fa sobreagudo (arriba), con un poco
+    // de azar (a veces sale la vecina). Toda la escala encaja con cualquiera de los tres acordes. Más arriba suena más bajito, pero
+    // nunca menos que un piso. Las graves llevan más armónicos para que se oigan en el parlante del celu.
     // Se programa 35 ms adelante: si el celu tarda en avisarle al audio, la nota igual arranca desde cero y no hace clic.
-    const ARRIBA = [77, 79, 81, 84, 86, 89, 91, 93, 96];
+    const PENTA = [5, 7, 9, 0, 2]; // fa sol la do re
+    const ARRIBA = []; for (let n = 41; n <= 101; n++) if (PENTA.includes(n % 12)) ARRIBA.push(n); // fa2 a fa7: 26 notas
     const lado = (p) => Math.max(-0.8, Math.min(0.8, p));
     const acordeAhora = () => Math.floor(Math.max(0, ctx.currentTime - t0) / ACORDE) % ACORDES.length;
-    function toque(p, alto) {
-      const i = Math.round(Math.max(0, Math.min(1, alto)) * (ARRIBA.length - 1) + azar(-0.7, 0.7));
-      nota(ctx.currentTime + 0.035, ARRIBA[Math.max(0, Math.min(ARRIBA.length - 1, i))], azar(0.3, 0.42), lado(p + azar(-0.1, 0.1)), true);
+    const cero1 = (v) => Math.max(0, Math.min(1, v));
+    function toque(p, alto, cuanto = 1) {
+      alto = cero1(alto);
+      const i = Math.max(0, Math.min(ARRIBA.length - 1, Math.round(alto * (ARRIBA.length - 1) + azar(-0.7, 0.7))));
+      const v = (0.13 + 0.33 * Math.pow(1 - alto, 0.9)) * azar(0.9, 1.05) * cuanto; // abajo 0,46; arriba nunca menos de 0,13
+      nota(ctx.currentTime + 0.035, ARRIBA[i], v, lado(p + azar(-0.1, 0.1)), true, null, 1 + 1.8 * Math.pow(1 - alto, 1.5));
     }
 
     // Dejar el dedo apoyado: un colchón de sierras suaves por un filtro que resuena (otra textura que el de fondo, que es de triángulos).
-    // Toca tres notas del acorde que suena y, si cambia el acorde, se desliza a las nuevas. Una onda lenta mueve el volumen y el filtro:
-    // con el dedo abajo oscila lento; arriba, rápido y más bajito.
-    function sostener(alto, p) {
-      const t = ctx.currentTime + 0.035, notas = (j) => { const m = ACORDES[j].meta; return [m[0], m[1], m[3]]; };
-      let ia = acordeAhora();
+    // Arriba y abajo cambia la nota: siempre notas del acorde que suena, de a un paso por vez y deslizándose, sin saltos bruscos.
+    // A los costados cambia la onda que mueve el volumen y el filtro: a la izquierda oscila lento; a la derecha, rápido y más bajito.
+    // Si cambia el acorde mientras está apoyado, se desliza a las notas nuevas.
+    function sostener(alto, x) {
+      const t = ctx.currentTime + 0.035;
+      // Las notas del acorde j entre la2 y mi6, de grave a aguda. Cada voz toma una de por medio (i, i+2, i+4): acordes abiertos.
+      const delAcorde = (j) => { const a = ACORDES[j], pcs = new Set([a.bajo, ...a.voces, ...a.meta].map((n) => n % 12)); const l = []; for (let n = 45; n <= 88; n++) if (pcs.has(n % 12)) l.push(n); return l; };
+      let ia = acordeAhora(), lista = delAcorde(ia), donde = cero1(alto), paso = Math.round(donde * (lista.length - 5));
+      const voces = () => [lista[paso], lista[paso + 2], lista[paso + 4]];
       const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.Q.value = 5; fil.frequency.value = 900;
       const trem = ctx.createGain(); trem.gain.value = 0.68;
       const vol = ctx.createGain(); vol.gain.value = 1;
       const env = ctx.createGain(); env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(1, t + 0.7);
-      const pan = paneo(lado(p));
+      const pan = paneo(lado(x * 2 - 1));
       fil.connect(trem); trem.connect(vol); vol.connect(env); env.connect(pan); enviar(pan, 0.5, 0.9);
       const lfo = ctx.createOscillator(), lfoA = ctx.createGain(), lfoF = ctx.createGain();
       lfo.type = 'sine'; lfoA.gain.value = 0.32; lfoF.gain.value = 420;
       lfo.connect(lfoA); lfoA.connect(trem.gain); lfo.connect(lfoF); lfoF.connect(fil.frequency);
       vive(lfo, [t, null]);
       const oscs = [];
-      notas(ia).forEach((n, v) => {
+      voces().forEach((n, v) => {
         const g = ctx.createGain(); g.gain.value = v === 2 ? 0.05 : 0.072; g.connect(fil);
         [-1, 1].forEach((l) => {
           const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz(n); o.detune.value = l * azar(5, 9);
           o.connect(g); vive(o, [t, null]); oscs.push({ o, v });
         });
       });
-      function mover(a, q) {
-        a = Math.max(0, Math.min(1, a));
+      const afinar = (tau) => { const ns = voces(); oscs.forEach(({ o, v }) => o.frequency.setTargetAtTime(hz(ns[v]), ctx.currentTime, tau)); };
+      function mover(a, xx) {
+        donde = cero1(a); xx = cero1(xx);
         const ahora = ctx.currentTime;
-        lfo.frequency.setTargetAtTime(0.35 * Math.pow(8 / 0.35, a), ahora, 0.06); // de 0,35 a 8 oscilaciones por segundo
-        vol.gain.setTargetAtTime(1 - 0.6 * a, ahora, 0.08);
-        fil.frequency.setTargetAtTime(780 + 520 * a, ahora, 0.1);
-        if (pan.pan && q != null) pan.pan.setTargetAtTime(lado(q), ahora, 0.1);
+        lfo.frequency.setTargetAtTime(0.35 * Math.pow(8 / 0.35, xx), ahora, 0.06); // de 0,35 a 8 oscilaciones por segundo
+        vol.gain.setTargetAtTime(1 - 0.6 * xx, ahora, 0.08);
+        fil.frequency.setTargetAtTime(780 + 520 * xx, ahora, 0.1);
+        if (pan.pan) pan.pan.setTargetAtTime(lado(xx * 2 - 1), ahora, 0.1);
       }
-      mover(alto, null);
+      mover(alto, x);
+      // Cada 120 ms: si el dedo pide otra nota, da un solo paso hacia ella; si cambió el acorde, toma sus notas.
       const vigia = setInterval(() => {
         const j = acordeAhora();
-        if (j === ia) return;
-        ia = j; const ns = notas(j);
-        oscs.forEach(({ o, v }) => o.frequency.setTargetAtTime(hz(ns[v]), ctx.currentTime, 0.35));
-      }, 250);
+        if (j !== ia) { ia = j; lista = delAcorde(j); paso = Math.min(paso, lista.length - 5); afinar(0.35); }
+        const quiere = Math.round(donde * (lista.length - 5));
+        if (quiere !== paso) { paso += quiere > paso ? 1 : -1; afinar(0.07); }
+      }, 120);
       let suelto = false;
       function soltar() {
         if (suelto) return;
@@ -211,6 +225,12 @@ window.INICIO = (function () {
         try { lfo.stop(ahora + 1.5); } catch (e) { /* ya paró */ }
       }
       return { mover, soltar };
+    }
+    // La melodía de la app se calla (fundido) mientras alguien toca mucho, y vuelve después.
+    function melodia(si) {
+      const ahora = ctx.currentTime, g = melG.gain;
+      if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(ahora); else { const v = g.value; g.cancelScheduledValues(ahora); g.setValueAtTime(v, ahora); }
+      g.linearRampToValueAtTime(si ? 1 : 0, ahora + (si ? 2.5 : 1.5));
     }
 
     function hasta(T) {
@@ -231,7 +251,7 @@ window.INICIO = (function () {
       vivos.clear();
       master.disconnect(); comp.disconnect(); rev.disconnect();
     }
-    return { hasta, nivel, gaviota, cerrar, master, toque, sostener };
+    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia };
   }
 
   // ---------- encendido y apagado ----------
@@ -248,6 +268,7 @@ window.INICIO = (function () {
     if (c.state !== 'running') { c.resume().catch(() => {}); return; }
     clearTimeout(corte); corte = null;
     if (!motor) {
+      tocadas = 0; callada = false;
       motor = crearMotor(c, c.destination);
       motor.hasta(c.currentTime + 5);
       reloj = setInterval(() => motor && motor.hasta(c.currentTime + 5), 800);
@@ -261,6 +282,16 @@ window.INICIO = (function () {
       clearInterval(reloj); reloj = null; corte = null;
       if (motor) { motor.cerrar(); motor = null; }
     }, seg * 1000 + 150);
+  }
+  // Si alguien toca más de 10 notas seguidas, la melodía de la app se va con un fundido; 2 s después de la última nota
+  // (o de soltar el dedo apoyado) vuelve. Cuentan también las notas de los amigos que miran el mar al mismo tiempo.
+  let tocadas = 0, callada = false, quietoT = null, sosteniendo = 0;
+  function esperar() { clearTimeout(quietoT); if (!sosteniendo) quietoT = setTimeout(volverMelodia, 2000); }
+  function volverMelodia() { tocadas = 0; if (callada) { callada = false; if (motor) motor.melodia(true); } }
+  function actividad() {
+    tocadas++;
+    if (tocadas > 10 && !callada && motor) { callada = true; motor.melodia(false); }
+    esperar();
   }
   function acomodar(seg = 4.5) {
     if (enPortada && quiere() && !document.hidden) encender(); else apagar(document.hidden ? 0.5 : seg);
@@ -335,9 +366,17 @@ window.INICIO = (function () {
       gaviotasOff(); acomodar();
     },
     alternar,
-    // p: de -1 (izquierda) a 1 (derecha); alto: de 0 (abajo de la pantalla) a 1 (arriba).
-    toque(p, alto) { if (motor && !corte) motor.toque(p, alto == null ? 0.5 : alto); },
-    sostener(alto, p) { return motor && !corte ? motor.sostener(alto, p) : null; },
+    // p: de -1 (izquierda) a 1 (derecha); alto: de 0 (abajo de la pantalla) a 1 (arriba); cuanto: volumen (los amigos, un poco más bajo).
+    toque(p, alto, cuanto) { if (motor && !corte) { motor.toque(p, alto == null ? 0.5 : alto, cuanto || 1); actividad(); } },
+    // El colchón del dedo apoyado. alto: 0 abajo, 1 arriba (la nota); x: 0 izquierda, 1 derecha (la oscilación).
+    sostener(alto, x) {
+      if (!motor || corte) return null;
+      const pad = motor.sostener(alto, x);
+      sosteniendo++; clearTimeout(quietoT);
+      let suelto = false;
+      return { mover: pad.mover, soltar() { if (suelto) return; suelto = true; pad.soltar(); sosteniendo = Math.max(0, sosteniendo - 1); esperar(); } };
+    },
+    bandada() { soltar(0); setTimeout(() => enPortada && soltar(0.05), 900); },
     sonando: () => !!motor && !corte,
     _motor: crearMotor, // para medir la música sin parlantes
   };

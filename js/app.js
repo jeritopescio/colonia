@@ -167,6 +167,7 @@
     corrida: (t) => sinTilde(t).replace(/[a-z]/gi, (c) => { const A = c <= 'Z' ? 65 : 97; return String.fromCharCode((c.charCodeAt(0) - A + 1) % 26 + A); }),
   };
   function abrirHallazgo(el) {
+    if (el.dataset.hallazgo === 'amigo') return abrirBotellaAmigo(el);
     const tipo = el.dataset.hallazgo, h = HZ[tipo], lista = tipo === 'botella' ? h.mensajes : h.frases;
     const i = barajar(lista.length, tipo + S.me)[S.hallazgos(tipo).length % lista.length];
     if (!S.hallar(tipo, SKY.arDate(), i, h.c)) return;
@@ -246,7 +247,7 @@
       ${ref}
       <div class="it fixed cartel" style="left:${((K - 0.14) / K * 100).toFixed(2)}%;top:57%;width:${(cw / K).toFixed(2)}%;z-index:3">${ARTE.cartel(esc(name))}</div>
       ${placed.map(({ it, p }, i) => itHTML(pid, it, p, i, K)).join('')}
-      ${editable && pid === S.me ? ['botella', 'galleta'].map((t) => hallazgoHoy(t, K)).filter(Boolean).map(hallazgoHTML).join('') : ''}
+      ${editable && pid === S.me ? ['botella', 'galleta'].map((t) => hallazgoHoy(t, K)).filter(Boolean).map(hallazgoHTML).join('') + botellaAmigoHTML(K) : ''}
       ${!a.items.length && !R ? `<div class="vacio">${editable ? 'Tu playa está vacía.<br>Pasá por el kiosco.' : 'Todavía está vacía.'}</div>` : ''}
     </div><div class="zoombar"><button data-z="-1" aria-label="Alejar">−</button><button data-z="1" aria-label="Acercar">+</button></div></div>`;
   }
@@ -1828,29 +1829,34 @@
   }
 
   // ---------- mirar el mar ----------
-  // Se esconde todo y queda la playa. Tocar deja chispitas que giran en espiral y una nota de la música, una octava más arriba:
-  // más abajo, más grave; más arriba, más aguda. Dejar el dedo apoyado suma un colchón que oscila (lento abajo, rápido y bajito arriba).
+  // Se esconde todo, el horizonte sube y queda la playa. Tocar deja chispitas en espiral y una nota de la pentatónica de fa:
+  // abajo, grave; arriba, aguda y más bajita. Dejar el dedo apoyado suma un colchón: arriba y abajo cambia la nota (del acorde,
+  // de a un paso); a los costados, la oscilación (a la izquierda lenta, a la derecha rápida y más bajita).
+  // Arriba a la derecha, "volver"; arriba a la izquierda, la botella para tirarle un mensaje a alguien de la colonia.
   let dedo = null; // el dedo apoyado: { id, t (para empezar el colchón), pad, halo, ult }
   const SOSTENER_MS = 320;
   function mirarMar() {
-    document.body.classList.add('quieto');
+    document.body.classList.add('quieto', 'mirando');
     const capa = document.createElement('div');
     capa.className = 'mirar-capa';
-    capa.innerHTML = '<button class="volver-mirar" data-mudo>volver</button>';
+    capa.innerHTML = `<button class="volver-mirar" data-mudo>volver</button>
+      <button class="botella-mirar" data-mudo aria-label="Tirar una botella al mar">${ARTE.item('botella')}</button>`;
     document.body.appendChild(capa);
     capa.querySelector('.volver-mirar').addEventListener('click', salirDelMar);
-    const alto = (e) => 1 - e.clientY / innerHeight, lado = (e) => (e.clientX / innerWidth) * 2 - 1;
+    capa.querySelector('.botella-mirar').addEventListener('click', tirarBotella);
+    const alto = (e) => 1 - e.clientY / innerHeight, lado = (e) => (e.clientX / innerWidth) * 2 - 1, equis = (e) => e.clientX / innerWidth;
     capa.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.volver-mirar')) return;
+      if (e.target.closest('button')) return;
+      if (tocarPersonita(e.clientX, e.clientY)) return; // a una personita se la toca para sentarse o saludar, no suena
       chispas(e.clientX, e.clientY);
       INICIO.toque(lado(e), alto(e));
-      nombrarPersonita(e.clientX, e.clientY);
+      mandarNota(e);
       if (dedo) return; // un solo colchón a la vez; los otros dedos solo tocan notas
       try { capa.setPointerCapture(e.pointerId); } catch (err) { /* sin captura igual anda */ }
       const d = (dedo = { id: e.pointerId, x: e.clientX, y: e.clientY, ult: 0 });
       d.t = setTimeout(() => {
         if (dedo !== d) return;
-        d.pad = INICIO.sostener(1 - d.y / innerHeight, (d.x / innerWidth) * 2 - 1);
+        d.pad = INICIO.sostener(1 - d.y / innerHeight, d.x / innerWidth);
         d.halo = document.createElement('div');
         d.halo.className = 'halo-dedo';
         document.body.appendChild(d.halo);
@@ -1862,19 +1868,28 @@
       if (!d || e.pointerId !== d.id) return;
       d.x = e.clientX; d.y = e.clientY;
       if (!d.halo) return;
-      if (d.pad) d.pad.mover(alto(e), lado(e));
+      if (d.pad) d.pad.mover(alto(e), equis(e));
       moverHalo(d);
       if (performance.now() - d.ult > 140) { d.ult = performance.now(); chispas(d.x, d.y, 4); }
     });
     const suelta = (e) => { if (dedo && e.pointerId === dedo.id) soltarDedo(); };
     capa.addEventListener('pointerup', suelta);
     capa.addEventListener('pointercancel', suelta);
-    if (conPersona()) S.mirarElMar(true); // los demás que estén mirando el mar te ven en su orilla
-    ponerPersonitas();
+    if (conPersona()) {
+      S.mirarElMar(true); // los demás que estén mirando el mar te ven en su orilla
+      S.enviarMar({ t: 'hola', como: quienMira() });
+      const p = document.createElement('div');
+      p.className = 'pista-mar';
+      p.textContent = 'Tocá tu personita para sentarte · tocá a otra para saludarla';
+      capa.appendChild(p);
+      setTimeout(() => p.classList.add('fuera'), 5500);
+    }
+    armarEscena();
+    clearInterval(relojMar); relojMar = setInterval(latidoMar, 1000);
   }
-  // El halo late al mismo ritmo que el colchón: lento abajo, rápido arriba.
+  // El halo late al mismo ritmo que el colchón: a la izquierda lento, a la derecha rápido (y más tenue).
   function moverHalo(d) {
-    const a = Math.max(0, Math.min(1, 1 - d.y / innerHeight));
+    const a = clamp(d.x / innerWidth, 0, 1);
     d.halo.style.left = d.x + 'px'; d.halo.style.top = d.y + 'px';
     d.halo.style.setProperty('--p', (1 / (0.35 * Math.pow(8 / 0.35, a)) / 2).toFixed(3) + 's');
     d.halo.style.opacity = (1 - 0.5 * a).toFixed(2);
@@ -1888,46 +1903,120 @@
   }
   function salirDelMar() {
     soltarDedo();
-    document.body.classList.remove('quieto');
+    document.body.classList.remove('quieto', 'mirando');
     document.querySelectorAll('.mirar-capa').forEach((n) => n.remove());
-    sacarPersonitas();
+    clearInterval(relojMar); relojMar = null;
+    sacarEscena();
     S.mirarElMar(false);
   }
   const CHISPA = ['#ffffff', '#fff6d8', '#ffe39a', '#c9ecfa', '#f9d9e4'];
-  function chispas(x, y, cuantas = 12) {
+  function chispas(x, y, cuantas = 12, colores = CHISPA) {
     const c = document.createElement('div');
     c.className = 'chispas'; c.style.left = x + 'px'; c.style.top = y + 'px';
     c.innerHTML = Array.from({ length: cuantas }, (_, i) => {
       const giro = (150 + Math.random() * 170) * (i % 2 ? 1 : -1);
-      return `<i style="--a:${Math.round((i * 360) / cuantas + Math.random() * 24)}deg;--g:${Math.round(giro)}deg;--r:${Math.round(12 + Math.random() * 22)}px;--s:${(1.6 + Math.random() * 1.8).toFixed(1)}px;background:${CHISPA[i % CHISPA.length]}"></i>`;
+      return `<i style="--a:${Math.round((i * 360) / cuantas + Math.random() * 24)}deg;--g:${Math.round(giro)}deg;--r:${Math.round(12 + Math.random() * 22)}px;--s:${(1.6 + Math.random() * 1.8).toFixed(1)}px;background:${colores[i % colores.length]}"></i>`;
     }).join('');
     document.body.appendChild(c);
     setTimeout(() => c.remove(), 1100);
   }
+
+  // ---------- la botella entre amigos ----------
+  // Una por día: el mensaje le llega flotando al altarcito de alguien de la colonia, al azar (quien la tira no sabe a quién).
+  function tirarBotella() {
+    if (!S.me) return toast('<span>Primero entrá a la colonia para tirar botellas.</span>');
+    if (S.botellaHoy()) return toast('<span>Ya tiraste una botella hoy. Mañana podés tirar otra.</span>', 3600);
+    sheet(`<div class="tirar-botella"><div class="eyebrow">Una botella al mar</div>
+      <p class="small muted" style="margin:0">Le va a llegar flotando al altarcito de alguien de la colonia, al azar. Una por día.</p>
+      <textarea id="msjBotella" maxlength="140" rows="3" placeholder="Escribí tu mensaje"></textarea>
+      <div class="row" style="justify-content:center"><button class="btn ghost" data-close>${NAH}</button><button class="btn" id="tirar" data-mudo style="--c:var(--celeste)">Tirarla al mar</button></div></div>`,
+    (bg) => {
+      const ta = bg.querySelector('#msjBotella');
+      setTimeout(() => ta.focus(), 250);
+      bg.querySelector('#tirar').addEventListener('click', () => {
+        const t = ta.value.trim();
+        if (!t) { ta.focus(); return; }
+        if (!S.tirarBotella(t)) return;
+        bg.remove();
+        vuelaBotella();
+        setTimeout(() => toast('<span>Tu botella va flotando hacia el altarcito de alguien de la colonia.</span>', 4200), 1300);
+      });
+    });
+  }
+  // Sale de abajo, hace un arco y cae al mar (con un chapuzón de chispitas).
+  function vuelaBotella() {
+    const b = document.createElement('div');
+    b.className = 'botella-vuela'; b.innerHTML = ARTE.item('botella');
+    document.body.appendChild(b);
+    const x0 = innerWidth * 0.5, y0 = innerHeight * 0.92, x1 = innerWidth * (0.3 + Math.random() * 0.4), y1 = innerHeight * 0.6;
+    b.animate([
+      { transform: `translate(${x0}px, ${y0}px) rotate(0deg) scale(1)` },
+      { transform: `translate(${(x0 + x1) / 2}px, ${innerHeight * 0.32}px) rotate(260deg) scale(.75)`, offset: 0.5 },
+      { transform: `translate(${x1}px, ${y1}px) rotate(520deg) scale(.45)` },
+    ], { duration: 1200, easing: 'cubic-bezier(.3,.1,.5,1)' }).onfinish = () => {
+      b.remove(); chispas(x1, y1, 10, ['#ffffff', '#c9ecfa', '#a9d6f0']); SONIDO.chap(0.5);
+    };
+  }
+  // En tu altarcito: la primera botella de un amigo que no abriste, flotando en el agua.
+  function botellaAmigoHTML(K) {
+    const b = S.botellasParaMi()[0];
+    if (!b) return '';
+    const r = rnd(b.id), x = 0.18 + r() * (K - 0.36), y = 0.47 + r() * 0.02, w = (ARTE.size('botella').w / 4 * ESCALA * 0.9 / K).toFixed(2);
+    return `<div class="it hallazgo botella amigo mar flota" data-hallazgo="amigo" data-bid="${esc(b.id)}" role="button" tabindex="0" aria-label="Llegó una botella de alguien de la colonia"
+      style="left:${(x / K * 100).toFixed(2)}%;top:${(y * 100).toFixed(2)}%;width:${w}%;z-index:61">${ARTE.item('botella')}<i class="brillo" aria-hidden="true">♥</i></div>`;
+  }
+  function abrirBotellaAmigo(el) {
+    const b = S.botellasParaMi().find((x) => x.id === el.dataset.bid);
+    if (!b || !S.leerBotella(b.id)) return;
+    el.classList.add('se-va');
+    SONIDO.monedas(D.BOTELLA_AMIGO);
+    const de = person(b.de);
+    sheet(`<div class="hallazgo-hoja"><div class="eyebrow">Llegó una botella</div>
+      <span class="chip" style="--c:var(--butter)">+${D.BOTELLA_AMIGO} <span class="coin"></span></span>
+      <div class="papel"><p class="msj claro">${esc(b.t)}</p></div>
+      ${de ? `<p class="regalado">Te la tiró <button class="amigo" data-de="${de.id}"><img class="face" src="${face(de.id)}" alt="">${esc(de.n)}</button> desde el mar</p>` : ''}
+      <button class="btn" data-close>Guardarla</button></div>`,
+    (bg) => { const a = bg.querySelector('[data-de]'); if (a) a.addEventListener('click', () => { bg.remove(); carta(a.dataset.de); }); });
+    setTimeout(render, 450);
+  }
+
   // ---------- la personita ----------
-  // Quien mira el mar, chiquita y de espaldas en la orilla. Si alguien más está mirando el mar en ese momento, aparece también.
-  // Los colores salen del cielo: de día, apagados y con la luz del lugar (más grises si está nublado); al atardecer, a contraluz;
-  // de noche, una silueta negra. Se mueve sola: respira, mira a los costados, camina un poco por la orilla y a veces se sienta.
-  // EN PRUEBA: solo con ?persona en la dirección (?persona=juani para verte como otra persona).
-  // pelo, largo (0 corto, 1 colita, 2 largo, 3 rodete), gorra, rem (remera), ab (short o pantalón; abL: 1 si es largo), cm.
+  // Quien mira el mar, chiquita y de espaldas en la orilla. Quienes estén mirando el mar al mismo tiempo aparecen también:
+  // cada celu mueve su propia personita y les cuenta a los demás dónde está y qué hace (canal de presencia de Supabase).
+  // Los colores salen del cielo: de día, apagados y con la luz del lugar; al atardecer, cálidos; de noche, silueta negra.
+  // De día van en malla; de noche (o con lluvia), con buzo holgado con capucha y jogging.
+  // Se mueve sola, tranquila: respira, mira a los costados y cada tanto da unos pasos. Tocarla la sienta (al lado de alguien que
+  // esté sentado, si hay); tocar a otra la saluda. Si dos se quedan sentadas juntas un rato, pasa una estrella fugaz (de noche)
+  // o una bandada (de día). Con 3 o más: fogatita al atardecer y de noche; sombrilla y reposera de día.
+  // EN PRUEBA: solo con ?persona en la dirección (queda recordado en el celu; ?persona=no lo saca; ?persona=juani te muestra como otra).
+  // pelo, largo (0 corto, 1 colita, 2 largo, 3 rodete), gorra, rem (remera), ab (short o pantalón; abL: 1 si es largo), cm,
+  // malla ('short': de baño, sin remera; 'enteriza': malla entera, del color de la remera).
   const PERSONITAS = {
-    jero: { pelo: '#2b211c', largo: 0, rem: '#7d9b55', ab: '#6b4a32', cm: 173 },
-    viqui: { pelo: '#8a6a4c', largo: 2, rem: '#2e2a33', ab: '#d9c3a2', cm: 152 },
-    pachi: { pelo: '#c9a46c', largo: 3, rem: '#f4f1ea', ab: '#9fb4c8', abL: 1, cm: 150 },
-    juani: { pelo: '#e2c27a', largo: 2, rem: '#cfae86', ab: '#7f9fc0', cm: 168 },
-    nico: { pelo: '#2b211c', largo: 0, rem: '#4a4650', ab: '#3a3640', abL: 1, cm: 178 },
-    rochi: { pelo: '#4a3024', largo: 2, rem: '#f6f2ee', ab: '#5fb896', cm: 165 },
-    jose: { pelo: '#231a16', largo: 0, rem: '#6d6a70', ab: '#6b5038', cm: 150 },
-    nachote: { pelo: '#231a16', largo: 0, rem: '#3a3438', ab: '#2f2b30', abL: 1, cm: 169 },
-    juli: { pelo: '#2b1d17', largo: 1, rem: '#2b282e', ab: '#a9c0d6', cm: 170 },
-    rich: { pelo: '#231a16', largo: 0, gorra: '#1f1d22', rem: '#a7a9ad', ab: '#2f3f68', cm: 179 },
-    sofi: { pelo: '#6b4632', largo: 2, rem: '#f0b9a8', ab: '#7f9fc0', cm: 170 },
-    chino: { pelo: '#231a16', largo: 0, rem: '#4f6f8f', ab: '#5b5348', cm: 174 },
-    grego: { pelo: '#3a2a20', largo: 0, rem: '#e7e1d6', ab: '#56708a', cm: 179 },
+    jero: { pelo: '#2b211c', largo: 0, rem: '#7d9b55', ab: '#6b4a32', cm: 173, malla: 'short' },
+    viqui: { pelo: '#8a6a4c', largo: 2, rem: '#2e2a33', ab: '#d9c3a2', cm: 152, malla: 'enteriza' },
+    pachi: { pelo: '#c9a46c', largo: 3, rem: '#f4f1ea', ab: '#9fb4c8', abL: 1, cm: 150, malla: 'enteriza' },
+    juani: { pelo: '#e2c27a', largo: 2, rem: '#cfae86', ab: '#7f9fc0', cm: 168, malla: 'enteriza' },
+    nico: { pelo: '#2b211c', largo: 0, rem: '#4a4650', ab: '#3a3640', abL: 1, cm: 178, malla: 'short' },
+    rochi: { pelo: '#4a3024', largo: 2, rem: '#f6f2ee', ab: '#5fb896', cm: 165, malla: 'enteriza' },
+    jose: { pelo: '#231a16', largo: 0, rem: '#6d6a70', ab: '#6b5038', cm: 150, malla: 'enteriza' },
+    nachote: { pelo: '#231a16', largo: 0, rem: '#3a3438', ab: '#2f2b30', abL: 1, cm: 169, malla: 'short' },
+    juli: { pelo: '#2b1d17', largo: 1, rem: '#2b282e', ab: '#a9c0d6', cm: 170, malla: 'enteriza' },
+    rich: { pelo: '#231a16', largo: 0, gorra: '#1f1d22', rem: '#a7a9ad', ab: '#2f3f68', cm: 179, malla: 'short' },
+    sofi: { pelo: '#6b4632', largo: 2, rem: '#f0b9a8', ab: '#7f9fc0', cm: 170, malla: 'enteriza' },
+    chino: { pelo: '#231a16', largo: 0, rem: '#4f6f8f', ab: '#5b5348', cm: 174, malla: 'short' },
+    grego: { pelo: '#3a2a20', largo: 0, rem: '#e7e1d6', ab: '#56708a', cm: 179, malla: 'short' },
   };
-  const PX_CM = 0.17; // a qué distancia están: 1,73 m son unos 29 px
-  const conPersona = () => new URLSearchParams(location.search).has('persona');
-  const quienMira = () => { const q = new URLSearchParams(location.search).get('persona'); return PERSONITAS[q] ? q : PERSONITAS[S.me] ? S.me : 'jero'; };
+  const PX_CM = 0.19; // a qué distancia están: 1,73 m son unos 33 px
+  // ?persona prende la prueba y queda guardado en este celu (así también anda la app instalada); ?persona=no la apaga.
+  (() => {
+    const q = new URLSearchParams(location.search);
+    if (!q.has('persona')) return;
+    try { if (q.get('persona') === 'no') localStorage.removeItem('colonia.persona'); else localStorage.setItem('colonia.persona', q.get('persona') || '1'); } catch (e) { /* sin lugar */ }
+  })();
+  const pruebaPersona = () => { try { return localStorage.getItem('colonia.persona'); } catch (e) { return null; } };
+  const conPersona = () => !!pruebaPersona() || /(^|[?&])persona(&|=|$)/.test(location.search);
+  const yoEnElMar = () => S.me || 'yo';
+  const quienMira = () => { const q = new URLSearchParams(location.search).get('persona') || pruebaPersona(); return PERSONITAS[q] ? q : PERSONITAS[S.me] ? S.me : 'jero'; };
 
   // Colores: el cielo deja los suyos en el :root como #rrggbb.
   const rgbDe = (c) => {
@@ -1941,119 +2030,274 @@
   const lumDe = (c) => { const [r, g, b] = rgbDe(c); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
   const apagado = (c, k) => { const l = lumDe(c) * 255; return mezclar(c, hexDe([l, l, l]), k); };
   const NOCHE = '#16121d';
+  const varCielo = (k, d) => getComputedStyle(document.documentElement).getPropertyValue(k).trim() || d;
+  const diaAhora = () => clamp((lumDe(varCielo('--sky-top', '#7fc5ee')) - 0.3) / 0.28, 0, 1); // 0 de noche, 1 de día
+  const ropaAhora = () => (diaAhora() > 0.45 && !/lluvia|llovizna|tormenta/.test(SKY.state().kind) ? 'malla' : 'buzo');
   function paletaPersonita(o) {
-    const cs = getComputedStyle(document.documentElement), v = (k, d) => cs.getPropertyValue(k).trim() || d;
-    const dia = clamp((lumDe(v('--sky-top', '#7fc5ee')) - 0.3) / 0.28, 0, 1); // 0 de noche, 1 de día
-    const luz = mezclar(v('--sky-hor', '#eef6f1'), v('--sand', '#f4e3c5'), 0.5);
+    const dia = diaAhora(), luz = mezclar(varCielo('--sky-hor', '#eef6f1'), varCielo('--sand', '#f4e3c5'), 0.5);
     // De día: mitad de saturado, teñido con la luz del lugar y apenas a la sombra. Con menos luz se va a la silueta.
     const tono = (c) => mezclar(NOCHE, mezclar(mezclar(apagado(c, 0.5), luz, 0.28), '#4a4258', 0.1), dia);
     return {
       '--piel': tono('#e9bf9c'), '--pelo': tono(o.pelo), '--rem': tono(o.rem), '--ab': tono(o.ab), '--gorra': tono(o.gorra || o.pelo), '--zap': tono('#6f5f80'),
+      '--buzo': tono(mezclar(o.rem, '#8d86a8', 0.35)), '--jog': tono(mezclar(o.ab, '#3c3848', 0.45)),
       '--tinta': mezclar(NOCHE, mezclar('#43365a', luz, 0.35), dia), '--sombra': `rgba(40, 32, 56, ${(0.2 * dia).toFixed(3)})`,
     };
   }
   const espejoX = (d) => d.replace(/(-?\d*\.?\d+) (-?\d*\.?\d+)/g, (m, x, y) => `${(24 - x).toFixed(1)} ${y}`);
-  // Por partes, para moverlas: piernas (caminar), rodillas (sentada), "sube" (lo de arriba baja al sentarse), cabeza (mirar a los costados).
-  function personitaSVG(o) {
-    const P = o.abL ? 'ab' : 'piel'; // de qué color se ven las piernas
-    const brazo = 'M7.3 19.2C6.4 22.4 5.9 27 6.2 31.4C6.5 32.5 7.7 32.4 7.9 31.4C7.9 27.2 8.2 23 8.9 19.8Z';
+  // Por partes, para moverlas: piernas (caminar), rodillas (sentada), "sube" (lo de arriba baja al sentarse), cadera / cadera-sentada
+  // (parada / la cola redonda al sentarse), brazo d (saludar), cabeza (mirar a los costados).
+  function personitaSVG(o, ropa = 'malla') {
+    const buzo = ropa === 'buzo', ent = !buzo && o.malla === 'enteriza';
+    const P = buzo ? 'jog' : 'piel'; // de qué color se ven las piernas
+    const abajoC = buzo ? 'jog' : ent ? 'rem' : 'ab'; // el color de la cadera
+    const brazo = buzo ? 'M7 19C5.9 22.4 5.3 27.2 5.5 31.8C5.8 33.1 7.9 33.1 8.1 31.8C8.1 27.4 8.5 23.1 9.3 19.6Z' : 'M7.3 19.2C6.4 22.4 5.9 27 6.2 31.4C6.5 32.5 7.7 32.4 7.9 31.4C7.9 27.2 8.2 23 8.9 19.8Z';
     const pierna = 'M8.3 37.2L11.3 37.2L11 54.4L8.9 54.4C8.5 48.6 8.2 42.6 8.3 37.2Z';
-    const cadera = o.abL ? 'M7.7 30.4L16.3 30.4L16.5 38.6L7.5 38.6Z' : 'M7.7 30.4L16.3 30.4L16.8 38.4L12.6 38.4L12 35.2L11.4 38.4L7.2 38.4Z';
+    const espalda = 'M7.2 17.6C7.9 16.3 9.7 15.9 12 15.9C14.3 15.9 16.1 16.3 16.8 17.6L16.6 22.4L16.3 31L7.7 31L7.4 22.4Z';
+    let torso, cadera;
+    if (buzo) {
+      torso = '<path class="buzo" d="M6.6 17.3C7.4 15.9 9.4 15.4 12 15.4C14.6 15.4 16.6 15.9 17.4 17.3L18.7 22.2L17.3 22.8L17.1 33.4L6.9 33.4L6.7 22.8L5.3 22.2Z"/>'
+        + '<path class="buzo" d="M8 15.4C8.2 18.9 15.8 18.9 16 15.4C14.4 14.3 9.6 14.3 8 15.4Z"/><path class="pliegue" d="M9.6 16.6C11 17.6 13 17.6 14.4 16.6"/>';
+      cadera = '<path class="jog" d="M7.4 32.4L16.6 32.4L16.6 38.6L7.4 38.6Z"/>';
+    } else if (ent) {
+      torso = `<path class="piel" d="${espalda}"/><path class="rem" d="M7.6 23.2C9.4 25.2 14.6 25.2 16.4 23.2L16.4 31.2L7.6 31.2Z"/>`
+        + '<path class="rem" d="M8.7 16.5L9.5 16.3L10.3 24.1L9.5 23.9Z"/><path class="rem" d="M15.3 16.5L14.5 16.3L13.7 24.1L14.5 23.9Z"/>';
+      cadera = '<path class="piel" d="M7.4 33L16.6 33L16.8 38.4L7.2 38.4Z"/><path class="rem" d="M7.6 30.4L16.4 30.4L16.7 34.6C14.6 35.6 13 35.9 12 36.6C11 35.9 9.4 35.6 7.3 34.6Z"/>';
+    } else {
+      torso = `<path class="piel" d="${espalda}"/>`;
+      cadera = '<path class="ab" d="M7.6 30.2L16.4 30.2L16.9 38.2L12.7 38.2L12 35.4L11.3 38.2L7.1 38.2Z"/>';
+    }
     const pelo = o.largo === 2 ? '<path class="pelo" d="M7.6 8.8C7 14 7.3 19.4 8.5 24.2C10.7 25 13.3 25 15.5 24.2C16.7 19.4 17 14 16.4 8.8Z"/>'
       : o.largo === 1 ? '<path class="pelo" d="M11.2 12C10.9 15 11.3 17.6 12 19C12.7 17.6 13.1 15 12.8 12Z"/>' : '';
     const orejas = o.largo === 2 ? '' : '<circle class="piel" cx="7.5" cy="9.6" r=".8"/><circle class="piel" cx="16.5" cy="9.6" r=".8"/>';
     const rodete = o.largo === 3 ? '<circle class="pelo" cx="12" cy="3.9" r="2"/>' : '';
     const gorra = o.gorra ? '<path class="gorra" d="M7.4 8.4A4.6 4.6 0 0 1 16.6 8.4Z"/>' : '';
+    const brazoC = buzo ? 'buzo' : 'piel';
     return `<svg viewBox="0 0 24 60" aria-hidden="true"><g class="trazo">
       <ellipse class="sombra" cx="12" cy="55.6" rx="6.6" ry="1.2"/>
       <g class="piernas"><g class="pierna i"><path class="${P}" d="${pierna}"/><ellipse class="zap" cx="9.9" cy="55" rx="1.4" ry=".6"/></g>
         <g class="pierna d"><path class="${P}" d="${espejoX(pierna)}"/><ellipse class="zap" cx="14.1" cy="55" rx="1.4" ry=".6"/></g></g>
       <g class="rodillas"><ellipse class="${P}" cx="5.2" cy="46.4" rx="1.6" ry="2.4"/><ellipse class="${P}" cx="18.8" cy="46.4" rx="1.6" ry="2.4"/></g>
       <g class="sube"><g class="respira">
-        <path class="ab" d="${cadera}"/>
-        <path class="piel" d="${brazo}"/><path class="piel" d="${espejoX(brazo)}"/>
+        <g class="cadera">${cadera}</g>
+        <g class="cadera-sentada"><path class="${abajoC}" d="M7.6 30.6H16.4C17.3 33.6 17.1 37.1 15.5 38.6C14 39.7 10 39.7 8.5 38.6C6.9 37.1 6.7 33.6 7.6 30.6Z"/><path class="pliegue" d="M12 35.6V39.4"/></g>
+        <path class="${brazoC} brazo i" d="${brazo}"/><path class="${brazoC} brazo d" d="${espejoX(brazo)}"/>
         <path class="piel" d="M10.8 12.6h2.4v4h-2.4z"/>
-        <path class="rem" d="M7 17.4C7.7 16.2 9.6 15.8 12 15.8C14.4 15.8 16.3 16.2 17 17.4L18.3 21.4L16.7 22.1L16.3 31L7.7 31L7.3 22.1L5.7 21.4Z"/>
+        ${torso}
         <g class="cabeza">${pelo}${orejas}${rodete}<circle class="pelo" cx="12" cy="9" r="4.6"/>${gorra}</g>
       </g></g></g></svg>`;
   }
 
-  const enEscena = new Map(); // pid → { el, x (en % del ancho), casa (de dónde no se aleja), t (lo próximo que hace) }
-  const LUGARES = [50, 32, 68, 21, 79, 41, 59, 13, 87, 26, 74, 36, 64];
+  // La escena: pid → { pid, como (a quién se parece), el, x (% del ancho), sentada, mira, mia (la mueve este celu), falsa (demo), t, visto }
+  const escena = new Map();
+  let relojMar = null, ultimoEstado = 0, ultimaNota = 0;
   const sinMovimiento = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function pintarPersonita(el) { Object.entries(paletaPersonita(PERSONITAS[el.dataset.pid])).forEach(([k, v]) => el.style.setProperty(k, v)); }
-  SKY.onChange(() => enEscena.forEach((p) => pintarPersonita(p.el)));
-  // Vos en el medio; quienes estén mirando el mar al mismo tiempo, a los costados. Quien se va, se desvanece.
-  function ponerPersonitas() {
+  const PASO_MAR = 0.55; // segundos por cada 1 % del ancho: paso lento de orilla (unos 7 px por segundo en un celu)
+  const COLORES_AMIGO = [['#f7b3c6', '#ffd6e2'], ['#cfc0f0', '#e6defb'], ['#b6e5cd', '#dff5ea'], ['#ffe39a', '#fff2c8'], ['#a9d6f0', '#d6eefb'], ['#f6a38f', '#fcd2c6']];
+  const coloresDe = (pid) => COLORES_AMIGO[hash(pid) % COLORES_AMIGO.length];
+  function pintarPersonita(p) {
+    const ropa = ropaAhora();
+    if (p.el.dataset.ropa !== ropa) {
+      const globo = p.el.querySelector('.globito, .corazon');
+      p.el.innerHTML = personitaSVG(PERSONITAS[p.como], ropa);
+      if (globo) p.el.appendChild(globo);
+      p.el.dataset.ropa = ropa;
+    }
+    Object.entries(paletaPersonita(PERSONITAS[p.como])).forEach(([k, v]) => p.el.style.setProperty(k, v));
+  }
+  SKY.onChange(() => { escena.forEach(pintarPersonita); ponerFogon(); });
+  // Dónde se para cada uno: en orden, repartidos alrededor del medio. Todos los celus calculan lo mismo.
+  function casas() {
+    const ids = [...escena.keys()].sort(), sep = ids.length > 6 ? 10 : 13;
+    return Object.fromEntries(ids.map((id, i) => [id, clamp(50 + (i - (ids.length - 1) / 2) * sep, 8, 92)]));
+  }
+  function nuevaPersonita(pid, como, x, mia, falsa) {
     const sky = document.getElementById('sky');
-    if (!sky || !conPersona() || !document.querySelector('.mirar-capa')) return;
-    const yo = quienMira();
-    const ids = [yo].concat(S.enElMar().filter((id) => id !== S.me && id !== yo && PERSONITAS[id]));
-    enEscena.forEach((p, id) => {
-      if (ids.includes(id)) return;
+    const el = document.createElement('div');
+    el.className = 'personita'; el.dataset.pid = pid;
+    el.style.height = Math.round(PERSONITAS[como].cm * PX_CM) + 'px';
+    el.style.left = x + '%';
+    sky.appendChild(el);
+    const p = { pid, como, el, x, sentada: false, mira: '', mia, falsa, t: null, visto: Date.now(), juntos: {} };
+    pintarPersonita(p);
+    escena.set(pid, p);
+    if (mia) p.t = setTimeout(() => vivir(p), 2500 + Math.random() * 3000);
+    return p;
+  }
+  // Vos y quienes estén mirando el mar ahora. Quien se va, se desvanece; los que quedan van caminando a su lugar.
+  function armarEscena() {
+    if (!document.getElementById('sky') || !conPersona() || !document.querySelector('.mirar-capa')) return;
+    const yo = yoEnElMar(), otros = S.enElMar().filter((id) => id !== yo && PERSONITAS[(escena.get(id) || {}).como || id]);
+    if (!escena.has(yo)) nuevaPersonita(yo, quienMira(), 50, true, false);
+    escena.forEach((p, id) => {
+      if (id === yo || otros.includes(id) || Date.now() - p.visto < 10000) return;
       clearTimeout(p.t); p.el.classList.add('se-va'); setTimeout(() => p.el.remove(), 900);
-      enEscena.delete(id);
+      escena.delete(id);
     });
-    ids.forEach((id) => {
-      if (enEscena.has(id)) return;
-      const usados = [...enEscena.values()].map((p) => p.casa);
-      const casa = LUGARES.find((x) => !usados.includes(x)) || 10 + Math.random() * 80;
-      const el = document.createElement('div');
-      el.className = 'personita'; el.dataset.pid = id;
-      el.style.height = Math.round(PERSONITAS[id].cm * PX_CM) + 'px';
-      el.style.left = casa + '%';
-      el.innerHTML = personitaSVG(PERSONITAS[id]);
-      pintarPersonita(el);
-      sky.appendChild(el);
-      const p = { el, x: casa, casa, t: null };
-      enEscena.set(id, p);
-      p.t = setTimeout(() => vivir(p), 2000 + Math.random() * 3000);
-    });
+    otros.forEach((id) => { if (!escena.has(id)) nuevaPersonita(id, id, 50, !S.live, !S.live); });
+    const c = casas();
+    escena.forEach((p, id) => { if (p.mia && !p.sentada) andarA(p, c[id]); else if (!p.mia && Math.abs(p.x - 50) < 0.1 && Date.now() - p.visto > 3000) moverA(p, c[id]); });
+    ponerFogon();
   }
-  function sacarPersonitas() {
-    enEscena.forEach((p) => clearTimeout(p.t));
-    enEscena.clear();
-    document.querySelectorAll('#sky .personita').forEach((n) => n.remove());
+  function sacarEscena() {
+    escena.forEach((p) => clearTimeout(p.t));
+    escena.clear();
+    document.querySelectorAll('#sky .personita, #sky .cosa-mar, .estrella-fugaz').forEach((n) => n.remove());
   }
-  // Lo que hace cada personita, sola: mirar a un costado, caminar un poco por la orilla o sentarse un rato.
+  // Cuenta a los demás dónde está y qué hace tu personita.
+  function publicar(p) {
+    if (!p || p.falsa || p.pid !== yoEnElMar() || !conPersona()) return;
+    ultimoEstado = Date.now();
+    S.enviarMar({ t: 'estado', como: p.como, x: +p.x.toFixed(1), sentada: p.sentada, mira: p.mira });
+  }
+  // Camina hasta x (despacio) y, si hacía falta, se levanta antes. "luego" corre al llegar.
+  function andarA(p, x, luego) {
+    if (x == null || !p.el.isConnected) return;
+    if (p.sentada) { p.sentada = false; p.el.classList.remove('sentada'); publicar(p); return setTimeout(() => andarA(p, x, luego), 1000); }
+    moverA(p, x, luego);
+    publicar(p);
+  }
+  function moverA(p, x, luego) {
+    const seg = Math.abs(x - p.x) * PASO_MAR;
+    if (seg < 0.05) { if (luego) luego(); return; }
+    p.el.style.setProperty('--andar', seg.toFixed(2) + 's');
+    p.el.classList.add('camina');
+    p.el.style.left = x.toFixed(1) + '%';
+    p.x = x;
+    clearTimeout(p.fin);
+    p.fin = setTimeout(() => { p.el.classList.remove('camina'); if (luego) luego(); }, seg * 1000);
+  }
+  function sentar(p, si) {
+    p.sentada = si; p.el.classList.toggle('sentada', si);
+    if (!si) p.ordenada = false;
+    publicar(p);
+  }
+  function mirarA(p, lado, ms) {
+    p.mira = lado; p.el.classList.remove('mira-i', 'mira-d'); if (lado) p.el.classList.add(lado);
+    publicar(p);
+    if (ms) setTimeout(() => { if (p.mira === lado) mirarA(p, '', 0); }, ms);
+  }
+  // Lo que hace sola: casi siempre mirar el mar; a veces a un costado; cada tanto unos pasitos cerca de su lugar.
+  // Las de prueba del modo demo además se sientan un rato, para poder probar "sentarse juntos".
   function vivir(p) {
-    const el = p.el, despues = (ms) => { p.t = setTimeout(() => vivir(p), ms); };
-    if (!el.isConnected || sinMovimiento) return;
-    if (el.classList.contains('sentada')) { el.classList.remove('sentada'); return despues(1800 + Math.random() * 2500); }
-    const r = Math.random();
-    if (r < 0.4) {
-      const lado = Math.random() < 0.5 ? 'mira-i' : 'mira-d';
-      el.classList.add(lado);
-      setTimeout(() => el.classList.remove(lado), 1400 + Math.random() * 1800);
-      return despues(4000 + Math.random() * 4000);
+    const despues = (ms) => { clearTimeout(p.t); p.t = setTimeout(() => vivir(p), ms); };
+    if (!p.el.isConnected || sinMovimiento) return;
+    const r = Math.random(), casa = casas()[p.pid];
+    if (p.ordenada) { if (r < 0.35) mirarA(p, Math.random() < 0.5 ? 'mira-i' : 'mira-d', 1800 + Math.random() * 1500); return despues(7000 + Math.random() * 6000); }
+    if (p.falsa && p.sentada) { if (r < 0.3) sentar(p, false); return despues(8000 + Math.random() * 6000); }
+    if (r < 0.45) mirarA(p, Math.random() < 0.5 ? 'mira-i' : 'mira-d', 1600 + Math.random() * 1800);
+    else if (r < 0.7) {
+      const otros = [...escena.values()].filter((q) => q !== p).map((q) => q.x);
+      const destino = clamp(p.x + (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3), casa - 5, casa + 5);
+      if (!otros.some((x) => Math.abs(x - destino) < 6)) andarA(p, destino);
+    } else if (p.falsa && r < 0.85) sentar(p, true);
+    despues(8000 + Math.random() * 7000);
+  }
+  // Tocar tu personita la sienta (al lado de alguien sentado, si hay) o la levanta. Tocar a otra la saluda.
+  function tocarPersonita(x, y) {
+    const el = [...document.querySelectorAll('#sky .personita')].find((n) => { const r = n.getBoundingClientRect(); return x > r.left - 14 && x < r.right + 14 && y > r.top - 16 && y < r.bottom + 10; });
+    const p = el && escena.get(el.dataset.pid);
+    if (!p) return false;
+    const yo = escena.get(yoEnElMar());
+    if (p === yo) {
+      SONIDO.plop();
+      if (p.sentada) { sentar(p, false); return true; }
+      const al = [...escena.values()].filter((q) => q !== p && q.sentada).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+      p.ordenada = true;
+      if (al) {
+        const lugar = clamp(al.x + (p.x < al.x ? -5.5 : 5.5), 6, 94);
+        andarA(p, lugar, () => sentar(p, true));
+      } else sentar(p, true);
+      return true;
     }
-    if (r < 0.8) {
-      const otros = [...enEscena.values()].filter((q) => q !== p).map((q) => q.x);
-      const ir = (dir) => clamp(p.x + dir * (5 + Math.random() * 11), Math.max(6, p.casa - 16), Math.min(94, p.casa + 16));
-      let destino = ir(Math.random() < 0.5 ? -1 : 1);
-      if (otros.some((x) => Math.abs(x - destino) < 6)) destino = ir(destino < p.x ? 1 : -1); // no se pisan: si hay alguien ahí, va para el otro lado
-      if (otros.some((x) => Math.abs(x - destino) < 6)) return despues(3000);
-      const seg = Math.abs(destino - p.x) * 0.26; // unos 15 px por segundo en un celu: paso de playa
-      el.style.setProperty('--andar', seg.toFixed(2) + 's');
-      el.classList.add('camina');
-      el.style.left = destino.toFixed(1) + '%';
-      p.x = destino;
-      setTimeout(() => el.classList.remove('camina'), seg * 1000);
-      return despues(seg * 1000 + 2500 + Math.random() * 3500);
+    globito(p, (person(p.pid) || {}).n || p.pid);
+    if (yo) { saludar(yo); S.enviarMar({ t: 'saludo', a: p.pid }); }
+    if (p.falsa) setTimeout(() => { saludar(p); corazon(p); globito(p, '¡Hola!'); }, 1400);
+    return true;
+  }
+  function saludar(p) { p.el.classList.remove('saluda'); void p.el.offsetWidth; p.el.classList.add('saluda'); setTimeout(() => p.el.classList.remove('saluda'), 2100); }
+  function globito(p, texto) {
+    p.el.querySelectorAll('.globito').forEach((g) => g.remove());
+    const g = document.createElement('span');
+    g.className = 'globito'; g.textContent = texto;
+    p.el.appendChild(g);
+    setTimeout(() => g.remove(), 2600);
+  }
+  function corazon(p) {
+    const c = document.createElement('span');
+    c.className = 'corazon'; c.textContent = '♥';
+    p.el.appendChild(c);
+    setTimeout(() => c.remove(), 1900);
+  }
+  // Tus notas les suenan a los demás (si hay alguien más mirando el mar), como mucho una cada 70 ms.
+  function mandarNota(e) {
+    if (!conPersona() || escena.size < 2 || performance.now() - ultimaNota < 70) return;
+    ultimaNota = performance.now();
+    S.enviarMar({ t: 'nota', p: +((e.clientX / innerWidth) * 2 - 1).toFixed(3), alto: +(1 - e.clientY / innerHeight).toFixed(3), x: +(e.clientX / innerWidth).toFixed(3), y: +(e.clientY / innerHeight).toFixed(3) });
+  }
+  // Lo que llega de los demás que miran el mar.
+  function recibirMar(m) {
+    if (!m || !m.de || m.de === yoEnElMar() || !document.querySelector('.mirar-capa') || !conPersona()) return;
+    if (m.t === 'hola') { publicar(escena.get(yoEnElMar())); return; }
+    let p = escena.get(m.de);
+    if (!p && (m.t === 'estado' || m.t === 'hola') && PERSONITAS[m.como || m.de]) p = nuevaPersonita(m.de, m.como || m.de, m.x != null ? m.x : 50, false, false);
+    if (p) p.visto = Date.now();
+    if (m.t === 'estado' && p) {
+      if (m.como && m.como !== p.como && PERSONITAS[m.como]) { p.como = m.como; p.el.dataset.ropa = ''; pintarPersonita(p); }
+      const llegar = () => { p.sentada = !!m.sentada; p.el.classList.toggle('sentada', p.sentada); };
+      if (Math.abs(m.x - p.x) > 0.3) { p.el.classList.remove('sentada'); moverA(p, m.x, llegar); } else llegar();
+      p.mira = m.mira || ''; p.el.classList.remove('mira-i', 'mira-d'); if (p.mira) p.el.classList.add(p.mira);
+      ponerFogon();
+    } else if (m.t === 'saludo' && p) {
+      saludar(p);
+      if (m.a === yoEnElMar()) { corazon(p); globito(p, `${(person(m.de) || {}).n || m.de} te saluda`); }
+    } else if (m.t === 'nota') {
+      INICIO.toque(m.p, m.alto, 0.7); // los amigos suenan un poquito más bajo
+      chispas(m.x * innerWidth, m.y * innerHeight, 10, coloresDe(m.de));
     }
-    el.classList.add('sentada');
-    return despues(9000 + Math.random() * 14000);
+  }
+  // Cada segundo: se cuenta cuánto llevan sentados juntos, y cada 15 s se repite el estado por si alguien no lo recibió.
+  function latidoMar() {
+    const yo = escena.get(yoEnElMar());
+    if (!yo) return;
+    if (Date.now() - ultimoEstado > 15000) publicar(yo);
+    escena.forEach((q) => {
+      if (q === yo) return;
+      const cerca = yo.sentada && q.sentada && Math.abs(q.x - yo.x) < 8.5;
+      yo.juntos[q.pid] = cerca ? (yo.juntos[q.pid] || 0) + 1 : Math.min(yo.juntos[q.pid] || 0, 0);
+      if (yo.juntos[q.pid] === 12) juntos(q);
+    });
+  }
+  // Doce segundos sentados uno al lado del otro: estrella fugaz de noche, bandada de día, y cuenta para el logro.
+  function juntos(q) {
+    if (diaAhora() < 0.5) {
+      const s = document.createElement('i');
+      s.className = 'estrella-fugaz';
+      s.style.left = (15 + Math.random() * 45) + '%'; s.style.top = (6 + Math.random() * 18) + '%';
+      document.getElementById('sky').appendChild(s);
+      setTimeout(() => s.remove(), 1800);
+    } else INICIO.bandada();
+    if (!q.falsa || !S.live) S.sentarseCon(q.pid);
+    SONIDO.si();
+    setTimeout(revisarLogros, 1600);
+  }
+  // Con 3 o más mirando el mar: fogatita al atardecer y de noche; de día, sombrilla y reposera.
+  function ponerFogon() {
+    const sky = document.getElementById('sky');
+    const hay = sky && escena.size >= 3 && document.querySelector('.mirar-capa');
+    const tipo = diaAhora() < 0.5 ? 'fogon' : 'sombra';
+    sky && sky.querySelectorAll('.cosa-mar').forEach((n) => { if (!hay || n.dataset.tipo !== tipo) { n.classList.add('se-va'); setTimeout(() => n.remove(), 900); n.dataset.tipo = 'x'; } });
+    if (!hay || sky.querySelector(`.cosa-mar[data-tipo="${tipo}"]`)) return;
+    const xs = Object.values(casas()), der = Math.min(92, Math.max(...xs) + 8);
+    const cosas = tipo === 'fogon' ? [['fogata', 50, 77.5, 26, null]] : [['sombrilla', der, 72.5, 54, '#f6a38f'], ['reposera', der - 3, 74.6, 30, '#a9d6f0']];
+    cosas.forEach(([id, x, y, w, col]) => {
+      const c = document.createElement('div');
+      c.className = `cosa-mar ${id}`; c.dataset.tipo = tipo;
+      c.style.cssText = `left:${x}%;top:${y}%;width:${w}px`;
+      c.innerHTML = ARTE.item(id, col);
+      sky.appendChild(c);
+    });
   }
   if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
-  // Tocar una personita muestra de quién es.
-  function nombrarPersonita(x, y) {
-    const el = [...document.querySelectorAll('#sky .personita')].find((n) => { const r = n.getBoundingClientRect(); return x > r.left - 12 && x < r.right + 12 && y > r.top - 14 && y < r.bottom + 8; });
-    if (!el || el.querySelector('.globito')) return;
-    const g = document.createElement('span');
-    g.className = 'globito'; g.textContent = person(el.dataset.pid) ? person(el.dataset.pid).n : el.dataset.pid;
-    el.appendChild(g);
-    setTimeout(() => g.remove(), 2400);
-  }
 
   // ---------- quién está en la colonia ----------
   // Cuando alguien abre la app mientras vos la tenés abierta: un cartelito con su cara (una vez cada 3 h por persona).
@@ -2076,7 +2320,8 @@
   // Cambios de los demás en vivo: se vuelve a dibujar la pantalla (las hojas abiertas no se tocan).
   S.onChange((ev) => {
     if (ev && ev.llego) return avisarLlegada(ev.llego);
-    if (ev && ev.presencia) { const el = $('#enLinea'); if (el) el.outerHTML = enLineaHTML(); ponerPersonitas(); return; }
+    if (ev && ev.mar) return recibirMar(ev.mar);
+    if (ev && ev.presencia) { const el = $('#enLinea'); if (el) el.outerHTML = enLineaHTML(); armarEscena(); return; }
     if (ev && ev.gift) setTimeout(mostrarRegalos, 300);
     if (ev && ev.uploadFailed) toast('<span>No se pudo subir la foto. Queda guardada y se reintenta cuando haya señal.</span>', 4500);
     avisarBocinas();
