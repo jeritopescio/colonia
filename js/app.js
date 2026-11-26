@@ -442,7 +442,7 @@
     sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
       <div class="art-big">${ARTE.item(it.id, colorOf({ id: it.id }, S.altar().place[k]))}</div>
       <h2>¿Vendés ${esc(nombreDe(it))}?</h2>
-      <p class="muted" style="margin:0">Te devuelven ${venta} monedas, el 80% de lo que costó. Se va de tu altarcito.</p>
+      <p class="muted" style="margin:0">${it.venta != null ? `Te dan ${venta} monedas.` : `Te devuelven ${venta} monedas, el 80% de lo que costó.`} Se va de tu altarcito.</p>
       <div class="row" style="justify-content:center"><button class="btn ghost" data-close>${NAH}</button><button class="btn" id="siVender" data-mudo style="--c:var(--butter)">Vender por ${venta} <span class="coin"></span></button></div></div>`,
     (bg) => bg.querySelector('#siVender').addEventListener('click', () => {
       const c = S.vender(k);
@@ -463,7 +463,7 @@
     const de = inst.from && person(inst.from);
     const from = de ? `<p class="regalado">${mine ? 'Te lo regaló' : 'Se lo regaló'} <button class="amigo" data-de="${de.id}"><img class="face" src="${face(de.id)}" alt="">${esc(de.n)}</button> ♡</p>` : '';
     // Lo que compraste se puede vender al 80% de su precio; lo regalado, no.
-    const venta = editable && mine && !inst.from && String(k).startsWith('o') ? Math.round(it.p * 0.8) : 0;
+    const venta = editable && mine && !inst.from && String(k).startsWith('o') ? D.precioVenta(it) : 0;
     sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
       <div class="art-big" id="big">${ARTE.item(id, cur)}</div><h2>${esc(it.n)}</h2>
       ${it.sub ? `<p class="muted" style="margin:-6px 0 0">${esc(it.sub)}</p>` : ''}${from}
@@ -1757,11 +1757,35 @@
 
   // ---------- bienvenida diaria ----------
   function welcome() {
-    const got = S.dailyCheck().map((k) => D.ACH[k]).concat(S.bonos());
+    const bonos = S.bonos(), cosas = bonos.filter((b) => b.item && shopItem(b.item));
+    const got = S.dailyCheck().map((k) => D.ACH[k]).concat(bonos.filter((b) => b.c));
     got.forEach((a, i) => setTimeout(() => toast(`<span class="chip" style="--c:var(--butter)">+${a.c} <span class="coin"></span></span><span>${esc(a.t)}</span>`), i * 700));
+    if (cosas.length) setTimeout(() => souvenir(cosas[0]), 900);
     if (got.length) { SONIDO.monedas(got.reduce((n, a) => n + a.c, 0)); setTimeout(render, got.length * 700); }
     const rh = S.rachaHoy; S.rachaHoy = null;
     if (rh) setTimeout(() => toastXp(rh.dias === D.RACHA.dorado ? `¡${rh.dias} días seguidos! Tu foto ya tiene borde dorado ✦` : `Racha de ${rh.dias} días seguidos${rh.dias > D.RACHA.dorado ? ' ✦' : ''}`, rh), got.length * 700 + 400);
+  }
+
+  // Papelitos de colores que salen volando (cumples y regalos especiales).
+  function papelitos(n = 36) {
+    const colores = ['var(--coral)', 'var(--mint)', 'var(--butter)', 'var(--celeste)', 'var(--lav)', 'var(--rose)'];
+    return `<div class="confeti" aria-hidden="true">${Array.from({ length: n }, (_, k) => {
+      const a = (k / n) * Math.PI * 2 + Math.random() * 0.4, d = 100 + Math.random() * 100;
+      return `<i style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d - 40)}px;--r:${Math.round(Math.random() * 540 - 270)}deg;background:${colores[k % 6]}"></i>`;
+    }).join('')}</div>`;
+  }
+  // Una cosa que la app le da a todos (D.BONOS con item), como el souvenir del cumple de las mellis.
+  function souvenir(b) {
+    const it = shopItem(b.item), venta = D.precioVenta(it);
+    if (document.querySelector('.sheet-bg')) { setTimeout(() => souvenir(b), 1500); return; }
+    sheet(`<div class="regalo-nuevo de-cumple">${b.titulo ? papelitos() : ''}
+      ${b.titulo ? `<h1 class="cumple-titulo pop">${esc(b.titulo)}</h1>` : ''}<p class="cumple-sub">${esc(b.t)}</p>
+      <div class="art-big pop" style="width:150px;height:150px">${ARTE.item(it.id, it.col)}</div>
+      <h2>${esc(it.n)}</h2>
+      <p class="small muted" style="margin:0">Ya está en tu altarcito.${venta ? ` Si no lo querés, lo podés vender por ${venta} monedas.` : ''}</p>
+      <div class="row" style="justify-content:center"><button class="btn ghost" data-close>Listo</button><button class="btn" id="aMiAltar" style="--c:var(--rose)">Ver mi altarcito</button></div></div>`,
+    (bg) => bg.querySelector('#aMiAltar').addEventListener('click', () => { bg.remove(); go('altar'); }));
+    SONIDO.si();
   }
 
   // ---------- regalos que llegaron ----------
@@ -1778,12 +1802,7 @@
     const it1 = shopItem(primero.item);
     // Si es un regalo de cumple (D.CUMPLES), arriba va el saludo grande en mayúscula, con papelitos.
     const cumple = nuevos.map((g) => D.CUMPLES[g.item]).find(Boolean);
-    const colores = ['var(--coral)', 'var(--mint)', 'var(--butter)', 'var(--celeste)', 'var(--lav)', 'var(--rose)'];
-    const papelitos = cumple ? `<div class="confeti" aria-hidden="true">${Array.from({ length: 36 }, (_, k) => {
-      const a = (k / 36) * Math.PI * 2 + Math.random() * 0.4, d = 100 + Math.random() * 100;
-      return `<i style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d - 40)}px;--r:${Math.round(Math.random() * 540 - 270)}deg;background:${colores[k % 6]}"></i>`;
-    }).join('')}</div>` : '';
-    sheet(`<div class="regalo-nuevo${cumple ? ' de-cumple' : ''}">${papelitos}
+    sheet(`<div class="regalo-nuevo${cumple ? ' de-cumple' : ''}">${cumple ? papelitos() : ''}
       ${cumple ? `<h1 class="cumple-titulo pop">${esc(cumple.t)}</h1><p class="cumple-sub">${esc(cumple.s)}</p>` : ''}
       <div class="eyebrow">${uno ? '¡Te llegó un regalo!' : `¡Te llegaron ${nuevos.length} regalos!`}</div>
       ${uno ? `<div class="regalo-escena"><img class="face" src="${face(primero.from)}" alt=""><span class="lazo" aria-hidden="true">♡</span><div class="art-big pop">${ARTE.item(it1.id, it1.col)}</div></div>

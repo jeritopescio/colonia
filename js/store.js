@@ -328,8 +328,8 @@ window.STORE = (function () {
     // Monedas de regalo puntuales (D.BONOS): se dan una sola vez a quien corresponde.
     bonos() {
       const hoy = window.SKY.arDate();
-      const got = (D.BONOS || []).filter((b) => (b.para === s.me || b.para === '*') && (!b.desde || hoy >= b.desde) && !s.ach['bono:' + b.id]);
-      got.forEach((b) => { s.coins += b.c; s.ach['bono:' + b.id] = 1; });
+      const got = (D.BONOS || []).filter((b) => (b.para === s.me || b.para === '*') && !(b.no || []).includes(s.me) && (!b.desde || hoy >= b.desde) && !s.ach['bono:' + b.id]);
+      got.forEach((b) => { s.coins += b.c || 0; if (b.item) s.owned.push(b.item); s.ach['bono:' + b.id] = 1; });
       if (got.length) { save(); pushMe(); }
       return got;
     },
@@ -399,12 +399,13 @@ window.STORE = (function () {
       });
       return { total: Object.values(por).reduce((a, b) => a + b, 0), por };
     },
-    // Vender algo que compraste (lo regalado no): devuelve el 80% de su precio. Queda un hueco en owned para no correr las claves.
+    // Vender algo que compraste (lo regalado no): devuelve el 80% de su precio, o lo que diga su "venta". Queda un hueco en owned
+    // para no correr las claves.
     vender(k) {
       const i = +String(k).slice(1), id = String(k)[0] === 'o' && s.owned[i];
       if (!id) return 0;
       const it = D.SHOP.find((x) => x.id === id) || D.SHOP.find((x) => x.id === D.ALIAS[id]);
-      const c = it ? Math.round(it.p * 0.8) : 0;
+      const c = it ? D.precioVenta(it) : 0;
       s.owned[i] = null; delete s.place[k]; s.coins += c; save(); pushMe();
       return c;
     },

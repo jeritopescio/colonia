@@ -226,11 +226,14 @@ window.DATA = (function () {
     { n: 1, t: 'Costa Esmeralda', temporada: '26/27', desde: '2026-11-17', hasta: '2027-01-10' },
   ];
 
-  // Monedas de regalo puntuales: se dan una sola vez, al entrar. para '*' = a todos; desde = recién a partir de ese día.
+  // Regalos puntuales: se dan una sola vez, al entrar. para '*' = a todos (menos los de "no"); desde = recién a partir de ese día.
+  // c = monedas; item = una cosa que va derecho a tu altarcito (con titulo, se abre con un cartel grande y papelitos).
   const BONOS = [
     { id: 'regalitos-jero', para: 'jero', c: 300, t: 'Para estrenar los regalitos' },
+    { id: 'cumple-mellis', para: '*', no: ['pachi', 'viqui'], desde: '2026-11-26', item: 'mellis', titulo: '¡HOY CUMPLEN LAS MELLIS!', t: 'Souvenir del cumple para toda la colonia.' },
     { id: 'capitulo-2', para: '*', desde: '2027-01-11', c: 100, t: 'Para arrancar el capítulo 2' },
   ];
+  const precioVenta = (it) => (it.venta != null ? it.venta : Math.round(it.p * 0.8));
 
   // Hallazgos: aparecen solos en tu altarcito algunos días (prob = chance por día, entre los minutos de y a, hora argentina).
   // Se abren tocándolos y dan monedas. Si no lo abrís ese día, se lo lleva la marea. Cada persona los recorre en su propio orden.
@@ -419,7 +422,8 @@ window.DATA = (function () {
     { id: 'ps5', n: 'PS5', p: 400, lv: 6, d: 'En la playa no hay enchufe. Igual la trajiste.' },
 
     // Únicas (unico: true): no se venden en el kiosco, llegan solo de regalo (cumpleaños y fechas así).
-    { id: 'mellis', n: 'Cartel de mellis sueltas', p: 0, lv: 1, unico: true, d: 'Señalización oficial de la Costa: por esta playa andan dos mellis sueltas. Regalo de cumple, 26/11/2026.' },
+    // venta = cuánto te dan si lo vendés (sin venta, el 80% del precio).
+    { id: 'mellis', n: 'Cartel de mellis sueltas', p: 0, venta: 100, lv: 1, unico: true, d: 'Señalización oficial de la Costa: por esta playa andan dos mellis sueltas. Del cumple de las mellis, 26/11/2026.' },
   ];
   // Regalos de cumpleaños: cuando llega de regalo una de estas cosas, se abre con un saludo grande y papelitos.
   const CUMPLES = { mellis: { t: '¡FELIZ CUMPLE, MELLIS!', s: 'Hay dos mellis sueltas por la playa. Avisen a los guardavidas.' } };
@@ -486,5 +490,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { CUMPLES, LOGROS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { precioVenta, CUMPLES, LOGROS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();
