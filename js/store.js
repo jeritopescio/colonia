@@ -622,7 +622,7 @@ window.STORE = (function () {
     // 'todo': todos los altarcitos de los demás, o todo el kiosco (sin la sombrilla ni la carpa, que no se pueden tener juntas).
     logroMeta(id, m) {
       if (m !== 'todo') return m;
-      return id === 'visitas' ? D.PEOPLE.length - 1 : D.SHOP.filter((x) => !x.retirado && x.side !== 'R').length;
+      return id === 'visitas' ? D.PEOPLE.length - 1 : D.SHOP.filter((x) => !x.retirado && !x.unico && x.side !== 'R').length;
     },
     logros(baulTotal) {
       return D.LOGROS.map((l) => {

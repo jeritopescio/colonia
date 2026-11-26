@@ -858,7 +858,7 @@
   // Cartel de felicitaciones al subir de nivel: qué cambió y qué se destrabó.
   function felicitar(n) {
     const lv = n + 1, tier = D.COLECCION.tarjeta.find((x) => x.lv === lv);
-    const nuevos = D.SHOP.filter((it) => it.lv === lv && !it.retirado && ARTE.has(it.id));
+    const nuevos = D.SHOP.filter((it) => it.lv === lv && !it.retirado && !it.unico && ARTE.has(it.id));
     const colores = ['var(--coral)', 'var(--mint)', 'var(--butter)', 'var(--celeste)', 'var(--lav)', 'var(--rose)'];
     const confeti = Array.from({ length: 30 }, (_, k) => {
       const a = (k / 30) * Math.PI * 2 + Math.random() * 0.4, d = 90 + Math.random() * 90;
@@ -1523,7 +1523,7 @@
           <span class="ic" style="--c:var(--paper)">${ARTE.item(it.id, it.col)}</span>
           <span>${esc(it.n)}</span><span class="small">${locked ? 'nivel ' + it.lv : blocked ? 'ya tenés' : it.p + ' <span class="coin"></span>'}</span>${para && !locked ? `<span class="small xp-regalo">+${D.xpRegalo(it.p)} XP</span>` : ''}</button>`;
       };
-      const grupo = (f) => D.SHOP.filter((x) => ARTE.has(x.id) && !x.retirado && f(x)).sort((a, b) => a.p - b.p).map(cell).join('');
+      const grupo = (f) => D.SHOP.filter((x) => ARTE.has(x.id) && !x.retirado && !x.unico && f(x)).sort((a, b) => a.p - b.p).map(cell).join('');
       const bloque = (t, nota, f) => { const h = grupo(f); return h ? `<div class="card"><div class="eyebrow">${t}</div>${nota ? `<p class="small muted" style="margin:0">${nota}</p>` : ''}<div class="shop">${h}</div></div>` : ''; };
       const para = regalarA && person(regalarA);
       // Lotes de playa: el que sigue, de a uno. Agrandan tu altarcito hacia el costado.
@@ -1776,7 +1776,15 @@
     const fila = (g) => { const it = shopItem(g.item);
       return `<div class="regalo-fila"><img class="face" src="${face(g.from)}" alt=""><span><b>${esc(it.n)}</b><br><span class="small muted">de parte de ${esc(person(g.from).n)}</span></span><span class="mini">${ARTE.item(it.id, it.col)}</span></div>`; };
     const it1 = shopItem(primero.item);
-    sheet(`<div class="regalo-nuevo">
+    // Si es un regalo de cumple (D.CUMPLES), arriba va el saludo grande en mayúscula, con papelitos.
+    const cumple = nuevos.map((g) => D.CUMPLES[g.item]).find(Boolean);
+    const colores = ['var(--coral)', 'var(--mint)', 'var(--butter)', 'var(--celeste)', 'var(--lav)', 'var(--rose)'];
+    const papelitos = cumple ? `<div class="confeti" aria-hidden="true">${Array.from({ length: 36 }, (_, k) => {
+      const a = (k / 36) * Math.PI * 2 + Math.random() * 0.4, d = 100 + Math.random() * 100;
+      return `<i style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d - 40)}px;--r:${Math.round(Math.random() * 540 - 270)}deg;background:${colores[k % 6]}"></i>`;
+    }).join('')}</div>` : '';
+    sheet(`<div class="regalo-nuevo${cumple ? ' de-cumple' : ''}">${papelitos}
+      ${cumple ? `<h1 class="cumple-titulo pop">${esc(cumple.t)}</h1><p class="cumple-sub">${esc(cumple.s)}</p>` : ''}
       <div class="eyebrow">${uno ? '¡Te llegó un regalo!' : `¡Te llegaron ${nuevos.length} regalos!`}</div>
       ${uno ? `<div class="regalo-escena"><img class="face" src="${face(primero.from)}" alt=""><span class="lazo" aria-hidden="true">♡</span><div class="art-big pop">${ARTE.item(it1.id, it1.col)}</div></div>
         <h2>${esc(it1.n)}</h2><p class="regalado" style="margin:-8px 0 0">De parte de <b>${esc(person(primero.from).n)}</b> ♡</p>`
@@ -1784,7 +1792,7 @@
       <p class="small muted" style="margin:0">Ya está en tu altarcito.</p>
       <div class="row" style="justify-content:center"><button class="btn ghost" data-close>Listo</button><button class="btn" id="aMiAltar" style="--c:var(--rose)">Ver mi altarcito</button></div></div>`,
     (bg) => bg.querySelector('#aMiAltar').addEventListener('click', () => { bg.remove(); go('altar'); }));
-    SONIDO.plop(); setTimeout(SONIDO.plop, 140);
+    if (cumple) SONIDO.si(); else { SONIDO.plop(); setTimeout(SONIDO.plop, 140); }
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(mostrarRegalos, 500); });
 

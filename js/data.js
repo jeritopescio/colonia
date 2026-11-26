@@ -417,7 +417,12 @@ window.DATA = (function () {
     { id: 'corona', n: 'Corona enterrada', p: 150, lv: 8, col: '#f7b3c6', d: 'Alguien la enterró antes que vos. Nadie reclamó el trono.' },
     { id: 'moto', n: 'Moto de agua', p: 320, lv: 6, col: '#e8735a', d: 'Ruido, nafta y envidia. Cara, como todo lo que no necesitás.' },
     { id: 'ps5', n: 'PS5', p: 400, lv: 6, d: 'En la playa no hay enchufe. Igual la trajiste.' },
+
+    // Únicas (unico: true): no se venden en el kiosco, llegan solo de regalo (cumpleaños y fechas así).
+    { id: 'mellis', n: 'Cartel de mellis sueltas', p: 0, lv: 1, unico: true, d: 'Señalización oficial de la Costa: por esta playa andan dos mellis sueltas. Regalo de cumple, 26/11/2026.' },
   ];
+  // Regalos de cumpleaños: cuando llega de regalo una de estas cosas, se abre con un saludo grande y papelitos.
+  const CUMPLES = { mellis: { t: '¡FELIZ CUMPLE, MELLIS!', s: 'Hay dos mellis sueltas por la playa. Avisen a los guardavidas.' } };
   // Cosas de la tienda vieja: se muestran como lo más parecido de la nueva (nadie pierde lo que compró).
   const ALIAS = { cangrejo: 'estrella', osito: 'liebre', helado: 'sandia', pulpo: 'caracoles', choripan: 'heladerita',
     gatito: 'tony', salchicha: 'tulio', champa: 'vino', balde: 'heineken' };
@@ -481,5 +486,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { LOGROS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { CUMPLES, LOGROS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();
