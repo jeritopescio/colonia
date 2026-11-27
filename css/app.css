@@ -312,13 +312,33 @@ body.fantasma.relampaguea #sky .personita svg { filter: brightness(1.05) saturat
 /* Con "reducir movimiento": el barco se queda quieto y sin temblores (los destellos ya no se prenden desde la app). */
 /* Con "reducir movimiento" en el celu solo se apagan los temblores (los destellos ya no se prenden desde la app). */
 @media (prefers-reduced-motion: reduce) { .personita.asustada svg { animation: none; } }
-/* La moto o la tabla varada en la orilla cuando no está en el agua. */
+/* El kayak: el casco adelante (la personita va sentada adentro) y el remo, que va y viene. */
+#sky .agua.kayak { width: calc(var(--h, 26px) * 2.3); }
+#sky .agua.kayak .nave { z-index: 3; }
+#sky .agua.kayak .nave svg { aspect-ratio: 64 / 12; }
+#sky .agua.kayak .personita.en-agua, #sky .agua.kayak.izq .personita.en-agua { left: 47%; bottom: 2%; }
+#sky .agua.kayak .remo { position: absolute; z-index: 4; left: 47%; bottom: calc(var(--h, 26px) * .5); width: calc(var(--h, 26px) * 1.45); transform: translateX(-50%) rotate(-24deg); animation: remar 1.6s ease-in-out infinite; }
+#sky .agua.kayak .remo svg { display: block; width: 100%; height: auto; aspect-ratio: 46 / 8; }
+@keyframes remar { 50% { transform: translateX(-50%) rotate(24deg) translateY(1px); } }
+[data-sky-dark="1"] #sky .agua .remo { filter: brightness(.6); }
+/* Las mascotas en la arena: respiran, y cada tanto tiran un 🦴, una 🐾 o un 🐟. */
+#sky .mascota-mar { position: absolute; transform: translate(-50%, -100%); pointer-events: none; }
+#sky .mascota-mar .cuerpo { display: block; }
+#sky .mascota-mar.izq .cuerpo { transform: scaleX(-1); }
+#sky .mascota-mar .art { display: block; width: 100%; height: auto; aspect-ratio: var(--ar); transform-origin: 50% 100%; animation: respira-m 3.4s ease-in-out infinite; }
+@keyframes respira-m { 50% { transform: scaleY(1.04); } }
+#sky .mascota-mar .mimo { position: absolute; left: 50%; bottom: 86%; font-size: 14px; line-height: 1; transform: translateX(-50%); pointer-events: none; animation: mimo 1.7s ease-out forwards; }
+@keyframes mimo { 0% { opacity: 0; transform: translate(-50%, 4px) scale(.4); } 18% { opacity: 1; transform: translate(-50%, -2px) scale(1.18); } 30% { transform: translate(-50%, -4px) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -20px) scale(.95); } }
+[data-sky-dark="1"] #sky .mascota-mar .art { filter: brightness(.36) saturate(.55); }
+body.fantasma #sky .mascota-mar .art { filter: brightness(.45) saturate(.6); }
+/* La moto, el kayak o la tabla varada en la orilla cuando no está en el agua. */
 #sky .varada { position: absolute; transform: translate(-50%, -100%); pointer-events: none; }
 #sky .varada .ai, #sky .varada svg { display: block; width: 100%; height: auto; }
 #sky .varada .ai { aspect-ratio: var(--ar); }
 #sky .varada svg { aspect-ratio: 64 / 14; }
+#sky .varada.kayak svg { aspect-ratio: 64 / 12; }
 #sky .varada.izq > * { transform: scaleX(-1); }
-[data-sky-dark="1"] #sky .varada { filter: brightness(.6); }
+[data-sky-dark="1"] #sky .varada { filter: brightness(.45); }
 body.fantasma #sky .varada { filter: brightness(.42); }
 
 /* gaviotas del inicio */

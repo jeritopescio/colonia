@@ -363,6 +363,10 @@ window.DATA = (function () {
   const BARCO = { c: 50, s: 1, item: 'holandes', mision: { id: 'sec-barco', t: 'La colonia después de hundir al Holandés Laburante: foto de todos los que estaban', xp: 40 } };
   // La cola de sirena (Mirar el mar, a solas): si la atrapás, estas monedas (una vez por día).
   const SIRENA = 250;
+  // Las mascotas del kiosco: en Mirar el mar aparecen sentadas en la arena si su dueño está mirando (una de cada una) y cada
+  // tanto tiran uno de estos.
+  const MASCOTAS = { tulio: 'perro', renu: 'perro', leda: 'perro', pure: 'perro', kuky: 'perro', tony: 'gato', feluchis: 'gato', pompi: 'gato' };
+  const MIMOS = { perro: ['🦴', '🐾', '🎾', '🦴', '🐾'], gato: ['🐟', '🐭', '🐾', '🧶', '🐟'] };
   // La botella entre amigos (desde "Mirar el mar"): una por día; a quien le llega, al abrirla, estas monedas.
   const BOTELLA_AMIGO = 10;
 
@@ -511,5 +515,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { precioVenta, CUMPLES, LOGROS, BARCO, SIRENA, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { precioVenta, CUMPLES, LOGROS, BARCO, SIRENA, MASCOTAS, MIMOS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

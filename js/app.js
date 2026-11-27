@@ -1941,7 +1941,7 @@
     const alto = (e) => 1 - e.clientY / innerHeight, lado = (e) => (e.clientX / innerWidth) * 2 - 1, equis = (e) => e.clientX / innerWidth;
     capa.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button')) return;
-      if (tocarSirena(e.clientX, e.clientY) || tocarBarco(e.clientX, e.clientY)) return; // la cola de sirena, o el barco con el aro
+      if (tocarSirena(e.clientX, e.clientY) || tocarBarco(e.clientX, e.clientY) || tocarMascota(e.clientX, e.clientY)) return; // la cola de sirena, el barco con el aro o una mascota
       if (tocarPersonita(e.clientX, e.clientY)) return; // a una personita se la toca para sentarse o saludar, no suena
       chispas(e.clientX, e.clientY);
       INICIO.toque(lado(e), alto(e));
@@ -2317,7 +2317,8 @@
   function sacarEscena() {
     seVaFantasma(true);
     terminaSolo();
-    document.querySelectorAll('#sky .delfin-mar, #sky .cola-sirena').forEach((n) => n.remove());
+    clearTimeout(mimosT); mimosT = null;
+    document.querySelectorAll('#sky .delfin-mar, #sky .cola-sirena, #sky .varada, #sky .mascota-mar').forEach((n) => n.remove());
     escena.forEach((p) => clearTimeout(p.t));
     escena.clear();
     cancelAnimationFrame(rafProf); rafProf = 0;
@@ -2564,10 +2565,11 @@
       p.el.classList.toggle('a-la-sombra', adentro);
     });
   }
-  // ---------- en el agua: moto de agua y surf ----------
+  // ---------- en el agua: moto de agua, kayak y surf ----------
   // Quien tiene la moto de agua y está mirando el mar anda en el mar mientras hay sol, de un lado al otro; si son varios,
   // de a dos, a la par. Quien tiene la tabla de surf surfea a la mañana, de día y al atardecer: espera la ola sentado en la
-  // tabla, se para, la corre hasta la orilla y vuelve a salir. Con las dos cosas, alterna cada 10 minutos. Con tormenta, nadie.
+  // tabla, se para, la corre hasta la orilla y vuelve a salir. Quien tiene el kayak rema despacio, más cerca de la orilla,
+  // mientras hay luz. Con más de una cosa, alterna cada 10 minutos. Con tormenta, nadie.
   // Todo sale de la hora, así que en todos los celus se ve igual.
   const tieneCosa = (pid, id) => { try { return S.altar(pid).items.some((x) => x.id === id); } catch (e) { return false; } };
   function colorCosa(pid, id) {
@@ -2576,19 +2578,21 @@
   function aguaDe(pid) {
     const st = SKY.state(), m = st.minute, sol = st.sun;
     if (/tormenta/.test(st.kind) || fantasma) return null;
-    const moto = tieneCosa(pid, 'moto'), tabla = tieneCosa(pid, 'tabla');
     const dia = m >= sol.rise && m <= sol.set, conLuz = m >= sol.rise && m <= sol.set + 15;
-    if (moto && tabla && dia) return Math.floor(Date.now() / 6e5) % 2 ? 'surf' : 'moto';
-    if (moto && dia) return 'moto';
-    if (tabla && conLuz) return 'surf';
-    return null;
+    const puede = [dia && tieneCosa(pid, 'moto') && 'moto', conLuz && tieneCosa(pid, 'kayak') && 'kayak', conLuz && tieneCosa(pid, 'tabla') && 'surf'].filter(Boolean);
+    return puede.length ? puede[Math.floor(Date.now() / 6e5) % puede.length] : null;
   }
+  // El kayak de costado (con el color que eligió su dueño) y el remo, que va de un lado al otro.
+  const kayakSVG = (col) => `<svg viewBox="0 0 64 12" aria-hidden="true"><path d="M1.5 5.4C13 3.2 51 3.2 62.5 5.4C55 10.8 9 10.8 1.5 5.4Z" fill="${col}" stroke="#43365a" stroke-width="1.1" stroke-linejoin="round"/><path d="M6 6.9C21 8.4 43 8.4 58 6.9" fill="none" stroke="#43365a" stroke-width=".6" opacity=".4"/><ellipse cx="30" cy="4.6" rx="7.5" ry="1.5" fill="#43365a" opacity=".85"/></svg>`;
+  const REMO = '<svg viewBox="0 0 46 8" aria-hidden="true"><path d="M5 4H41" stroke="#8a6a4c" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="4" cy="4" rx="3.6" ry="1.9" fill="#d7a86e" stroke="#43365a" stroke-width=".8"/><ellipse cx="42" cy="4" rx="3.6" ry="1.9" fill="#d7a86e" stroke="#43365a" stroke-width=".8"/></svg>';
   const tablaSVG = (col) => `<svg viewBox="0 0 64 14" aria-hidden="true"><path d="M2 7C10 1.2 50 .6 62 7C50 13.4 10 12.8 2 7Z" fill="${col}" stroke="var(--tinta)" stroke-width="1.2"/><path d="M8 7H56" stroke="#fffaf0" stroke-width="1.6" opacity=".8"/></svg>`;
   function entrarAlAgua(p, tipo) {
     const sky = document.getElementById('sky');
     const w = document.createElement('div');
     w.className = 'agua ' + tipo;
-    w.innerHTML = `<span class="nave">${tipo === 'moto' ? ARTE.item('moto', colorCosa(p.pid, 'moto')) : tablaSVG(colorCosa(p.pid, 'tabla') || '#f7b3c6')}</span><i class="estela" aria-hidden="true"></i>`;
+    w.innerHTML = tipo === 'kayak'
+      ? `<span class="nave">${kayakSVG(colorCosa(p.pid, 'kayak') || '#ffe39a')}</span><i class="remo">${REMO}</i>`
+      : `<span class="nave">${tipo === 'moto' ? ARTE.item('moto', colorCosa(p.pid, 'moto')) : tablaSVG(colorCosa(p.pid, 'tabla') || '#f7b3c6')}</span><i class="estela" aria-hidden="true"></i>`;
     sky.appendChild(w);
     clearTimeout(p.fin); p.anda = null;
     p.el.classList.remove('camina', 'sentada', 'mira-i', 'mira-d', 'a-la-sombra');
@@ -2596,7 +2600,7 @@
     p.el.style.left = ''; p.el.style.top = ''; p.el.style.zIndex = '';
     w.appendChild(p.el);
     p.agua = tipo; p.w = w;
-    if (tipo === 'moto') p.el.classList.add('sentada');
+    if (tipo === 'moto' || tipo === 'kayak') p.el.classList.add('sentada');
     pintarPersonita(p);
     if (!rafAgua) rafAgua = requestAnimationFrame(moverAgua);
   }
@@ -2619,10 +2623,11 @@
       if (tipo) entrarAlAgua(p, tipo);
     });
     revisarVaradas();
+    revisarMascotas();
   }
   // Lo que no está en el agua queda varado en la orilla (de noche, con tormenta, con el barco fantasma o mientras surfea con
-  // la otra cosa): la moto o la tabla de quien la tiene. Una por persona, en los costados, para no tapar a nadie.
-  const VARADAS = ['moto', 'tabla'], LUGAR_VARADA = [[8.5, 71.2], [91.5, 71.4], [17, 71], [83, 71.1], [25, 70.9], [75, 71]];
+  // la otra cosa): la moto, el kayak o la tabla de quien la tiene. Una por persona, en los costados, para no tapar a nadie.
+  const VARADAS = ['moto', 'kayak', 'tabla'], LUGAR_VARADA = [[9, 71.2], [91, 71.4], [27, 71], [73, 71.1], [42, 70.9], [58, 71]];
   function revisarVaradas() {
     const sky = document.getElementById('sky');
     if (!sky) return;
@@ -2635,13 +2640,70 @@
       if (!el) {
         el = document.createElement('div');
         el.className = 'varada ' + id; el.dataset.k = k;
-        el.innerHTML = id === 'moto' ? ARTE.item('moto', colorCosa(pid, 'moto')) : tablaSVG(colorCosa(pid, 'tabla') || '#f7b3c6');
+        el.innerHTML = id === 'moto' ? ARTE.item('moto', colorCosa(pid, 'moto')) : id === 'kayak' ? kayakSVG(colorCosa(pid, 'kayak') || '#ffe39a') : tablaSVG(colorCosa(pid, 'tabla') || '#f7b3c6');
         sky.appendChild(el);
       }
       const h = 165 * PX_CM * escalaY(y);
       el.classList.toggle('izq', x > 50);
-      el.style.cssText = `left:${x}%;top:${y}%;width:${(h * (id === 'moto' ? 1.75 : 1.5)).toFixed(1)}px;z-index:${capaY(y)}`;
+      el.style.cssText = `left:${x}%;top:${y}%;width:${(h * (id === 'moto' ? 1.75 : id === 'kayak' ? 2.1 : 1.5)).toFixed(1)}px;z-index:${capaY(y)}`;
     });
+  }
+  // ---------- las mascotas ----------
+  // Las mascotas de quienes están mirando el mar, una de cada una aunque la tengan varios (va con el primero, por orden):
+  // sentadas en la arena al lado del lugar de su dueño, un poco adelante. Cada tanto alguna tira un 🦴, una 🐾, un 🐟…
+  // y si la tocás, también. Con el barco fantasma se asustan.
+  let mimosT = null;
+  function revisarMascotas() {
+    const sky = document.getElementById('sky');
+    if (!sky) return;
+    const cs = casas(), duenio = new Map();
+    if (conPersona()) [...escena.keys()].sort().forEach((pid) => Object.keys(D.MASCOTAS).forEach((id) => { if (!duenio.has(id) && tieneCosa(pid, id)) duenio.set(id, pid); }));
+    sky.querySelectorAll('.mascota-mar').forEach((el) => { if (!duenio.has(el.dataset.m)) el.remove(); });
+    const cuantas = {};
+    duenio.forEach((pid, id) => {
+      const c = cs[pid];
+      if (!c) return;
+      const j = (cuantas[pid] = (cuantas[pid] || 0) + 1) - 1, lado = (hash(pid) % 2 ? 1 : -1) * (j % 2 ? -1 : 1);
+      const x = clamp(c.x + lado * (3.6 + Math.floor(j / 2) * 3.2), 4, 96), y = c.y + 1.6 + (j % 2) * 0.5;
+      const [aw, ah] = (window.ARTE_IMG || {})[id] || [300, 300], t = 165 * PX_CM * escalaY(y) * 0.66;
+      let el = sky.querySelector(`.mascota-mar[data-m="${id}"]`);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'mascota-mar'; el.dataset.m = id;
+        el.innerHTML = `<span class="cuerpo">${ARTE.item(id)}</span>`;
+        sky.appendChild(el);
+      }
+      el.classList.toggle('izq', x > c.x);
+      const css = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${(t * Math.sqrt(aw / ah)).toFixed(1)}px;z-index:${capaY(y)}`;
+      if (el.style.cssText !== css) el.style.cssText = css;
+    });
+    if (duenio.size && !mimosT) mimosT = setTimeout(mimos, 2500 + Math.random() * 2500);
+  }
+  function mimos() {
+    mimosT = null;
+    const ms = [...document.querySelectorAll('#sky .mascota-mar')];
+    if (!ms.length) return;
+    mimo(ms[Math.floor(Math.random() * ms.length)]);
+    mimosT = setTimeout(mimos, (ms.length > 2 ? 2600 : 4200) + Math.random() * 3000);
+  }
+  function mimo(el) {
+    const tipo = D.MASCOTAS[el.dataset.m] || 'perro', l = fantasma ? (tipo === 'gato' ? ['🙀', '❗'] : ['❗', '😨']) : D.MIMOS[tipo];
+    el.querySelectorAll('.mimo').forEach((m) => m.remove());
+    const m = document.createElement('span');
+    m.className = 'mimo'; m.textContent = l[Math.floor(Math.random() * l.length)]; m.setAttribute('aria-hidden', 'true');
+    el.appendChild(m);
+    setTimeout(() => m.remove(), 1700);
+  }
+  function tocarMascota(x, y) {
+    const el = [...document.querySelectorAll('#sky .mascota-mar')].find((n) => {
+      const r = n.getBoundingClientRect();
+      return x > r.left - 10 && x < r.right + 10 && y > r.top - 12 && y < r.bottom + 8;
+    });
+    if (!el) return false;
+    mimo(el);
+    SONIDO.plop();
+    S.contar('mar.mimos');
+    return true;
   }
   let rafAgua = 0;
   const suave = (k) => k * k * (3 - 2 * k);
@@ -2650,6 +2712,12 @@
     if (!en.length) { rafAgua = 0; return; }
     const motos = en.filter((p) => p.agua === 'moto').sort((a, b) => a.pid.localeCompare(b.pid));
     const surfers = en.filter((p) => p.agua === 'surf').sort((a, b) => a.pid.localeCompare(b.pid));
+    const kayaks = en.filter((p) => p.agua === 'kayak').sort((a, b) => a.pid.localeCompare(b.pid));
+    // Kayaks: más cerca de la orilla y despacio, cada uno en su carril; van y vuelven en un minuto y medio.
+    kayaks.forEach((p, i) => {
+      const T = 96000, u = (ahora / T + i * 0.37) % 1, ida = u < 0.5, k = suave(ida ? u * 2 : 2 - u * 2);
+      ponerEnAgua(p, 14 + 72 * k, 63.6 + i * 1.5 + Math.sin(ahora / 900 + i) * 0.16, !ida, 1, false);
+    });
     // Motos: de a dos, a la par (el segundo un poco más cerca), cada pareja en su carril. Van y vuelven en 44 s.
     motos.forEach((p, i) => {
       const par = Math.floor(i / 2), T = 44000, u = (ahora / T + par * 0.31) % 1, ida = u < 0.5, k = suave(ida ? u * 2 : 2 - u * 2);
@@ -2817,7 +2885,7 @@
     setTimeout(() => g.remove(), 1000);
   }
   // Relámpagos cada 7 a 16 segundos (el primero enseguida): la luz, a veces el rayo cerca del barco, y el trueno, que
-  // llega antes cuanto más cerca cae. Con "reducir movimiento" no hay barco fantasma (ni luces).
+  // llega antes cuanto más cerca cae. Con "reducir movimiento", solo el trueno.
   function relampagos(primero) {
     if (!fantasma) return;
     clearTimeout(fantasma.t);
