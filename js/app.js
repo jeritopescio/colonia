@@ -2645,7 +2645,19 @@
   const PERIODO_BARCO = 240000; // va y vuelve en 4 minutos
   const xBarco = (t) => 50 + 25 * Math.sin((2 * Math.PI * t) / PERIODO_BARCO); // sin salirse de la pantalla
   const vaDerecha = (t) => Math.cos((2 * Math.PI * t) / PERIODO_BARCO) > 0;
+  // El giro, en las puntas (donde casi no se mueve): de costado pasa a de frente (mirando a la playa un rato) y después
+  // de costado para el otro lado; siempre girando hacia quien mira. El de frente es angosto: 0,24 del ancho del de costado.
+  const GIRO_BARCO = 12000, ANCHO_FRENTE = (239 / 640) / (640 / 417);
+  function vistaBarco(t) {
+    const p = (((t % PERIODO_BARCO) + PERIODO_BARCO) % PERIODO_BARCO) / PERIODO_BARCO;
+    const k = (centro) => Math.min(1, Math.max(0, ((p - centro) * PERIODO_BARCO + GIRO_BARCO / 2) / GIRO_BARCO));
+    if (Math.abs(p - 0.25) * PERIODO_BARCO < GIRO_BARCO / 2) return 2 * k(0.25); // a la derecha de todo: se da vuelta
+    if (Math.abs(p - 0.75) * PERIODO_BARCO < GIRO_BARCO / 2) return 2 - 2 * k(0.75); // a la izquierda de todo
+    return vaDerecha(t) ? 0 : 2;
+  }
   let fantasma = null; // { desde, bajo (desde cuándo son menos), t (relámpagos), g (sustos) }
+  // [centro x %, arriba %, ancho %, opacidad, espejada]
+  const NUBES_FANTASMA = [[14, 2, 72, 0.5, 0], [80, 5, 66, 0.45, 1], [47, -2, 60, 0.36, 0], [-2, 24, 62, 0.42, 1], [100, 27, 68, 0.46, 0], [28, 37, 50, 0.3, 1], [74, 39, 46, 0.28, 0]];
   const deFantasma = (cls) => document.querySelector(`#sky .${cls}:not(.se-va)`);
   function revisarFantasma() {
     const mirando = !!document.getElementById('sky') && !!document.querySelector('.mirar-capa') && conPersona();
@@ -2663,12 +2675,15 @@
     document.body.classList.add('fantasma');
     const poner = (cls, html = '') => { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; sky.appendChild(el); return el; };
     poner('fantasma-oscuro');
-    poner('barco-fantasma', '<span class="giro"><img src="img/mar/fantasma.webp?v=1" alt="" draggable="false"></span>');
+    // más nubes negras por el cielo, más transparentes, que se mueven despacito (la que sigue al barco va adelante)
+    poner('nubes-fantasma', NUBES_FANTASMA.map(([x, y, w, o, espejo], i) => `<img src="img/mar/nube-negra.webp?v=1" alt="" draggable="false" style="left:${x}%;top:${y}%;width:${w}%;--o:${o};--d:${38 + i * 7}s;animation-delay:-${i * 9}s${espejo ? ';--e:-1' : ''}">`).join(''));
+    // las vistas para el giro: de costado (proa a la derecha), de frente, y de costado espejada (proa a la izquierda)
+    poner('barco-fantasma', ['fantasma', 'fantasma-frente', 'fantasma'].map((v) => `<span class="vista"><img src="img/mar/${v}.webp?v=1" alt="" draggable="false"></span>`).join(''));
     poner('rayo', '<svg viewBox="0 0 40 100" preserveAspectRatio="none" aria-hidden="true"><path d="M24 0L15 31L25 35L10 66L20 69L6 100"/><path class="rama" d="M18 47L30 58L27 70"/></svg>');
     poner('nube-negra', '<img src="img/mar/nube-negra.webp?v=1" alt="" draggable="false">');
     poner('relampago');
     moverBarco(true);
-    setTimeout(() => ['fantasma-oscuro', 'barco-fantasma', 'nube-negra'].forEach((c) => { const el = deFantasma(c); if (el) el.classList.add('ve'); }), 60);
+    setTimeout(() => ['fantasma-oscuro', 'nubes-fantasma', 'barco-fantasma', 'nube-negra'].forEach((c) => { const el = deFantasma(c); if (el) el.classList.add('ve'); }), 60);
     escena.forEach((p) => { if (p.mia) asustar(p); });
     revisarAgua(); // salen del agua (con el barco fantasma nadie anda en moto ni surfea)
     marcarSustos();
@@ -2683,7 +2698,7 @@
     fantasma = null;
     document.body.classList.remove('fantasma', 'relampaguea');
     INICIO.fantasma(false);
-    document.querySelectorAll('#sky .fantasma-oscuro, #sky .barco-fantasma, #sky .nube-negra, #sky .relampago, #sky .rayo').forEach((n) => {
+    document.querySelectorAll('#sky .fantasma-oscuro, #sky .nubes-fantasma, #sky .barco-fantasma, #sky .nube-negra, #sky .relampago, #sky .rayo').forEach((n) => {
       if (ya) { n.remove(); return; }
       n.classList.add('se-va'); n.classList.remove('ve');
       setTimeout(() => n.remove(), 4200);
@@ -2709,7 +2724,13 @@
     if (!b) return;
     if (primera) [b, n].forEach((el) => el && (el.style.transition = 'none'));
     b.style.left = xBarco(t).toFixed(2) + '%';
-    b.classList.toggle('izq', !vaDerecha(t));
+    // f: 0 de costado hacia la derecha, 1 de frente, 2 de costado hacia la izquierda. El de costado se va angostando
+    // (como si girara) hasta el ancho del de frente, y ahí se funden.
+    const f = vistaBarco(t), [der, frente, izq] = b.querySelectorAll('.vista'), angosto = (k) => 1 - (1 - ANCHO_FRENTE) * suave(Math.min(1, Math.max(0, k)));
+    const pone = (v, op, sx) => { v.style.opacity = Math.min(1, Math.max(0, op)).toFixed(2); v.style.transform = `translateX(-50%) scaleX(${sx.toFixed(3)})`; };
+    pone(der, (1 - f) / 0.45, angosto(f));
+    pone(frente, 1 - Math.abs(f - 1) / 0.45, 1);
+    pone(izq, (f - 1) / 0.45, -angosto(2 - f));
     if (n) n.style.left = xBarco(t - 14000).toFixed(2) + '%';
     if (r && !r.classList.contains('cae')) r.style.left = (xBarco(t - 9000) + (vaDerecha(t) ? -4 : 4)).toFixed(2) + '%';
     if (primera) { void b.offsetWidth; [b, n].forEach((el) => el && (el.style.transition = '')); }

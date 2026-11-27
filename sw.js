@@ -2,11 +2,11 @@
    GitHub Pages manda los archivos con "guardalo 10 minutos": por eso se pide con no-cache (pregunta al servidor si cambió).
    Las imágenes van aparte: se guardan en el celu y se muestran al instante (Supabase las manda con no-cache,
    así que sin esto se vuelven a pedir cada vez que aparecen en pantalla). */
-const CACHE = 'colonia-v38';
+const CACHE = 'colonia-v39';
 const IMGS = 'colonia-img-1'; // fotos y arte: sobreviven a las actualizaciones de la app
 const MAX_IMGS = 700;
 // Los bordes de crayón se usan en todas las pantallas: quedan guardados desde que se instala la versión.
-const BORDES = ['tarjeta', 'boton', 'chip', 'aro'].map((n) => `img/crayon/${n}.png?v=1`).concat('img/mar/fantasma.webp?v=1', 'img/mar/nube-negra.webp?v=1'); // y el barco fantasma con su nube, para que esté aunque no haya señal
+const BORDES = ['tarjeta', 'boton', 'chip', 'aro'].map((n) => `img/crayon/${n}.png?v=1`).concat('img/mar/fantasma.webp?v=1', 'img/mar/fantasma-frente.webp?v=1', 'img/mar/nube-negra.webp?v=1'); // y el barco fantasma con su nube, para que esté aunque no haya señal
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/data.js', 'js/sky.js', 'js/arte-img.js', 'js/arte.js', 'js/sonido.js', 'js/inicio.js', 'js/store.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
