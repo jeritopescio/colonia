@@ -448,7 +448,7 @@ window.DATA = (function () {
     // Únicas (unico: true): no se venden en el kiosco, llegan solo de regalo (cumpleaños y fechas así).
     // venta = cuánto te dan si lo vendés (sin venta, el 80% del precio).
     { id: 'mellis', n: 'Cartel de mellis sueltas', p: 0, venta: 100, lv: 1, unico: true, d: 'Señalización oficial de la Costa: por esta playa andan dos mellis sueltas. Del cumple de las mellis, 26/11/2026.' },
-    { id: 'holandes', n: 'Bandera del Holandés', p: 0, venta: 100, lv: 1, unico: true, d: 'La bandera del Holandés Laburante, el barco fantasma que vino a llevarse las vacaciones. Lo hundieron a cañonazos desde la orilla.' },
+    { id: 'holandes', n: 'Bandera del Holandés', p: 0, venta: 100, lv: 1, unico: true, d: 'La bandera del Holandés Laburante, el barco fantasma que vino a llevarse las vacaciones. Lo hundieron a puro dedo desde la orilla.' },
   ];
   // Regalos de cumpleaños: cuando llega de regalo una de estas cosas, se abre con un saludo grande y papelitos.
   const CUMPLES = { mellis: { t: '¡FELIZ CUMPLE, MELLIS!', s: 'Hay dos mellis sueltas por la playa. Avisen a los guardavidas.' } };

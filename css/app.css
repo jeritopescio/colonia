@@ -270,26 +270,48 @@ body.fantasma.relampaguea #sky .personita svg { filter: brightness(1.05) saturat
 @keyframes grito { 0% { opacity: 0; transform: translate(-50%, 4px) scale(.3); } 14% { opacity: 1; transform: translate(-50%, 0) scale(1.18); } 28% { transform: translate(-50%, -2px) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -12px) scale(.95); } }
 /* El Holandés Laburante como boss: 5 faroles verdes arriba del barco (los apagados, grises; el próximo en caer late),
    el aro que brilla cuando hay que tocarlo, el cartel "¡Ahora! 2/4", la bala de chispas, el sacudón y el hundimiento. */
-.pista-barco { top: calc(118px + env(safe-area-inset-top, 0px)); width: min(330px, calc(100% - 32px)); white-space: normal; border-radius: 16px; background: color-mix(in srgb, #1d1a2b 70%, transparent); color: #eafff6; animation-delay: 1.6s; }
-#sky .barco-fantasma .faroles { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); display: flex; gap: 7px; }
-#sky .barco-fantasma .faroles i { width: 9px; height: 12px; border-radius: 45% 45% 40% 40%; background: radial-gradient(circle at 50% 40%, #f4fff8, #7ef3c6 55%, #2b9f7d); box-shadow: 0 0 8px 2px rgba(126, 243, 198, .7); transition: background .4s, box-shadow .4s, opacity .4s; }
-#sky .barco-fantasma .faroles i.apagado { background: #3b3648; box-shadow: none; opacity: .7; }
-#sky .barco-fantasma.apunta .faroles i.prox { animation: farol .45s ease-in-out infinite alternate; }
-@keyframes farol { to { transform: scale(1.35); box-shadow: 0 0 14px 5px rgba(126, 243, 198, .95); } }
+.pista-barco { top: calc(162px + env(safe-area-inset-top, 0px)); width: min(330px, calc(100% - 32px)); white-space: normal; border-radius: 16px; background: color-mix(in srgb, #1d1a2b 70%, transparent); color: #eafff6; animation-delay: 1.6s; }
+/* El Holandés Laburante como boss: la barra de vida arriba (el tiempo a la derecha; en los últimos 10 s se pone rosa y
+   late), el aro que brilla durante la pelea, el sacudón con cada toque, la inclinación a medida que pierde vida, la bala
+   que le tira a la playa y quien queda mareado. */
+.barra-boss { position: absolute; left: 50%; top: calc(66px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: min(340px, calc(100% - 32px)); padding: 8px 12px 8px; border-radius: 14px; background: color-mix(in srgb, #1d1a2b 76%, transparent); color: #eafff6; pointer-events: none; animation: entra-barra .8s ease-out 1s both; }
+@keyframes entra-barra { from { opacity: 0; transform: translate(-50%, -8px); } }
+.barra-boss .bb-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-family: var(--display); font-size: .95rem; }
+.barra-boss .bb-tiempo { font-variant-numeric: tabular-nums; font-size: 1.15rem; display: inline-block; }
+.barra-boss.apurado .bb-tiempo { color: #f7b3c6; animation: apurado .5s ease-in-out infinite alternate; }
+@keyframes apurado { to { transform: scale(1.18); } }
+.barra-boss .bb-vida { position: relative; height: 17px; margin-top: 5px; border-radius: 999px; background: #2b2738; border: 2px solid #eafff6; overflow: hidden; }
+.barra-boss .bb-golpe, .barra-boss .bb-lleno { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 999px; }
+.barra-boss .bb-golpe { background: #fff2c8; transition: width .5s ease-out .35s; }
+.barra-boss .bb-lleno { background: linear-gradient(180deg, #c6fbe5, #7ef3c6 55%, #3fbf95); box-shadow: 0 0 10px rgba(126, 243, 198, .7); transition: width .12s linear; }
+.barra-boss .bb-num { position: absolute; inset: 0; display: grid; place-items: center; font-size: .72rem; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 0 3px #1d1a2b, 0 1px 2px #1d1a2b; }
+.barra-boss .bb-msg { margin-top: 5px; min-height: 1.25em; font-size: .86rem; line-height: 1.25; text-align: center; color: #cfeee2; }
+.barra-boss .bb-msg.fuerte { color: #ffe39a; font-weight: 700; }
 #sky .barco-fantasma .aro { position: absolute; left: 50%; top: 52%; width: 118%; aspect-ratio: 2.1; transform: translate(-50%, -50%); border-radius: 50%; border: 2.5px dashed rgba(190, 255, 230, .95); box-shadow: 0 0 14px 3px rgba(126, 243, 198, .55), inset 0 0 14px 3px rgba(126, 243, 198, .35); opacity: 0; pointer-events: none; transition: opacity .25s; }
 #sky .barco-fantasma.apunta .aro { opacity: 1; animation: aro .9s ease-in-out infinite alternate; }
 @keyframes aro { from { transform: translate(-50%, -50%) scale(.96); } to { transform: translate(-50%, -50%) scale(1.05); } }
-#sky .barco-fantasma .cartel-canon { position: absolute; left: 50%; bottom: calc(100% + 24px); transform: translateX(-50%); white-space: nowrap; font-family: var(--display); font-size: 1rem; color: #eafff6; text-shadow: 0 0 6px #1d1a2b, 0 0 12px rgba(126, 243, 198, .8); pointer-events: none; }
-#sky .barco-fantasma .cartel-canon:empty { display: none; }
+#sky .barco-fantasma .vista { transition: opacity 1.05s linear, transform 1.05s linear, rotate 1.2s ease-in-out; }
+#sky .barco-fantasma.herido-1 .vista { rotate: -3deg; }
+#sky .barco-fantasma.herido-2 .vista { rotate: -7deg; }
 #sky .barco-fantasma .risa-barco { position: absolute; left: 50%; top: 18%; font-size: 30px; line-height: 1; transform: translateX(-50%); pointer-events: none; animation: risa 1.6s ease-out forwards; }
 @keyframes risa { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.4); } 18% { opacity: 1; transform: translate(-50%, 0) scale(1.2) rotate(-8deg); } 36% { transform: translate(-50%, -4px) scale(1) rotate(8deg); } 54% { transform: translate(-50%, -6px) rotate(-8deg); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -22px) rotate(0); } }
-#sky .barco-fantasma.golpe .vista { animation: golpe .5s ease-out; }
-@keyframes golpe { 0%, 100% { translate: 0 0; } 15% { translate: -6px 2px; } 35% { translate: 5px -1px; } 55% { translate: -3px 1px; } 75% { translate: 2px 0; } }
+#sky .barco-fantasma.golpe .vista { animation: golpe .4s ease-out; }
+@keyframes golpe { 0%, 100% { translate: 0 0; } 15% { translate: -4px 2px; } 35% { translate: 4px -1px; } 55% { translate: -2px 1px; } 75% { translate: 1px 0; } }
 #sky .barco-fantasma.se-hunde img { animation: hundirse 3.6s ease-in forwards; }
-#sky .barco-fantasma.se-hunde .faroles, #sky .barco-fantasma.se-hunde .aro { opacity: 0; transition: opacity .6s; }
+#sky .barco-fantasma.se-hunde .aro { opacity: 0; transition: opacity .6s; }
 @keyframes hundirse { 0% { transform: rotate(0) translateY(0); opacity: 1; } 25% { transform: rotate(-9deg) translateY(4%); } 100% { transform: rotate(16deg) translateY(62%); opacity: 0; } }
-.bala-canon { position: fixed; left: 0; top: 0; z-index: 17; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, #ffffff 0 20%, #ffe39a 32%, #f7b3c6 50%, #a9d6f0 66%, rgba(207, 192, 240, 0) 72%); box-shadow: 0 0 16px 6px rgba(255, 240, 200, .75); }
+.bala-barco { position: fixed; left: 0; top: 0; z-index: 17; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 35% 35%, #9a94ab, #3a3448 55%, #15121f); box-shadow: 0 0 10px 3px rgba(126, 243, 198, .45); }
+#sky .personita .blanco { position: absolute; left: 50%; bottom: -5px; width: 30px; height: 10px; transform: translateX(-50%); border: 2px dashed #f6a38f; border-radius: 50%; box-shadow: 0 0 8px rgba(246, 163, 143, .8); pointer-events: none; animation: blanco .35s ease-in-out infinite alternate; }
+@keyframes blanco { to { transform: translateX(-50%) scale(1.25); } }
+#sky .personita .mareo { position: absolute; left: 50%; bottom: calc(100% + 2px); font-size: 14px; line-height: 1; pointer-events: none; animation: mareo .9s linear infinite; }
+@keyframes mareo { from { transform: translateX(-50%) rotate(0); } to { transform: translateX(-50%) rotate(360deg); } }
+#sky .personita.mareada .susto { display: none; }
+#sky .personita.mareada svg { rotate: 12deg; transform-origin: 50% 100%; }
+.mareo-yo { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); padding: 12px 20px; border-radius: 16px; background: color-mix(in srgb, #1d1a2b 80%, transparent); color: #fff2c8; font-family: var(--display); font-size: 1.1rem; text-align: center; pointer-events: none; animation: entra-mareo .3s ease-out; }
+@keyframes entra-mareo { from { opacity: 0; transform: translate(-50%, -50%) scale(.6); } }
+.mareo-yo b { display: block; font-size: 2.4rem; line-height: 1.1; }
+.mareo-yo span { display: block; font-size: .82rem; color: #cfeee2; }
 .barco-ganado .cumple-titulo { color: #3e8f76; font-size: clamp(1.6rem, 8vw, 2.2rem); }
 .barco-trofeo { width: 84px; }
 .barco-trofeo .art { width: 100%; height: auto; }

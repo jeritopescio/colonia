@@ -2329,7 +2329,7 @@
   function publicar(p) {
     if (!p || p.falsa || p.pid !== yoEnElMar() || !conPersona()) return;
     ultimoEstado = Date.now();
-    S.enviarMar({ t: 'estado', como: p.como, x: +p.x.toFixed(1), y: +p.y.toFixed(1), sentada: p.sentada, mira: p.mira, va: p.vaASentarse ? 1 : 0, fv: fantasma && !fantasma.hundido ? fantasma.vida : undefined });
+    S.enviarMar({ t: 'estado', como: p.como, x: +p.x.toFixed(1), y: +p.y.toFixed(1), sentada: p.sentada, mira: p.mira, va: p.vaASentarse ? 1 : 0, pi: fantasma && fantasma.inicio && !fantasma.hundido && !fantasma.escapo ? fantasma.inicio : undefined, vm: fantasma && fantasma.vm ? fantasma.vm : undefined });
   }
   // Camina hasta (x, y), despacio, y si hacía falta se levanta antes. "luego" corre al llegar.
   function andarA(p, x, y, luego) {
@@ -2460,10 +2460,11 @@
   function recibirMar(m) {
     if (!m || !m.de || m.de === yoEnElMar() || !document.querySelector('.mirar-capa') || !conPersona()) return;
     if (m.t === 'hola') { publicar(escena.get(yoEnElMar())); return; }
-    // el barco fantasma: alguien lo tocó con el aro, o salió un cañonazo que contó otro celu (con los faroles que le quedan)
-    if (m.t === 'canon') { toqueDe(m.de, m.c); return; }
-    if (m.t === 'pum') { if (fantasma && !fantasma.hechos.has(m.c)) canonazo(m.c, false); vidaDeOtro(m.vida); return; }
-    if (m.t === 'estado' && m.fv != null) vidaDeOtro(m.fv);
+    // el barco fantasma: cuándo arrancó la pelea, los golpes de cada uno (su total) y si alguien vio que se hundió
+    if (m.t === 'pelea') { adoptarPelea(m.pi, m.vm); return; }
+    if (m.t === 'golpes') { golpesDe(m.de, m.pi, m.vm, m.n); return; }
+    if (m.t === 'hundido') { if (fantasma && fantasma.inicio && Math.abs(m.pi - fantasma.inicio) <= 30000) hundir(); return; }
+    if (m.t === 'estado' && m.pi != null) adoptarPelea(m.pi, m.vm);
     const my = m.y != null ? m.y : 73.5; // las versiones viejas no mandan la profundidad
     let p = escena.get(m.de);
     if (!p && (m.t === 'estado' || m.t === 'hola') && PERSONITAS[m.como || m.de]) p = nuevaPersonita(m.de, m.como || m.de, m.x != null ? m.x : 50, my, false, false);
@@ -2754,13 +2755,11 @@
   // Las personitas salen del agua y se paran derechitas, temblando, con un ❗ arriba; cada 2 segundos una (por turno) tira
   // un 😨, ☠️ o 🏴‍☠️ que dura 1 segundo. Tocar la tuya le hace tirar uno. El barco, la nube y los sustos salen de la hora:
   // en todos los celus se ven igual. Se va cuando quedan menos de 6 por unos segundos.
-  // Es el Holandés Laburante, un boss: viene a llevarse las vacaciones de la colonia. Tiene 5 faroles; cada 10 segundos se
-  // abre una ventana de 3 en la que brilla un aro sobre el barco, y si lo tocan al menos 4 personas distintas sale un
-  // cañonazo y se apaga un farol. Con los 5 apagados se hunde: premio para cada uno (una vez por día) y no vuelve mientras
-  // esté mirando alguien que ya lo hundió hoy. Si se van antes, no se pierde nada. Con "reducir movimiento" en el celu, sin
-  // destellos ni sacudones.
+  // Es el Holandés Laburante, un boss: viene a llevarse las vacaciones de la colonia. Tiene una barra de vida y hay un
+  // minuto para hundirlo a toques (ver "la pelea", más abajo). Hundido: premio para cada uno (una vez por día) y no vuelve
+  // mientras esté mirando alguien que ya lo hundió hoy. Si se van antes, no se pierde nada. Con "reducir movimiento" en el
+  // celu, sin destellos ni sacudones.
   const FANTASMA_MIN = 6, SUSTOS = ['😨', '☠️', '🏴‍☠️'];
-  const FAROLES = 5, CICLO_CANON = 10000, VENTANA_CANON = 3000, PARA_CANON = 4;
   let echadoHoy = ''; // la fecha en que lo hundieron desde este celu (por si los datos de los demás tardan en llegar)
   const PERIODO_BARCO = 240000; // va y vuelve en 4 minutos
   const xBarco = (t) => 50 + 25 * Math.sin((2 * Math.PI * t) / PERIODO_BARCO); // sin salirse de la pantalla
@@ -2782,7 +2781,7 @@
   function revisarFantasma() {
     const mirando = !!document.getElementById('sky') && !!document.querySelector('.mirar-capa') && conPersona();
     const hoy = SKY.arDate(), echado = echadoHoy === hoy || [...escena.keys()].some((pid) => S.hundioHoy(pid));
-    const hay = mirando && escena.size >= FANTASMA_MIN && (!echado || (fantasma && fantasma.hundido));
+    const hay = mirando && escena.size >= FANTASMA_MIN && ((fantasma && (fantasma.hundido || fantasma.escapo)) || (!echado && Date.now() >= revancha));
     if (hay && !fantasma) { llegaFantasma(); return; }
     if (!fantasma) return;
     if (hay) { fantasma.bajo = 0; moverBarco(); if (!fantasma.hundido) marcarSustos(); return; }
@@ -2792,7 +2791,7 @@
   }
   function llegaFantasma() {
     const sky = document.getElementById('sky');
-    fantasma = { desde: Date.now(), bajo: 0, vida: FAROLES, toques: {}, hechos: new Set(), c0: Math.floor((Date.now() + 2000) / CICLO_CANON) };
+    fantasma = { desde: Date.now(), bajo: 0 };
     document.body.classList.add('fantasma');
     const poner = (cls, html = '') => { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; sky.appendChild(el); return el; };
     poner('fantasma-oscuro');
@@ -2800,7 +2799,7 @@
     poner('nubes-fantasma', NUBES_FANTASMA.map(([x, y, w, o, espejo], i) => `<img src="img/mar/nube-negra.webp?v=1" alt="" draggable="false" style="left:${x}%;top:${y}%;width:${w}%;--o:${o};--d:${38 + i * 7}s;animation-delay:-${i * 9}s${espejo ? ';--e:-1' : ''}">`).join(''));
     // las vistas para el giro: de costado (proa a la derecha), de frente, y de costado espejada (proa a la izquierda)
     poner('barco-fantasma', ['fantasma', 'fantasma-frente', 'fantasma'].map((v) => `<span class="vista"><img src="img/mar/${v}.webp?v=1" alt="" draggable="false"></span>`).join('')
-      + `<i class="aro" aria-hidden="true"></i><span class="faroles" aria-hidden="true">${'<i></i>'.repeat(FAROLES)}</span><span class="cartel-canon" aria-live="polite"></span>`);
+      + '<i class="aro" aria-hidden="true"></i>');
     poner('rayo', '<svg viewBox="0 0 40 100" preserveAspectRatio="none" aria-hidden="true"><path d="M24 0L15 31L25 35L10 66L20 69L6 100"/><path class="rama" d="M18 47L30 58L27 70"/></svg>');
     poner('nube-negra', '<img src="img/mar/nube-negra.webp?v=1" alt="" draggable="false">');
     poner('relampago');
@@ -2813,22 +2812,25 @@
     S.contar('mar.fantasmas');
     relampagos(true);
     fantasma.g = setTimeout(sustos, 1800);
-    pintarFaroles();
-    proximaVentana();
     const capa = document.querySelector('.mirar-capa');
     if (capa) {
       const p = document.createElement('div');
       p.className = 'pista-mar pista-barco';
-      p.innerHTML = '¡El <b>Holandés Laburante</b> viene a llevarse las vacaciones! Cuando brille el aro, tóquenlo de a 4 o más a la vez.';
+      p.innerHTML = '¡El <b>Holandés Laburante</b> viene a llevarse las vacaciones! Cuando arranque, toquen el barco todos, lo más rápido que puedan: tienen un minuto.';
       capa.appendChild(p);
       setTimeout(() => p.classList.add('fuera'), 8000); setTimeout(() => p.remove(), 9500);
+      const bb = document.createElement('div');
+      bb.className = 'barra-boss';
+      bb.innerHTML = '<div class="bb-fila"><b>El Holandés Laburante</b><span class="bb-tiempo">1:00</span></div><div class="bb-vida"><i class="bb-golpe"></i><i class="bb-lleno"></i><span class="bb-num"></span></div><div class="bb-msg" aria-live="polite"></div>';
+      capa.appendChild(bb);
     }
+    armarPelea(fantasma);
   }
   function seVaFantasma(ya) {
     if (!fantasma) return;
-    clearTimeout(fantasma.t); clearTimeout(fantasma.g); clearTimeout(fantasma.v);
+    clearTimeout(fantasma.t); clearTimeout(fantasma.g); clearTimeout(fantasma.v); clearInterval(fantasma.reloj);
     fantasma = null;
-    document.querySelectorAll('.pista-barco').forEach((n) => n.remove());
+    document.querySelectorAll('.pista-barco, .barra-boss, .mareo-yo').forEach((n) => n.remove());
     document.body.classList.remove('fantasma', 'relampaguea');
     INICIO.fantasma(false);
     document.querySelectorAll('#sky .fantasma-oscuro, #sky .nubes-fantasma, #sky .barco-fantasma, #sky .nube-negra, #sky .relampago, #sky .rayo').forEach((n) => {
@@ -2836,7 +2838,7 @@
       n.classList.add('se-va'); n.classList.remove('ve');
       setTimeout(() => n.remove(), 4200);
     });
-    document.querySelectorAll('#sky .personita').forEach((el) => { el.classList.remove('asustada'); el.querySelectorAll('.susto, .grito').forEach((s) => s.remove()); });
+    document.querySelectorAll('#sky .personita').forEach((el) => { el.classList.remove('asustada', 'mareada'); el.querySelectorAll('.susto, .grito, .mareo, .blanco').forEach((s) => s.remove()); });
     if (!ya) revisarAgua();
   }
   // Tu personita (y las de prueba del modo demo): se levanta y se queda parada, mirando el mar.
@@ -2906,145 +2908,226 @@
     INICIO.trueno(cerca ? 0.12 + Math.random() * 0.25 : 0.9 + Math.random() * 1.2, cerca ? 1 : 0.55);
   }
 
-  // ---------- el Holandés Laburante: faroles, cañonazos y hundirse ----------
-  // La ventana de cada ciclo de 10 s son sus últimos 3 s (sale de la hora: en todos los celus se abre al mismo tiempo).
-  function proximaVentana() {
+  // ---------- el Holandés Laburante: la pelea ----------
+  // A los pocos segundos de llegar empieza la pelea, que dura un minuto (la hora de arranque se redondea a 5 s y se
+  // comparte: todos los celus se quedan con la más temprana). Tiene 160 de vida por cada persona mirando (con 6, 960) y
+  // cada toque al barco le saca 1 (como mucho 9 por segundo por celu). Cada celu cuenta sus toques y manda su total cada
+  // 0,3 s; la vida es la del arranque menos la suma de todos. Cada 15 s el barco le tira un cañonazo a alguien de la playa
+  // (por turno, en el mismo orden en todos los celus): avisa un segundo y medio antes, y a quien le da queda mareado 5 s
+  // (sus toques no cuentan). Si la vida llega a 0, se hunde. Si se termina el minuto, se escapa riéndose (no se pierde
+  // nada) y vuelve en un minuto por la revancha.
+  const VIDA_POR = 160, PELEA = 60000, PREVIA = 7000, CADA_TIRO = 15000, AVISA_TIRO = 1600, MAREO = 5000, REVANCHA = 60000, TOQUE_MIN = 110;
+  let revancha = 0; // hasta cuándo no vuelve, después de escaparse
+  const nombreMar = (pid) => (person(pid) || { n: pid }).n;
+  const vidaDe = (f) => Math.max(0, f.vm - f.mios - Object.values(f.golpes).reduce((a, n) => a + n, 0));
+  const mareado = (f, pid) => (f.mareados[pid] || 0) > Date.now();
+  function armarPelea(f) {
+    Object.assign(f, { inicio: Math.ceil((Date.now() + PREVIA) / 5000) * 5000, vm: VIDA_POR * Math.max(FANTASMA_MIN, escena.size), golpes: {}, mios: 0, enviados: 0,
+      ultimoEnvio: 0, ultimoToque: 0, ultimoSacudon: 0, ultimaPelea: 0, msgHasta: 0, mareados: {}, tiros: new Set(), prueba: {}, pulsoT: Date.now() });
+    S.enviarMar({ t: 'pelea', pi: f.inicio, vm: f.vm });
+    f.reloj = setInterval(() => pulso(f), 150);
+    pintarBarra();
+  }
+  // Otro celu arrancó la pelea antes (o con más gente): me pongo en su hora. Si el atrasado es el otro, le aviso la mía.
+  function adoptarPelea(pi, vm) {
     const f = fantasma;
-    if (!f || f.hundido) return;
-    const t = Date.now();
-    let c = Math.max(Math.floor(t / CICLO_CANON), f.c0 + 1);
-    let ini = c * CICLO_CANON + CICLO_CANON - VENTANA_CANON;
-    if (ini + VENTANA_CANON - 400 <= t) { c++; ini += CICLO_CANON; }
-    clearTimeout(f.v);
-    f.v = setTimeout(() => abrirVentana(c, ini + VENTANA_CANON), Math.max(0, ini - t));
+    if (!f || !f.inicio || f.hundido || f.escapo || pi == null || Math.abs(pi - f.inicio) > 30000) return;
+    if (pi < f.inicio || (pi === f.inicio && vm > f.vm)) { f.inicio = pi; if (vm) f.vm = vm; pintarBarra(); }
+    else if (pi > f.inicio && Date.now() - f.ultimaPelea > 1000) { f.ultimaPelea = Date.now(); S.enviarMar({ t: 'pelea', pi: f.inicio, vm: f.vm }); }
   }
-  function abrirVentana(c, fin) {
-    const f = fantasma, b = deFantasma('barco-fantasma');
-    if (!f || f.hundido || !b) return;
-    f.abierta = c; f.toques[c] = f.toques[c] || new Set();
-    b.classList.add('apunta');
-    marcarToques();
-    INICIO.aviso();
-    // en el modo demo, las personitas de prueba también lo tocan (casi siempre)
-    if (!S.live) escena.forEach((p) => { if (p.falsa && Math.random() < 0.72) setTimeout(() => toqueDe(p.pid, c), 350 + Math.random() * 2200); });
-    f.v = setTimeout(() => cerrarVentana(c), Math.max(0, fin - Date.now()) + 300); // un margen para los toques que llegan tarde
+  function pulso(f) {
+    if (fantasma !== f || f.hundido || f.escapo) return;
+    const ahora = Date.now(), dt = ahora - f.pulsoT;
+    f.pulsoT = ahora;
+    if (f.mios !== f.enviados && ahora - f.ultimoEnvio >= 300) { f.enviados = f.mios; f.ultimoEnvio = ahora; S.enviarMar({ t: 'golpes', pi: f.inicio, vm: f.vm, n: f.mios }); }
+    if (!f.arranco && ahora >= f.inicio) { f.arranco = true; avisoBarra('¡AHORA! ¡Toquen el barco!', 2400); INICIO.aviso(); }
+    for (let k = 1; k * CADA_TIRO < PELEA; k++) {
+      const tt = f.inicio + k * CADA_TIRO;
+      if (!f.tiros.has(k) && ahora >= tt - AVISA_TIRO && ahora < tt + 2000) { f.tiros.add(k); apuntar(f, k, tt); }
+    }
+    if (!S.live) golpesDePrueba(f, ahora, dt);
+    pintarBarra();
+    if (vidaDe(f) <= 0) ganar(f);
+    else if (ahora >= f.inicio + PELEA + 900) escaparse(f);
   }
-  function cerrarVentana(c) {
-    const f = fantasma, b = deFantasma('barco-fantasma');
-    if (!f || f.hundido) return;
-    f.abierta = null;
-    if (b) b.classList.remove('apunta');
-    const n = (f.toques[c] || new Set()).size, cartel = b && b.querySelector('.cartel-canon');
-    if (n >= PARA_CANON || f.hechos.has(c)) {
-      if (cartel) { cartel.textContent = '¡Fuego!'; setTimeout(() => { if (fantasma === f && f.abierta == null) cartel.textContent = ''; }, 1500); }
-      canonazo(c, true);
-    } else seRie(n);
-    proximaVentana();
+  // En el modo demo, las personitas de prueba también le pegan: cada una a su ritmo (de 2,4 a 4,6 toques por segundo), y
+  // cada tanto alguna se distrae unos segundos.
+  function golpesDePrueba(f, ahora, dt) {
+    if (ahora < f.inicio || ahora >= f.inicio + PELEA) return;
+    escena.forEach((p) => {
+      if (!p.falsa || mareado(f, p.pid) || hash(p.pid + Math.floor((ahora - f.inicio) / 6000)) % 5 === 0) return;
+      f.prueba[p.pid] = (f.prueba[p.pid] || 0) + (2.4 + ((hash(p.pid) % 100) / 100) * 2.2) * dt / 1000;
+      golpesDe(p.pid, f.inicio, f.vm, Math.floor(f.prueba[p.pid]));
+    });
   }
-  // Alguien tocó el barco con la ventana abierta (vos, o te llega de otro celu): chispitas de su color sobre su personita.
-  function toqueDe(pid, c) {
+  // Los golpes de otro (su total hasta ahora): chispitas de su color sobre su personita, como mucho dos veces por segundo.
+  function golpesDe(pid, pi, vm, n) {
     const f = fantasma;
-    if (!f || f.hundido) return;
-    (f.toques[c] = f.toques[c] || new Set()).add(pid);
-    const p = escena.get(pid);
-    if (p && p.el.isConnected) { const r = p.el.getBoundingClientRect(); chispas(r.left + r.width / 2, r.top - 4, 7, coloresDe(pid)); }
-    if (f.abierta === c) marcarToques();
+    if (!f || !f.inicio || f.hundido || pi == null || Math.abs(pi - f.inicio) > 30000 || pid === yoEnElMar()) return;
+    adoptarPelea(pi, vm);
+    if (!(n > (f.golpes[pid] || 0))) return;
+    f.golpes[pid] = n;
+    const p = escena.get(pid), ahora = Date.now();
+    if (p && p.el.isConnected && ahora - (p.chispaGolpe || 0) > 450) { p.chispaGolpe = ahora; const r = p.el.getBoundingClientRect(); chispas(r.left + r.width / 2, r.top - 4, 4, coloresDe(pid)); }
+    if (vidaDe(f) <= 0 && ahora < f.inicio + PELEA + 4000) ganar(f); // llegó tarde el último golpe: igual se hunde
   }
   function tocarBarco(x, y) {
     const f = fantasma, b = deFantasma('barco-fantasma');
-    if (!f || f.hundido || f.abierta == null || !b) return false;
+    if (!f || !f.inicio || f.hundido || f.escapo || !b) return false;
     const r = b.getBoundingClientRect();
-    if (x < r.left - 26 || x > r.right + 26 || y < r.top - 40 || y > r.bottom + 20) return false;
-    const yo = yoEnElMar(), c = f.abierta;
-    chispas(x, y, 12, coloresDe(yo));
-    SONIDO.plop();
-    if (!(f.toques[c] && f.toques[c].has(yo))) { toqueDe(yo, c); S.enviarMar({ t: 'canon', c }); S.contar('mar.canonazos'); }
+    if (x < r.left - 30 || x > r.right + 30 || y < r.top - 50 || y > r.bottom + 24) return false;
+    const ahora = Date.now(), yo = yoEnElMar();
+    if (ahora < f.inicio || ahora >= f.inicio + PELEA) return true; // todavía no empezó, o ya terminó
+    if (mareado(f, yo)) { chispas(x, y, 3, ['#8a8499', '#c9c4d6']); return true; }
+    if (ahora - f.ultimoToque < TOQUE_MIN) return true;
+    f.ultimoToque = ahora; f.mios++;
+    chispas(x, y, 6, coloresDe(yo));
+    INICIO.golpe();
+    if (!sinDestellos && ahora - f.ultimoSacudon > 450) { f.ultimoSacudon = ahora; b.classList.remove('golpe'); void b.offsetWidth; b.classList.add('golpe'); }
+    pintarBarra();
+    if (vidaDe(f) <= 0) ganar(f);
     return true;
   }
-  function marcarToques() {
-    const f = fantasma, el = deFantasma('barco-fantasma');
-    if (!f || !el) return;
-    const n = f.abierta != null ? (f.toques[f.abierta] || new Set()).size : 0;
-    el.querySelector('.cartel-canon').textContent = f.abierta != null ? `¡Ahora! ${Math.min(n, PARA_CANON)}/${PARA_CANON}` : '';
+  // La barra de vida arriba: el nombre, el tiempo, la vida que queda (con una estela clara de lo que acaba de perder) y una
+  // línea con lo que pasa. El barco se va inclinando a medida que pierde vida.
+  function pintarBarra() {
+    const f = fantasma, el = document.querySelector('.barra-boss'), b = deFantasma('barco-fantasma');
+    if (!f || !f.inicio || !el) return;
+    const ahora = Date.now(), v = vidaDe(f), k = v / f.vm, falta = Math.max(0, f.inicio + PELEA - ahora), antes = f.inicio - ahora;
+    const s = antes > 0 ? PELEA / 1000 : Math.ceil(falta / 1000), ancho = (k * 100).toFixed(2) + '%';
+    el.querySelector('.bb-lleno').style.width = ancho;
+    el.querySelector('.bb-golpe').style.width = ancho;
+    el.querySelector('.bb-num').textContent = `${v} / ${f.vm}`;
+    el.querySelector('.bb-tiempo').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    el.classList.toggle('apurado', antes <= 0 && falta > 0 && falta <= 10000 && !f.hundido && !f.escapo);
+    if (b) { b.classList.toggle('apunta', antes <= 0 && falta > 0 && !f.hundido && !f.escapo); b.classList.toggle('herido-1', k < 0.66); b.classList.toggle('herido-2', k < 0.33); }
+    if (ahora < f.msgHasta || f.hundido || f.escapo) return;
+    const msg = el.querySelector('.bb-msg');
+    msg.classList.remove('fuerte');
+    msg.textContent = antes > 3000 ? '¡Prepárense!' : antes > 0 ? `Empieza en ${Math.ceil(antes / 1000)}…` : mareado(f, yoEnElMar()) ? 'Mareado… 💫'
+      : f.mios ? `Vos: ${f.mios} ${f.mios === 1 ? 'golpe' : 'golpes'}` : '¡Toquen el barco lo más rápido que puedan!';
   }
-  function pintarFaroles() {
-    const f = fantasma, el = deFantasma('barco-fantasma');
-    if (!f || !el) return;
-    el.querySelectorAll('.faroles i').forEach((i, k) => { i.classList.toggle('apagado', k >= f.vida); i.classList.toggle('prox', k === f.vida - 1); });
+  function avisoBarra(txt, ms = 2200) {
+    const f = fantasma, msg = document.querySelector('.barra-boss .bb-msg');
+    if (!f || !msg) return;
+    f.msgHasta = Date.now() + ms;
+    msg.textContent = txt; msg.classList.add('fuerte');
   }
-  // Te llega de otro celu cuántos faroles le quedan (si te faltó algún cañonazo, o recién llegás a la pelea).
-  function vidaDeOtro(vida) {
-    const f = fantasma;
-    if (!f || f.hundido || vida == null || vida >= f.vida) return;
-    f.vida = Math.max(0, vida);
-    pintarFaroles();
-    if (f.vida <= 0) hundir();
+  // El barco apunta a quien le toca (el orden sale de la pelea: es el mismo en todos los celus), con un círculo rojo a sus
+  // pies y el aviso, y un segundo y medio después tira.
+  function apuntar(f, k, tt) {
+    const ids = [...escena.keys()].sort((a, b) => hash(a + f.inicio) - hash(b + f.inicio));
+    if (!ids.length) return;
+    const pid = ids[(k - 1) % ids.length], p = escena.get(pid), yo = yoEnElMar();
+    avisoBarra(pid === yo ? '¡Te apunta a vos! 😱' : `¡Cuidado, ${nombreMar(pid)}!`, AVISA_TIRO + 300);
+    if (p && p.el.isConnected) {
+      const m = document.createElement('span'); m.className = 'blanco'; m.setAttribute('aria-hidden', 'true'); p.el.appendChild(m);
+      setTimeout(() => m.remove(), Math.max(400, tt - Date.now() + 900));
+    }
+    INICIO.aviso();
+    setTimeout(() => dispararA(f, pid), Math.max(0, tt - Date.now()));
   }
-  // El cañonazo: una bola de chispas de todos los colores sale de la orilla y le pega al barco, que se sacude y pierde un farol.
-  function canonazo(c, propio) {
-    const f = fantasma;
-    if (!f || f.hundido || f.hechos.has(c)) return;
-    f.hechos.add(c); f.vida = Math.max(0, f.vida - 1);
-    if (propio) S.enviarMar({ t: 'pum', c, vida: f.vida });
-    const b = deFantasma('barco-fantasma');
+  // El cañonazo del barco: humo, una bala negra que vuela hasta la personita y le pega.
+  function dispararA(f, pid) {
+    if (fantasma !== f || f.hundido || f.escapo) return;
+    const b = deFantasma('barco-fantasma'), p = escena.get(pid);
     INICIO.canon();
-    const pega = () => {
-      if (fantasma !== f) return;
-      const r = b && b.getBoundingClientRect();
-      if (r) chispas(r.left + r.width / 2, r.top + r.height * 0.55, 22, COLORES_AMIGO.flat());
-      if (b && !sinDestellos) { b.classList.remove('golpe'); void b.offsetWidth; b.classList.add('golpe'); }
-      pintarFaroles();
-      if (f.vida <= 0) hundir();
-    };
-    if (!b) { pega(); return; }
-    const r = b.getBoundingClientRect(), x0 = innerWidth * 0.5, y0 = innerHeight * 0.8, x1 = r.left + r.width / 2, y1 = r.top + r.height * 0.55;
+    if (!b || !p || !p.el.isConnected) { pegarA(f, pid); return; }
+    const rb = b.getBoundingClientRect(), rp = p.el.getBoundingClientRect();
+    const x0 = rb.left + rb.width / 2, y0 = rb.top + rb.height * 0.5, x1 = rp.left + rp.width / 2, y1 = rp.top + rp.height * 0.55;
+    chispas(x0, y0, 10, ['#5b566b', '#8a8499', '#c9c4d6']);
     const bala = document.createElement('div');
-    bala.className = 'bala-canon';
+    bala.className = 'bala-barco';
     document.body.appendChild(bala);
     bala.animate([
-      { transform: `translate(${x0}px, ${y0}px) scale(1)` },
-      { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - innerHeight * 0.16}px) scale(.85)`, offset: 0.5 },
-      { transform: `translate(${x1}px, ${y1}px) scale(.6)` },
-    ], { duration: 800, easing: 'cubic-bezier(.3,.1,.6,1)' }).onfinish = () => { bala.remove(); pega(); };
+      { transform: `translate(${x0}px, ${y0}px) scale(.5)` },
+      { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - innerHeight * 0.12}px) scale(.8)`, offset: 0.45 },
+      { transform: `translate(${x1}px, ${y1}px) scale(1.1)` },
+    ], { duration: 900, easing: 'cubic-bezier(.35,.1,.7,1)' }).onfinish = () => { bala.remove(); pegarA(f, pid); };
   }
-  // Nadie (o pocos) lo tocaron a tiempo: se ríe con un trueno y una calavera. No se pierde nada.
-  function seRie(n) {
-    const b = deFantasma('barco-fantasma');
-    if (!b) return;
-    const cartel = b.querySelector('.cartel-canon'), faltan = PARA_CANON - n;
-    cartel.textContent = n ? `Faltó ${faltan === 1 ? 'uno' : faltan}` : 'Se ríe de ustedes';
-    setTimeout(() => { if (fantasma && fantasma.abierta == null && cartel.isConnected) cartel.textContent = ''; }, 2200);
-    const risa = document.createElement('span');
-    risa.className = 'risa-barco'; risa.textContent = '☠️'; risa.setAttribute('aria-hidden', 'true');
-    b.appendChild(risa);
-    setTimeout(() => risa.remove(), 1600);
-    INICIO.trueno(0.15, 0.7);
+  // Le dio: salta arena, la personita queda mareada (💫) y sus toques no cuentan por 5 segundos.
+  function pegarA(f, pid) {
+    if (fantasma !== f || f.hundido) return;
+    f.mareados[pid] = Date.now() + MAREO;
+    const p = escena.get(pid), yo = yoEnElMar();
+    if (p && p.el.isConnected) {
+      const r = p.el.getBoundingClientRect();
+      chispas(r.left + r.width / 2, r.bottom - 3, 14, ['#e9d3a8', '#d9c3a2', '#fffaf0']);
+      p.el.classList.add('mareada');
+      const m = document.createElement('span'); m.className = 'mareo'; m.textContent = '💫'; m.setAttribute('aria-hidden', 'true'); p.el.appendChild(m);
+      setTimeout(() => { p.el.classList.remove('mareada'); m.remove(); }, MAREO);
+    }
+    SONIDO.trtss();
+    if (pid === yo) mareoPropio(f); else avisoBarra(`¡Le dio a ${nombreMar(pid)}! 💫`, 1800);
+  }
+  function mareoPropio(f) {
+    const capa = document.querySelector('.mirar-capa'), hasta = f.mareados[yoEnElMar()];
+    if (navigator.vibrate) navigator.vibrate([90, 60, 160]);
+    if (!capa) return;
+    capa.querySelectorAll('.mareo-yo').forEach((n) => n.remove());
+    const el = document.createElement('div');
+    el.className = 'mareo-yo';
+    capa.appendChild(el);
+    const pinta = () => {
+      const s = Math.ceil((hasta - Date.now()) / 1000);
+      if (s <= 0 || fantasma !== f || f.hundido || f.escapo) { el.remove(); return; }
+      el.innerHTML = `💫 ¡Te dio un cañonazo!<b>${s}</b><span>tus toques no cuentan</span>`;
+      setTimeout(pinta, 250);
+    };
+    pinta();
+  }
+  function ganar(f) {
+    if (f.hundido) return;
+    S.enviarMar({ t: 'hundido', pi: f.inicio });
+    hundir();
+  }
+  // Se terminó el minuto y no lo hundieron: se ríe y se va con la tormenta. No se pierde nada, y vuelve en un minuto.
+  function escaparse(f) {
+    if (f.escapo || f.hundido) return;
+    f.escapo = true; clearInterval(f.reloj);
+    revancha = f.inicio + PELEA + REVANCHA;
+    const v = vidaDe(f), b = deFantasma('barco-fantasma');
+    pintarBarra();
+    avisoBarra(`¡Se escapó con las vacaciones! Le quedaban ${v}.`, 60000);
+    document.querySelectorAll('.mareo-yo').forEach((n) => n.remove());
+    if (b) {
+      b.classList.remove('apunta');
+      const risa = document.createElement('span');
+      risa.className = 'risa-barco'; risa.textContent = '☠️'; risa.setAttribute('aria-hidden', 'true');
+      b.appendChild(risa); setTimeout(() => risa.remove(), 1600);
+    }
+    INICIO.trueno(0.15, 0.8);
+    if (f.mios) S.contar('mar.golpes', f.mios);
+    toast(`<span style="font-size:1.5rem">🏴‍☠️</span><span>Se escapó con <b>${v}</b> de vida. En un minuto vuelve por la revancha.</span>`, 5000);
+    f.v = setTimeout(() => { if (fantasma === f) seVaFantasma(); }, 4500);
   }
   // Se hunde: se inclina y se va abajo del agua, vuelve la música de siempre con una fanfarria, las personitas festejan,
   // la tormenta se va y cada uno cobra su premio.
   function hundir() {
     const f = fantasma, b = deFantasma('barco-fantasma');
     if (!f || f.hundido) return;
-    f.hundido = true; f.abierta = null; clearTimeout(f.v); clearTimeout(f.t); clearTimeout(f.g);
+    f.hundido = true; f.escapo = false; revancha = 0; clearTimeout(f.v); clearTimeout(f.t); clearTimeout(f.g); clearInterval(f.reloj);
     echadoHoy = SKY.arDate();
-    if (b) { b.classList.remove('apunta'); b.classList.add('se-hunde'); b.querySelector('.cartel-canon').textContent = ''; }
-    document.querySelectorAll('.pista-barco').forEach((n) => n.remove());
+    if (b) { b.classList.remove('apunta'); b.classList.add('se-hunde'); }
+    document.querySelectorAll('.pista-barco, .mareo-yo').forEach((n) => n.remove());
+    pintarBarra(); avisoBarra('¡LO HUNDIERON! 🎉', 60000);
+    if (f.mios) S.contar('mar.golpes', f.mios);
     INICIO.fanfarria();
     setTimeout(() => INICIO.fantasma(false), 600);
     document.querySelectorAll('#sky .personita').forEach((el) => { el.classList.remove('asustada'); el.querySelectorAll('.susto').forEach((x) => x.remove()); });
     escena.forEach((p) => setTimeout(() => { saludar(p); tirarSusto(p, ['🎉', '🥳', '🙌'][hash(p.pid) % 3]); }, 300 + Math.random() * 900));
     const premio = S.hundirBarco();
     setTimeout(() => seVaFantasma(), 3800);
-    setTimeout(() => premioBarco(premio), 3400);
+    setTimeout(() => premioBarco(premio, f.mios), 3400);
   }
-  function premioBarco(premio) {
+  function premioBarco(premio, mios) {
     const it = shopItem(D.BARCO.item);
     const cosas = premio
       ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><span class="chip" style="--c:var(--butter)">+${premio.c} <span class="coin"></span></span><span class="chip" style="--c:var(--lav)">+${premio.s} sobre</span></div>
         ${premio.primero ? `<div class="barco-trofeo">${ARTE.item(D.BARCO.item)}</div><p class="small" style="margin:0">La <b>${esc(it.n)}</b> para tu altarcito, y una <b>misión secreta</b> nueva: la foto de todos los que estaban.</p>` : ''}`
       : '<p class="small muted" style="margin:0">Hoy ya cobraste el premio del barco. Mañana puede volver.</p>';
     sheet(`<div class="hallazgo-hoja barco-ganado"><div class="cumple-titulo">¡HUNDIERON AL HOLANDÉS LABURANTE!</div>
-      <p class="cumple-sub">Las vacaciones están a salvo. Por hoy no vuelve.</p>${cosas}
+      <p class="cumple-sub">Las vacaciones están a salvo. Por hoy no vuelve.</p>${mios ? `<p class="small" style="margin:0">Vos le pegaste <b>${mios}</b> ${mios === 1 ? 'vez' : 'veces'}.</p>` : ''}${cosas}
       <button class="btn" data-close>¡Vamos!</button></div>`);
     if (premio) { SONIDO.monedas(premio.c); setTimeout(revisarLogros, 1200); }
   }
@@ -3109,7 +3192,7 @@
   }
 
   if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
-  if (PROTO) window.__mar = { delfin, sirena: () => { if (!solo) solo = { d: 0 }; sirena(); } }; // para probar en el modo demo
+  if (PROTO) window.__mar = { delfin, sirena: () => { if (!solo) solo = { d: 0 }; sirena(); }, barco: () => fantasma && { inicio: fantasma.inicio, vm: fantasma.vm, vida: vidaDe(fantasma), mios: fantasma.mios, hundido: !!fantasma.hundido, escapo: !!fantasma.escapo } }; // para probar en el modo demo
 
   // A quien le desaprueban una foto (o la recupera) le llega el aviso con lo que perdió o volvió.
   function avisarDesaprobadas(cambios) {
