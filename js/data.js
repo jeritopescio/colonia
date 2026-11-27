@@ -360,7 +360,8 @@ window.DATA = (function () {
   ];
   // El Holandés Laburante (Mirar el mar, con más de 5): premio para cada uno de los que estaban al hundirlo, una vez por día.
   // La primera vez, además, la bandera para el altarcito y una misión secreta con foto.
-  const BARCO = { c: 50, s: 1, item: 'holandes', mision: { id: 'sec-barco', t: 'La colonia después de hundir al Holandés Laburante: foto de todos los que estaban', xp: 40 } };
+  // roba / robaMonedas: lo que le saca a cada uno de los que estaban cuando se escapa (cosas compradas del altarcito).
+  const BARCO = { c: 50, s: 1, roba: 2, robaMonedas: 20, item: 'holandes', mision: { id: 'sec-barco', t: 'La colonia después de hundir al Holandés Laburante: foto de todos los que estaban', xp: 40 } };
   // La cola de sirena (Mirar el mar, a solas): si la atrapás, estas monedas (una vez por día).
   const SIRENA = 250;
   // Las mascotas del kiosco: en Mirar el mar aparecen sentadas en la arena si su dueño está mirando (una de cada una) y cada

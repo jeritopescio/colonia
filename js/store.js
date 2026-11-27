@@ -613,6 +613,38 @@ window.STORE = (function () {
       return !!ach['barco:' + window.SKY.arDate()];
     },
     barcoPrimero() { return s.ach['barco:primero'] || null; },
+    perdioHoy(pid) {
+      const ach = !pid || pid === s.me ? s.ach : live ? (((s.cache.players[pid] || {}).datos || {}).ach || {}) : {};
+      return !!ach['barcoPerdio:' + window.SKY.arDate()];
+    },
+    // El nivel del Holandés: cuántos días ya apareció antes de hoy (lo hayan hundido o se haya escapado), con los datos de todos.
+    nivelBarco() {
+      const hoy = window.SKY.arDate(), dias = new Set();
+      const mirar = (ach) => Object.keys(ach || {}).forEach((k) => { const m = k.match(/^barco(?:Perdio)?:(\d{4}-\d{2}-\d{2})$/); if (m && m[1] < hoy) dias.add(m[1]); });
+      mirar(s.ach);
+      if (live) Object.values(s.cache.players).forEach((r) => mirar(((r || {}).datos || {}).ach));
+      return dias.size;
+    },
+    // Se escapó: le roba 2 cosas compradas del altarcito (ni regalos, ni las únicas, ni mascotas) y 20 monedas, una vez por día.
+    // La experiencia no se toca y lo robado sigue contando para el logro de coleccionista; se puede volver a comprar.
+    robarBarco() {
+      if (!s.me) return null;
+      const hoy = window.SKY.arDate();
+      if (s.ach['barcoPerdio:' + hoy]) return null;
+      const real = (id) => (D.SHOP.some((x) => x.id === id) ? id : D.ALIAS[id]);
+      const sePuede = (id) => { const it = D.SHOP.find((x) => x.id === real(id)); return it && !it.unico && !it.retirado && !(D.MASCOTAS || {})[it.id]; };
+      const pueden = s.owned.map((id, i) => (id && sePuede(id) ? i : -1)).filter((i) => i >= 0), items = [];
+      for (let k = 0; k < D.BARCO.roba && pueden.length; k++) {
+        const i = pueden.splice(Math.floor(Math.random() * pueden.length), 1)[0], id = real(s.owned[i]);
+        s.ach['compra:' + id] = 1; s.owned[i] = null; delete s.place['o' + i]; items.push(id);
+      }
+      const c = Math.min(D.BARCO.robaMonedas, Math.max(0, s.coins));
+      s.coins -= c;
+      s.ach['barcoPerdio:' + hoy] = items.join(',') || 'nada';
+      api.contar('mar.robos');
+      save(); pushMe();
+      return { items, c };
+    },
     hundirBarco() {
       if (!s.me) return null;
       const hoy = window.SKY.arDate();

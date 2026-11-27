@@ -314,6 +314,26 @@ body.fantasma.relampaguea #sky .personita svg { filter: brightness(1.05) saturat
 #sky .barco-fantasma.se-hunde img { animation: hundirse 3.6s ease-in forwards; }
 #sky .barco-fantasma.se-hunde .aro { opacity: 0; transition: opacity .6s; }
 @keyframes hundirse { 0% { transform: rotate(0) translateY(0); opacity: 1; } 25% { transform: rotate(-9deg) translateY(4%); } 100% { transform: rotate(16deg) translateY(62%); opacity: 0; } }
+/* El nivel del Holandés: el cielo se pone más rojo y la arena más negra (la opacidad la pone la app según el nivel). */
+#sky .cielo-rojo, #sky .arena-negra { position: absolute; left: 0; right: 0; z-index: 5; pointer-events: none; opacity: 0; transition: opacity 4s ease-in-out; }
+#sky .cielo-rojo { top: 0; height: 60%; background: linear-gradient(180deg, #4e0811 0%, #8e1820 42%, #c93a2a 82%, rgba(201, 58, 42, 0) 100%); }
+#sky .arena-negra { top: 69%; bottom: 0; background: linear-gradient(180deg, rgba(6, 5, 9, 0) 0%, #0b0910 16%, #040306 100%); }
+#sky .cielo-rojo.ve, #sky .arena-negra.ve { opacity: var(--o, .2); }
+#sky .cielo-rojo.se-va, #sky .arena-negra.se-va { opacity: 0; }
+.barra-boss .bb-nivel { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 99px; background: #8e1820; color: #ffe0d6; font-size: .72rem; vertical-align: 2px; }
+/* Cuando se escapa: el capitán y el esqueleto discuten, en cursiva, una línea por vez. */
+.dialogo-barco { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: min(340px, calc(100% - 32px)); display: grid; gap: 9px; padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, #14101f 84%, transparent); color: #f4ead8; font-style: italic; font-size: 1.05rem; line-height: 1.3; pointer-events: none; }
+.dialogo-barco:empty { display: none; }
+.dialogo-barco p { margin: 0; animation: linea-dialogo .5s ease-out both; }
+.dialogo-barco .capitan b { color: #ff9c8a; }
+.dialogo-barco .esqueleto b { color: #b9f8de; }
+@keyframes linea-dialogo { from { opacity: 0; transform: translateY(6px); } }
+.barco-robo .cumple-titulo { color: #8e1820; font-size: clamp(1.5rem, 7.5vw, 2rem); }
+.robados { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.robado { display: grid; justify-items: center; gap: 4px; width: 104px; text-align: center; }
+.robado-art { width: 80px; height: 80px; display: grid; place-items: center; }
+.robado-art .art { width: 80px; height: 80px; }
+.robado-art .ai img { width: 100%; height: 100%; object-fit: contain; }
 .bala-barco { position: fixed; left: 0; top: 0; z-index: 17; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle at 35% 35%, #9a94ab, #3a3448 55%, #15121f); box-shadow: 0 0 10px 3px rgba(126, 243, 198, .45); }
 #sky .personita .blanco { position: absolute; left: 50%; bottom: -5px; width: 30px; height: 10px; transform: translateX(-50%); border: 2px dashed #f6a38f; border-radius: 50%; box-shadow: 0 0 8px rgba(246, 163, 143, .8); pointer-events: none; animation: blanco .35s ease-in-out infinite alternate; }
@@ -322,7 +342,7 @@ body.fantasma.relampaguea #sky .personita svg { filter: brightness(1.05) saturat
 @keyframes mareo { from { transform: translateX(-50%) rotate(0); } to { transform: translateX(-50%) rotate(360deg); } }
 #sky .personita.mareada .susto { display: none; }
 #sky .personita.mareada svg { rotate: 12deg; transform-origin: 50% 100%; }
-.mareo-yo { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); padding: 12px 20px; border-radius: 16px; background: color-mix(in srgb, #1d1a2b 80%, transparent); color: #fff2c8; font-family: var(--display); font-size: 1.1rem; text-align: center; pointer-events: none; animation: entra-mareo .3s ease-out; }
+.mareo-yo { position: absolute; left: 50%; top: 33%; transform: translate(-50%, -50%); padding: 12px 20px; border-radius: 16px; background: color-mix(in srgb, #1d1a2b 80%, transparent); color: #fff2c8; font-family: var(--display); font-size: 1.1rem; text-align: center; pointer-events: none; animation: entra-mareo .3s ease-out; }
 @keyframes entra-mareo { from { opacity: 0; transform: translate(-50%, -50%) scale(.6); } }
 .mareo-yo b { display: block; font-size: 2.4rem; line-height: 1.1; }
 .mareo-yo span { display: block; font-size: .82rem; color: #cfeee2; }
