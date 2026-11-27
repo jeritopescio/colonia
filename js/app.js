@@ -1949,7 +1949,7 @@
     const alto = (e) => 1 - e.clientY / innerHeight, lado = (e) => (e.clientX / innerWidth) * 2 - 1, equis = (e) => e.clientX / innerWidth;
     capa.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button')) return;
-      if (tocarSirena(e.clientX, e.clientY) || tocarBarco(e.clientX, e.clientY) || tocarMascota(e.clientX, e.clientY)) return; // la cola de sirena, el barco con el aro o una mascota
+      if (tocarSirena(e.clientX, e.clientY) || tocarBarco(e.clientX, e.clientY) || tocarPelota(e.clientX, e.clientY) || tocarHeladerita(e.clientX, e.clientY) || tocarMascota(e.clientX, e.clientY)) return; // la cola de sirena, el barco con el aro o una mascota
       if (tocarPersonita(e.clientX, e.clientY)) return; // a una personita se la toca para sentarse o saludar, no suena
       chispas(e.clientX, e.clientY);
       INICIO.toque(lado(e), alto(e));
@@ -2326,7 +2326,9 @@
     seVaFantasma(true);
     terminaSolo();
     clearTimeout(mimosT); mimosT = null;
-    document.querySelectorAll('#sky .delfin-mar, #sky .cola-sirena, #sky .varada, #sky .mascota-mar').forEach((n) => n.remove());
+    if (pelota) { cancelAnimationFrame(pelota.raf); pelota = null; }
+    INICIO.guitarra(false);
+    document.querySelectorAll('#sky .delfin-mar, #sky .cola-sirena, #sky .varada, #sky .mascota-mar, #sky .antorcha-mar, #sky .heladerita-mar, #sky .pelota-mar').forEach((n) => n.remove());
     escena.forEach((p) => clearTimeout(p.t));
     escena.clear();
     cancelAnimationFrame(rafProf); rafProf = 0;
@@ -2469,6 +2471,8 @@
     if (!m || !m.de || m.de === yoEnElMar() || !document.querySelector('.mirar-capa') || !conPersona()) return;
     if (m.t === 'hola') { publicar(escena.get(yoEnElMar())); return; }
     // el barco fantasma: cuándo arrancó la pelea, los golpes de cada uno (su total) y si alguien vio que se hundió
+    if (m.t === 'brindis') { brindar(m.de, false); return; }
+    if (m.t === 'pelota') { pase(m.n, m.a, m.t0); return; }
     if (m.t === 'pelea') { adoptarPelea(m.pi, m.vm, m.nv, m.pe, m.ga); return; }
     if (m.t === 'golpes') { golpesDe(m.de, m.pi, m.vm, m.n); return; }
     if (m.t === 'hundido') { if (fantasma && fantasma.inicio && Math.abs(m.pi - fantasma.inicio) <= 30000) hundir(); return; }
@@ -2633,6 +2637,7 @@
     });
     revisarVaradas();
     revisarMascotas();
+    revisarRonda();
   }
   // Lo que no está en el agua queda varado en la orilla (de noche, con tormenta, con el barco fantasma o mientras surfea con
   // la otra cosa): la moto, el kayak o la tabla de quien la tiene. Una por persona, en los costados, para no tapar a nadie.
@@ -2757,6 +2762,144 @@
     p.w.style.opacity = op.toFixed(2);
     p.w.classList.toggle('izq', izq); p.w.classList.toggle('con-estela', estela);
   }
+  // ---------- la ronda: antorchas, heladerita, guitarra y pelota ----------
+  // Cosas del kiosco que cobran vida si su dueño está mirando el mar (una de cada una, aunque la tengan varios):
+  // las antorchas a los costados (de noche iluminan la arena), la heladerita (tocarla es brindar: si brindan 3 o más casi a la
+  // vez, chin chin y 5 monedas, una vez por día), la guitarra (de noche, con el fogón, su dueño toca: la música suma arpegios
+  // y los toques suenan a guitarra) y la pelota de vóley o de fútbol, para pasársela entre todos sin que caiga.
+  const duenioDe = (id) => [...escena.keys()].sort().find((pid) => tieneCosa(pid, id));
+  function revisarRonda() {
+    const sky = document.getElementById('sky');
+    if (!sky) return;
+    const hay = conPersona() && !!document.querySelector('.mirar-capa'), noche = diaAhora() < 0.5, h = 165 * PX_CM;
+    const poner = (cls, id, x, y, ancho, espejo) => {
+      let el = sky.querySelector('.' + cls.trim().split(/\s+/).join('.'));
+      if (!el) { el = document.createElement('div'); el.className = cls; el.innerHTML = `<span class="cuerpo">${ARTE.item(id, shopItem(id).col)}</span>`; sky.appendChild(el); }
+      el.classList.toggle('noche', noche); el.classList.toggle('izq', !!espejo);
+      const css = `left:${x}%;top:${y}%;width:${(ancho * escalaY(y)).toFixed(1)}px;z-index:${capaY(y)}`;
+      if (el.style.cssText !== css) el.style.cssText = css;
+      return el;
+    };
+    const sacar = (cls) => sky.querySelectorAll(`.${cls}`).forEach((n) => n.remove());
+    // antorchas: un par a cada costado
+    if (hay && duenioDe('antorchas')) { poner('antorcha-mar a', 'antorchas', 20, 75.6, h * 0.42); poner('antorcha-mar b', 'antorchas', 80, 75.6, h * 0.42, true); }
+    else sacar('antorcha-mar');
+    // heladerita
+    if (hay && duenioDe('heladerita')) poner('heladerita-mar', 'heladerita', 64, 79.2, h * 0.95);
+    else sacar('heladerita-mar');
+    // guitarra: de noche, con el fogón
+    const guitarrero = hay && cosasMar() === 'fogon' && !fantasmaPeleando() ? duenioDe('guitarra') : null;
+    escena.forEach((p) => {
+      const tiene = p.pid === guitarrero, ya = p.el.querySelector('.guitarra-mano');
+      if (tiene && !ya) { const g = document.createElement('span'); g.className = 'guitarra-mano'; g.innerHTML = ARTE.item('guitarra'); p.el.appendChild(g); }
+      if (!tiene && ya) ya.remove();
+    });
+    INICIO.guitarra(!!guitarrero);
+    revisarPelota(hay);
+  }
+  const fantasmaPeleando = () => !!(fantasma && fantasma.inicio && !fantasma.hundido && !fantasma.escapo);
+
+  // El brindis
+  let brindis = [], ultimoChin = 0;
+  function tocarHeladerita(x, y) {
+    const el = document.querySelector('#sky .heladerita-mar');
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    if (x < r.left - 14 || x > r.right + 14 || y < r.top - 18 || y > r.bottom + 10) return false;
+    brindar(yoEnElMar(), true);
+    // en el modo demo, dos personitas de prueba brindan también
+    if (!S.live) [...escena.values()].filter((p) => p.falsa).slice(0, 2).forEach((p, i) => setTimeout(() => brindar(p.pid, false), 500 + i * 450));
+    return true;
+  }
+  function brindar(pid, propio) {
+    const ahora = Date.now(), p = escena.get(pid);
+    brindis = brindis.filter((b) => ahora - b.t < 3000 && b.pid !== pid).concat({ pid, t: ahora });
+    if (p) tirarSusto(p, '🥂');
+    if (propio) { S.enviarMar({ t: 'brindis' }); SONIDO.plop(); }
+    if (brindis.length >= 3 && brindis.some((b) => b.pid === yoEnElMar()) && ahora - ultimoChin > 5000) chinChin();
+  }
+  function chinChin() {
+    ultimoChin = Date.now(); brindis = [];
+    const el = document.querySelector('#sky .heladerita-mar'), r = el && el.getBoundingClientRect();
+    if (r) chispas(r.left + r.width / 2, r.top, 26, ['#ffe39a', '#f7b3c6', '#b6e5cd', '#a9d6f0', '#cfc0f0', '#ffffff']);
+    escena.forEach((p) => setTimeout(() => tirarSusto(p, ['🥂', '🍻', '🥳'][hash(p.pid) % 3]), Math.random() * 500));
+    INICIO.aviso();
+    const c = S.brindar();
+    toast(`<span style="font-size:1.6rem">🥂</span><span>¡Chin chin!${c ? ` <b>+${c}</b> monedas.` : ''}</span>`, 3500);
+  }
+
+  // La pelota: se la pasan sin que caiga. Tocarla la manda hacia otra personita; si llega sin que nadie la toque, cae y se
+  // empieza de nuevo. Cuenta los pases seguidos; el récord es de toda la colonia.
+  let pelota = null; // { el, id, n, de, a, t0, cae, x, y, yoToque }
+  const VUELO = 1700;
+  function revisarPelota(hay) {
+    const sky = document.getElementById('sky');
+    const id = hay ? (duenioDe('voley') ? 'voley' : duenioDe('futbol') ? 'futbol' : null) : null;
+    if (!id || escena.size < 1) { if (pelota) { pelota.el.remove(); pelota = null; } return; }
+    if (pelota && pelota.id === id) return;
+    if (pelota) pelota.el.remove();
+    const el = document.createElement('div');
+    el.className = 'pelota-mar';
+    el.innerHTML = `<span class="bola">${ARTE.item(id)}</span><b class="cuenta"></b>`;
+    sky.appendChild(el);
+    pelota = { el, id, n: 0, de: duenioDe(id), a: duenioDe(id), t0: 0, cae: true, yoToque: false };
+    quietaEn(pelota.a);
+  }
+  const pies = (pid) => { const p = escena.get(pid), r = p && p.el.getBoundingClientRect(), s = document.getElementById('sky').getBoundingClientRect(); return r ? [r.left + r.width / 2 - s.left + 9, r.bottom - s.top - 2] : [innerWidth / 2, innerHeight * 0.78]; };
+  const cabeza = (pid) => { const p = escena.get(pid), r = p && p.el.getBoundingClientRect(), s = document.getElementById('sky').getBoundingClientRect(); return r ? [r.left + r.width / 2 - s.left, r.top - s.top - 6] : [innerWidth / 2, innerHeight * 0.7]; };
+  function ubicarPelota(x, y) {
+    if (!pelota) return;
+    pelota.x = x; pelota.y = y;
+    pelota.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  }
+  function quietaEn(pid) { const [x, y] = pies(pid); ubicarPelota(x, y); }
+  function tocarPelota(x, y) {
+    if (!pelota) return false;
+    const s = document.getElementById('sky').getBoundingClientRect(), dx = x - s.left - pelota.x, dy = y - s.top - pelota.y;
+    if (dx * dx + dy * dy > 34 * 34) return false;
+    const k = pelota.cae ? 1 : (Date.now() - pelota.t0) / VUELO;
+    if (!pelota.cae && k < 0.35) return true; // recién salió: todavía no se puede volver a tocar
+    const otros = [...escena.keys()].filter((pid) => pid !== pelota.a);
+    const a = otros.length ? otros[Math.floor(Math.random() * otros.length)] : pelota.a;
+    pelota.yoToque = true;
+    pase(pelota.cae ? 1 : pelota.n + 1, a, Date.now());
+    S.enviarMar({ t: 'pelota', n: pelota.n, a, t0: pelota.t0 });
+    return true;
+  }
+  function pase(n, a, t0) {
+    if (!pelota || !escena.has(a)) return;
+    if (!pelota.cae && n <= pelota.n && t0 <= pelota.t0) return; // ya lo tenía
+    pelota.n = Math.max(n, pelota.cae ? 0 : pelota.n); pelota.de = pelota.a; pelota.a = a; pelota.t0 = t0; pelota.cae = false;
+    pelota.desde = [pelota.x, pelota.y];
+    pelota.el.classList.remove('cayo'); pelota.el.classList.add('vuela');
+    pelota.el.querySelector('.cuenta').textContent = pelota.n > 1 ? pelota.n : '';
+    INICIO.golpe();
+    if (!pelota.raf) pelota.raf = requestAnimationFrame(volarPelota);
+  }
+  function volarPelota() {
+    if (!pelota) return;
+    pelota.raf = 0;
+    const k = (Date.now() - pelota.t0) / VUELO, [x0, y0] = pelota.desde, [x1, y1] = cabeza(pelota.a);
+    if (k < 1) {
+      const u = Math.max(0, k), alto = Math.min(110, 50 + Math.abs(x1 - x0) * 0.35);
+      ubicarPelota(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u - alto * 4 * u * (1 - u));
+      pelota.raf = requestAnimationFrame(volarPelota);
+      return;
+    }
+    if (k < 1.12) { ubicarPelota(x1, y1); pelota.raf = requestAnimationFrame(volarPelota); return; } // un ratito para tocarla justo
+    // nadie la tocó: cae
+    const n = pelota.n;
+    pelota.cae = true; pelota.el.classList.remove('vuela'); pelota.el.classList.add('cayo');
+    quietaEn(pelota.a);
+    if (n > 1) {
+      if (pelota.yoToque) S.record('pases.max', n);
+      const rec = Math.max(S.maxDeTodos('pases.max'), n);
+      pelota.el.querySelector('.cuenta').textContent = `${n} pases · récord ${rec}`;
+      setTimeout(() => { if (pelota && pelota.cae) pelota.el.querySelector('.cuenta').textContent = ''; }, 3000);
+    } else pelota.el.querySelector('.cuenta').textContent = '';
+    pelota.n = 0; pelota.yoToque = false;
+  }
+
   // ---------- el barco fantasma ----------
   // Con más de 5 mirando el mar aparece en el horizonte un barco fantasma todo roto, que va y viene despacio con una nube
   // negra atrás. Se oscurece todo, cada tanto hay relámpagos y truenos, y sopla viento. La música se pone tensa: acordes

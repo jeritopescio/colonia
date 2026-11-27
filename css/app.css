@@ -387,6 +387,26 @@ body.fantasma.relampaguea #sky .personita svg { filter: brightness(1.05) saturat
 @keyframes mimo { 0% { opacity: 0; transform: translate(-50%, 4px) scale(.4); } 18% { opacity: 1; transform: translate(-50%, -2px) scale(1.18); } 30% { transform: translate(-50%, -4px) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -20px) scale(.95); } }
 [data-sky-dark="1"] #sky .mascota-mar .art { filter: brightness(.36) saturate(.55); }
 body.fantasma #sky .mascota-mar .art { filter: brightness(.45) saturate(.6); }
+/* La ronda: antorchas (de noche, con luz cálida que titila), la heladerita, la guitarra en las manos de su dueño y la pelota. */
+#sky .antorcha-mar, #sky .heladerita-mar { position: absolute; transform: translate(-50%, -100%); pointer-events: none; }
+#sky .antorcha-mar .cuerpo, #sky .heladerita-mar .cuerpo { display: block; position: relative; z-index: 1; }
+#sky .antorcha-mar.izq .cuerpo { transform: scaleX(-1); }
+#sky .antorcha-mar .art, #sky .heladerita-mar .art { display: block; width: 100%; height: auto; aspect-ratio: var(--ar); }
+#sky .antorcha-mar.noche::before { content: ""; position: absolute; left: 50%; top: 4%; width: 520%; aspect-ratio: 1.7; transform: translate(-50%, -30%); border-radius: 50%; background: radial-gradient(ellipse, rgba(255, 196, 110, .42), rgba(255, 160, 80, .14) 45%, rgba(255, 150, 70, 0) 70%); animation: titila-antorcha 1.6s ease-in-out infinite alternate; }
+@keyframes titila-antorcha { from { opacity: .75; } to { opacity: 1; } }
+[data-sky-dark="1"] #sky .antorcha-mar .art, [data-sky-dark="1"] #sky .heladerita-mar .art { filter: brightness(.42) saturate(.8); }
+[data-sky-dark="1"] #sky .personita .guitarra-mano .art { filter: brightness(.6); }
+body.fantasma #sky .antorcha-mar .art, body.fantasma #sky .heladerita-mar .art { filter: brightness(.45); }
+#sky .personita .guitarra-mano { position: absolute; left: 50%; bottom: 16%; width: 150%; transform: translateX(-25%) rotate(-38deg); pointer-events: none; z-index: 2; }
+#sky .personita .guitarra-mano .art { display: block; width: 100%; height: auto; aspect-ratio: var(--ar); }
+#sky .pelota-mar { position: absolute; left: 0; top: 0; z-index: 400; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; pointer-events: none; }
+#sky .pelota-mar .bola { display: block; width: 100%; height: 100%; }
+#sky .pelota-mar.vuela .bola { animation: gira-pelota .6s linear infinite; }
+@keyframes gira-pelota { to { transform: rotate(360deg); } }
+#sky .pelota-mar .art { display: block; width: 100%; height: 100%; }
+#sky .pelota-mar .cuenta { position: absolute; left: 50%; bottom: 120%; transform: translateX(-50%); white-space: nowrap; font-family: var(--display); font-size: .78rem; color: #fff; text-shadow: 0 0 3px #43365a, 0 1px 2px #43365a; }
+#sky .pelota-mar.cayo .cuenta { font-size: .72rem; }
+[data-sky-dark="1"] #sky .pelota-mar .bola { filter: brightness(.7); }
 /* La moto, el kayak o la tabla varada en la orilla cuando no está en el agua. */
 #sky .varada { position: absolute; transform: translate(-50%, -100%); pointer-events: none; }
 #sky .varada .ai, #sky .varada svg { display: block; width: 100%; height: auto; }

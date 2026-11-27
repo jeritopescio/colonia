@@ -660,6 +660,21 @@ window.STORE = (function () {
       save(); pushMe();
       return { c, s: D.BARCO.s, primero };
     },
+    // El brindis con la heladerita (3 o más a la vez): 5 monedas, una vez por día.
+    brindar() {
+      if (!s.me) return 0;
+      const k = 'brindis:' + window.SKY.arDate();
+      if (s.ach[k]) return 0;
+      s.ach[k] = 1; s.coins += 5; api.contar('mar.brindis');
+      save(); pushMe();
+      return 5;
+    },
+    // El récord de la colonia en algo que cuenta cada uno (el más alto de todos).
+    maxDeTodos(k) {
+      let m = (s.cuentas || {})[k] || 0;
+      if (live) Object.values(s.cache.players).forEach((r) => { m = Math.max(m, (((r || {}).datos || {}).cuentas || {})[k] || 0); });
+      return m;
+    },
     // La cola de sirena: una por día.
     sirenaHoy() { return !!s.ach['sirena:' + window.SKY.arDate()]; },
     atraparSirena() {

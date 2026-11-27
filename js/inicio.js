@@ -78,8 +78,34 @@ window.INICIO = (function () {
     };
     const acordesDe = (m) => (m === 'fantasma' ? ACORDES_F : ACORDES);
 
+    // La guitarra del fogón: una cuerda pulsada (triángulo con un poco de sierra, un filtro que se cierra rápido) y, sobre
+    // cada acorde, un arpegio con el pulgar en el bajo. Mientras suena, los toques del mar también suenan a guitarra.
+    let conGuitarra = false;
+    function cuerda(t, n, v, p, salida) {
+      const f = hz(n), dur = azar(1.3, 1.9);
+      const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.Q.value = 0.7;
+      fil.frequency.setValueAtTime(Math.min(5200, f * 9), t); fil.frequency.exponentialRampToValueAtTime(Math.max(500, f * 1.6), t + 0.35);
+      const pan = paneo(p); fil.connect(pan);
+      if (salida) pan.connect(salida); else enviar(pan, 0.78, 0.4);
+      [['triangle', 1, 1], ['sawtooth', 1.002, 0.35]].forEach(([tipo, mm, a]) => {
+        const o = ctx.createOscillator(), g = ctx.createGain(), fin = t + dur;
+        o.type = tipo; o.frequency.value = f * mm;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11 * v * a, t + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0004, fin); g.gain.linearRampToValueAtTime(0, fin + 0.02);
+        o.connect(g); g.connect(fil); vive(o, [t, fin + 0.05]);
+      });
+    }
+    function arpegio(a, t, salida) {
+      const arriba = [...new Set(a.voces.map((n) => (n < 55 ? n + 12 : n)))].sort((x, y) => x - y).slice(0, 3);
+      const patron = [a.bajo + 12, arriba[0], arriba[1], arriba[2], arriba[1], arriba[0]], paso = PULSO / 2;
+      for (let k = 0, tt = t; tt < t + ACORDE - 0.3; k++, tt += paso) {
+        const n = patron[k % patron.length];
+        cuerda(tt + azar(-0.012, 0.012), n, (k % patron.length ? 0.36 : 0.52) * azar(0.88, 1.08), k % patron.length ? azar(-0.3, 0.3) : -0.15, salida);
+      }
+    }
     function colchon(i, t) {
       const m = modo, F = m === 'fantasma', a = acordesDe(m)[i % ACORDES.length], fin = t + ACORDE + 6.5;
+      if (conGuitarra) arpegio(a, t, capa[m].col);
       const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.Q.value = F ? 1.1 : 0.4;
       fil.frequency.setValueAtTime(F ? 340 : 430, t);
       fil.frequency.linearRampToValueAtTime(F ? azar(620, 760) : azar(760, 980), t + ACORDE * 0.55);
@@ -281,7 +307,8 @@ window.INICIO = (function () {
       const lista = modo === 'fantasma' ? ARRIBA_F : ARRIBA;
       const i = Math.max(0, Math.min(lista.length - 1, Math.round(alto * (lista.length - 1) + azar(-0.7, 0.7))));
       const v = (0.26 + 0.66 * Math.pow(1 - alto, 0.9)) * azar(0.9, 1.05) * cuanto; // abajo 0,92; arriba nunca menos de 0,26
-      nota(ctx.currentTime + 0.035, lista[i], v, lado(p + azar(-0.1, 0.1)), true, null, 1 + 1.8 * Math.pow(1 - alto, 1.5), blues(lista[i]));
+      if (conGuitarra) cuerda(ctx.currentTime + 0.035, lista[i] - 12, v * 1.25, lado(p + azar(-0.1, 0.1)));
+      else nota(ctx.currentTime + 0.035, lista[i], v, lado(p + azar(-0.1, 0.1)), true, null, 1 + 1.8 * Math.pow(1 - alto, 1.5), blues(lista[i]));
       if (registro) (registro.toques = registro.toques || []).push(ctx.currentTime);
     }
 
@@ -375,12 +402,12 @@ window.INICIO = (function () {
       vivos.clear();
       master.disconnect(); comp.disconnect(); rev.disconnect();
     }
-    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia, trueno, aviso, canon, fanfarria, golpe, modo: cambiarModo };
+    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia, trueno, aviso, canon, fanfarria, golpe, modo: cambiarModo, guitarra: (si) => { conGuitarra = !!si; } };
   }
 
   // ---------- encendido y apagado ----------
   const CLAVE = 'colonia.musica';
-  let enPortada = false, motor = null, reloj = null, corte = null, modoQuiere = 'normal';
+  let enPortada = false, motor = null, reloj = null, corte = null, modoQuiere = 'normal', guitarraQuiere = false;
   const quiere = () => { try { return localStorage.getItem(CLAVE) !== '0'; } catch (e) { return true; } };
   const ctx = () => (window.SONIDO && SONIDO.audio ? SONIDO.audio() : null);
   let escuchando = false;
@@ -394,7 +421,7 @@ window.INICIO = (function () {
     if (!motor) {
       tocadas = 0; callada = false;
       motor = crearMotor(c, c.destination);
-      motor.modo(modoQuiere);
+      motor.modo(modoQuiere); motor.guitarra(guitarraQuiere);
       motor.hasta(c.currentTime + 5);
       reloj = setInterval(() => motor && motor.hasta(c.currentTime + 5), 800);
     }
@@ -526,6 +553,8 @@ window.INICIO = (function () {
     canon() { if (motor && !corte) motor.canon(); },
     fanfarria() { if (motor && !corte) motor.fanfarria(); },
     golpe() { if (motor && !corte) motor.golpe(); },
+    // La guitarra del fogón (cuando alguien que la tiene está en la ronda de noche).
+    guitarra(si) { guitarraQuiere = !!si; if (motor) motor.guitarra(guitarraQuiere); },
     sonando: () => !!motor && !corte,
     _motor: crearMotor, // para medir la música sin parlantes
   };
