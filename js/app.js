@@ -3245,6 +3245,28 @@
 
   // Deslizar hacia abajo estando arriba de todo: trae lo nuevo de la base y vuelve a dibujar la pantalla (como casi todas
   // las apps). No en la portada, ni con una hoja abierta, ni arrastrando algo en el altarcito.
+  // Modo liviano: unos segundos después de abrir se mide cuántos cuadros por segundo dibuja el celu. Si no llega a 30, se
+  // apagan los efectos más pesados (el filtro de crayón, que se recalcula con cada movimiento, y nubes de más con el barco
+  // fantasma) y queda guardado para la próxima.
+  (function medirCelu() {
+    const LIV = 'colonia.liviano';
+    try { if (localStorage.getItem(LIV) === '1') document.documentElement.classList.add('liviano'); } catch (e) { /* nada */ }
+    setTimeout(() => {
+      if (document.hidden) return;
+      let n = 0, peor = 0, ant = 0;
+      const t0 = performance.now();
+      const cuadro = (t) => {
+        n++; if (ant) peor = Math.max(peor, t - ant); ant = t;
+        if (t - t0 < 4000) { requestAnimationFrame(cuadro); return; }
+        if (peor > 1500 || document.hidden) return; // se fue a otra app en el medio: no vale
+        const fps = Math.round((n * 1000) / (t - t0));
+        try { localStorage.setItem('colonia.fps', String(fps)); if (fps < 30) localStorage.setItem(LIV, '1'); } catch (e) { /* nada */ }
+        if (fps < 30) document.documentElement.classList.add('liviano');
+      };
+      requestAnimationFrame(cuadro);
+    }, 5000);
+  })();
+
   (function deslizarParaActualizar() {
     const UMBRAL = 74;
     let y0 = null, dy = 0, cargando = false;

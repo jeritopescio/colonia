@@ -184,6 +184,7 @@ window.STORE = (function () {
       rm: matchMedia('(prefers-reduced-motion: reduce)').matches,
       app: matchMedia('(display-mode: standalone)').matches || !!navigator.standalone,
       musica: ls('colonia.musica') !== '0', sono: ls('colonia.sono'), silencio: ls('colonia.silencio') === 'sonar',
+      fps: +ls('colonia.fps') || null, liviano: ls('colonia.liviano') === '1',
       t: new Date().toISOString().slice(0, 16),
     };
   }

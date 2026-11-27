@@ -110,6 +110,11 @@ h2 { font-size: 1.2rem; }
 .umbrella:hover { transform: rotate(-4deg) scale(1.03); }
 .umbrella:active { transform: scale(.96); }
 .cover > * { transition: opacity .9s; }
+/* Modo liviano (celus que no llegan a 30 cuadros por segundo): sin el filtro de crayón, que es lo más pesado de dibujar,
+   menos nubes con el barco fantasma y las gaviotas sin aletear. */
+.liviano [filter], .liviano .clouds i, .liviano .sun, .liviano .btn.ghost::before, .liviano .bar::before, .liviano .bar i, .liviano .altar .nube { filter: none !important; }
+.liviano #sky .nubes-fantasma img:nth-child(n+3) { display: none; }
+.liviano .gaviota .ala { animation: none; }
 /* Deslizar para actualizar: la flechita que baja desde arriba, gira cuando ya alcanza y da vueltas mientras actualiza. */
 .ptr { position: fixed; z-index: 19; left: 50%; top: calc(6px + env(safe-area-inset-top, 0px)); width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: var(--card); border: 2.5px solid var(--ink); box-shadow: 1.5px 2px 0 rgba(67, 54, 90, .18); opacity: 0; pointer-events: none; transform: translate(-50%, -48px); transition: opacity .15s, transform .18s ease-out; }
 .ptr svg { width: 22px; height: 22px; fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }

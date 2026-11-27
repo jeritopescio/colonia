@@ -189,9 +189,12 @@
     }
   }
 
+  // La lluvia y el viento se dibujan cuadro a cuadro; sin eso el lienzo queda limpio y no se repinta (en un celu lento,
+  // limpiar la pantalla entera 60 veces por segundo para nada se nota).
   function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (mode) {
+    if (!mode) { raf = 0; return; }
+    {
       const W = canvas.width, H = canvas.height;
       ctx.lineCap = 'round';
       for (const d of drops) {
@@ -221,7 +224,8 @@
         ? { x: Math.random() * innerWidth * 1.2, y: Math.random() * innerHeight, l: 10 + Math.random() * 12, v: 6 + Math.random() * 5 }
         : { x: Math.random() * innerWidth, y: Math.random() * innerHeight * 0.6, l: 30 + Math.random() * 40, v: 3 + Math.random() * 3 });
     }
-    if (reduce) { cancelAnimationFrame(raf); loop(); cancelAnimationFrame(raf); }
+    if (reduce) { cancelAnimationFrame(raf); loop(); cancelAnimationFrame(raf); raf = 0; }
+    else if (!raf) loop();
   }
 
   function paint() {
@@ -258,7 +262,7 @@
   const fmt = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
 
   SKY.start = async function () {
-    build(); paint(); loop();
+    build(); paint(); if (!raf && !reduce) loop();
     await fetchWeather(); paint();
     setInterval(paint, 60e3);
     setInterval(async () => { await fetchWeather(); paint(); }, 20 * 60e3);
