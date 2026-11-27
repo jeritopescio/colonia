@@ -1432,6 +1432,131 @@
       <button class="btn" data-close>Cerrar</button></div>`);
   }
 
+  // ---------- Premios Colonia ----------
+  // Del 9 al 15/12 se vota en seis categorías (tres de fotos del viaje y tres de personas); el 16/12 salen los ganadores y
+  // cada uno cobra 100 monedas (si hay empate, ganan todos los empatados).
+  const fotosDelViaje = () => S.fotosColonia().filter((f) => f.creada >= D.PREMIOS.viaje[0] && f.creada < D.PREMIOS.viaje[1]);
+  const fotoUrl = (f) => f.url || face(f.pid);
+  function ganadoresDe(cat) {
+    const v = S.votos(cat), max = Math.max(0, ...Object.values(v));
+    return max ? Object.keys(v).filter((k) => v[k] === max).map((id) => ({ id, n: max })) : [];
+  }
+  function premiosHTML() {
+    const hoy = SKY.arDate();
+    if (hoy >= D.PREMIOS.resultados) return `<button class="card premios" data-premios><div class="eyebrow">🏆 Premios Colonia</div><b>Ya están los ganadores</b><span class="small muted">Tocá para verlos.</span></button>`;
+    if (hoy < D.PREMIOS.desde || hoy > D.PREMIOS.hasta) return '';
+    const hechos = D.PREMIOS.cats.filter((c) => S.voto(c.id)).length;
+    return `<button class="card premios" data-premios><div class="eyebrow">🏆 Premios Colonia</div><b>Votá hasta el 15/12</b><span class="small muted">${hechos} de ${D.PREMIOS.cats.length} categorías votadas. Los ganadores cobran ${D.PREMIOS.c} monedas.</span></button>`;
+  }
+  function abrirPremios() {
+    if (SKY.arDate() >= D.PREMIOS.resultados) return ganadoresPremios();
+    sheet(`<div class="premios-hoja"><h2>🏆 Premios Colonia</h2><p class="small muted" style="margin:0">Elegí en cada categoría. Se puede cambiar hasta el 15/12.</p>
+      ${D.PREMIOS.cats.map((c) => { const v = S.voto(c.id); return `<button class="premio-cat" data-cat="${c.id}"><span>${esc(c.t)}</span><span class="small ${v ? '' : 'muted'}">${v ? '✓ votaste' : 'votar'}</span></button>`; }).join('')}
+      <button class="btn" data-close>Listo</button></div>`,
+    (bg) => bg.querySelectorAll('[data-cat]').forEach((b) => b.addEventListener('click', () => { bg.remove(); votarCategoria(D.PREMIOS.cats.find((c) => c.id === b.dataset.cat)); })));
+  }
+  function votarCategoria(cat) {
+    const mio = S.voto(cat.id);
+    const opciones = cat.tipo === 'foto'
+      ? fotosDelViaje().filter((f) => f.pid !== S.me).map((f) => [f.pid + '/' + f.mision, `<img src="${fotoUrl(f)}" alt="" loading="lazy"><span class="small">${esc(person(f.pid).n)}</span>`])
+      : D.PEOPLE.filter((p) => p.id !== S.me).map((p) => [p.id, `<img class="face" src="${face(p.id)}" alt=""><span class="small">${esc(p.n)}</span>`]);
+    sheet(`<div class="premios-hoja"><h2>${esc(cat.t)}</h2>
+      ${opciones.length ? `<div class="premio-opciones ${cat.tipo}">${opciones.map(([id, html]) => `<button class="premio-op${mio === id ? ' on' : ''}" data-op="${esc(id)}">${html}</button>`).join('')}</div>` : '<p class="muted">Todavía no hay fotos del viaje.</p>'}
+      <button class="btn ghost" data-volver>Volver</button></div>`,
+    (bg) => {
+      bg.querySelectorAll('[data-op]').forEach((b) => b.addEventListener('click', () => { S.votar(cat.id, b.dataset.op); SONIDO.plop(); bg.remove(); abrirPremios(); }));
+      bg.querySelector('[data-volver]').addEventListener('click', () => { bg.remove(); abrirPremios(); });
+    });
+  }
+  function ganadoresPremios() {
+    const fotos = S.fotosColonia();
+    const bloque = (c) => {
+      const g = ganadoresDe(c.id);
+      if (!g.length) return `<div class="premio-res"><b>${esc(c.t)}</b><span class="small muted">Sin votos.</span></div>`;
+      return `<div class="premio-res"><b>${esc(c.t)}</b><div class="premio-ganan">${g.map(({ id, n }) => {
+        if (c.tipo === 'persona') return `<span class="ganador"><img class="face" src="${face(id)}" alt=""><span class="small">${esc(person(id).n)} · ${n} ${n === 1 ? 'voto' : 'votos'}</span></span>`;
+        const [pid, mid] = id.split('/'), f = fotos.find((x) => x.pid === pid && x.mision === mid);
+        return `<span class="ganador"><img class="foto" src="${f ? fotoUrl(f) : face(pid)}" alt=""><span class="small">${esc(person(pid).n)} · ${n} ${n === 1 ? 'voto' : 'votos'}</span></span>`;
+      }).join('')}</div></div>`;
+    };
+    sheet(`<div class="premios-hoja"><h2>🏆 Los ganadores</h2>${D.PREMIOS.cats.map(bloque).join('')}<button class="btn" data-close>Cerrar</button></div>`);
+  }
+  // Si ganaste algo, se cobra al entrar.
+  function cobrarPremios() {
+    if (!S.me || SKY.arDate() < D.PREMIOS.resultados) return;
+    let total = 0;
+    D.PREMIOS.cats.forEach((c) => { if (ganadoresDe(c.id).some(({ id }) => (c.tipo === 'persona' ? id : id.split('/')[0]) === S.me)) total += S.cobrarPremio(c.id); });
+    if (total) { SONIDO.monedas(total); toast(`<span style="font-size:1.5rem">🏆</span><span>¡Ganaste en los Premios Colonia! <b>+${total}</b> monedas.</span>`, 5000); }
+  }
+
+  // ---------- el wrapped de la temporada ----------
+  // Desde el 10/1: una historia de tarjetas con lo de cada uno (las cuentas de tiempo y del mar arrancaron el 27/11).
+  const WRAP_PRUEBA = PROTO && /[?&]wrapped/.test(location.search);
+  function wrappedHTML() {
+    if (!WRAP_PRUEBA && SKY.arDate() < D.WRAPPED.desde) return '';
+    return `<button class="card wrapped-card" data-wrapped><div class="eyebrow">🎁 Temporada 26/27</div><b>Tu wrapped de la colonia</b><span class="small muted">Lo tuyo de este capítulo, en tarjetas.</span></button>`;
+  }
+  function puesto(valor, de) {
+    const otros = D.PEOPLE.map((p) => de(p.id)).sort((a, b) => b - a);
+    return otros.indexOf(valor) + 1;
+  }
+  function verWrapped() {
+    const me = S.me, c = S.cuentas(me), st = S.stats(me), p = person(me), xp = S.xp, L = level(xp);
+    const misFotos = S.fotosColonia().filter((f) => f.pid === me);
+    const reacRecibidas = (f) => Object.values(S.reacciones(me + '/' + f.mision)).reduce((a, l) => a + l.length, 0);
+    const mejor = misFotos.map((f) => [f, reacRecibidas(f)]).sort((a, b) => b[1] - a[1])[0];
+    const recibidas = misFotos.reduce((a, f) => a + reacRecibidas(f), 0);
+    const reacMias = Object.keys(S.reacDe(me)), aQuien = {};
+    reacMias.forEach((k) => { const pid = k.split('/')[0]; if (pid !== me) aQuien[pid] = (aQuien[pid] || 0) + 1; });
+    const masReac = Object.entries(aQuien).sort((a, b) => b[1] - a[1])[0];
+    const regalos = S.regalosDe(me), itemCuenta = {}, paraCuenta = {};
+    regalos.forEach((r) => { itemCuenta[r.item] = (itemCuenta[r.item] || 0) + 1; paraCuenta[r.para] = (paraCuenta[r.para] || 0) + 1; });
+    const masItem = Object.entries(itemCuenta).sort((a, b) => b[1] - a[1])[0], masPara = Object.entries(paraCuenta).sort((a, b) => b[1] - a[1])[0];
+    const seg = c['app.seg'] || 0, h = Math.floor(seg / 3600), min = Math.round((seg % 3600) / 60);
+    const franjas = { 'de madrugada': 0, 'a la mañana': 0, 'a la tarde': 0, 'de noche': 0 };
+    misFotos.forEach((f) => { const hh = (new Date(f.creada).getUTCHours() + 21) % 24; franjas[hh < 6 ? 'de madrugada' : hh < 12 ? 'a la mañana' : hh < 19 ? 'a la tarde' : 'de noche']++; });
+    const franja = Object.entries(franjas).sort((a, b) => b[1] - a[1])[0];
+    const titulos = [
+      ['fotos', 'Fotógrafo oficial de la colonia', (pid) => S.stats(pid).fotos],
+      ['mar', 'Capitán del mar', (pid) => S.cuentas(pid)['mar.seg'] || 0],
+      ['reac', 'Corazón de la colonia', (pid) => S.stats(pid).reacciones],
+      ['regalos', 'Papá Noel de la playa', (pid) => S.stats(pid).regalos],
+      ['barco', 'Cazador de holandeses', (pid) => S.cuentas(pid)['mar.golpes'] || 0],
+      ['app', 'Habitante permanente', (pid) => S.cuentas(pid)['app.seg'] || 0],
+    ].map(([k, t, f]) => [k, t, puesto(f(me), f), f(me)]).filter((x) => x[3] > 0).sort((a, b) => a[2] - b[2]);
+    const titulo = titulos[0] || ['', 'Colonia de alma', 1, 0];
+    const slides = [
+      ['var(--celeste)', `<img class="face wr-face" src="${face(me)}" alt=""><h2>Tu temporada 26/27</h2><p>Capítulo 1 · Costa Esmeralda</p><p class="small">Tocá a la derecha para seguir.</p>`],
+      ['var(--rose)', `<p>Subiste</p><b class="wr-num">${st.fotos}</b><p>fotos a la colonia</p><p class="small">Puesto ${puesto(st.fotos, (pid) => S.stats(pid).fotos)} de ${D.PEOPLE.length} en fotos.</p>
+        ${mejor && mejor[1] ? `<img class="wr-foto" src="${fotoUrl(mejor[0])}" alt=""><p class="small">La que más reacciones tuvo: ${mejor[1]}.</p>` : ''}`],
+      ['var(--butter)', `<p>Estuviste en la app</p><b class="wr-num">${h ? `${h} h ${min} min` : `${min} min`}</b><p>${c['app.aperturas'] || 0} veces que entraste</p>${franja && franja[1] ? `<p class="small">Tus fotos, casi siempre ${franja[0]}.</p>` : ''}<p class="small muted">Desde el 27/11, cuando la app empezó a contar.</p>`],
+      ['var(--mint)', `<p>Mirando el mar</p><b class="wr-num">${Math.round((c['mar.seg'] || 0) / 60)} min</b><p>${c['mar.notas'] || 0} notas tocadas · ${c['mar.delfines'] || 0} delfines</p><p class="small">${c['mar.hundidos'] ? `Hundiste al Holandés ${c['mar.hundidos']} ${c['mar.hundidos'] === 1 ? 'vez' : 'veces'}` : 'El Holandés no te encontró'}${c['mar.golpes'] ? ` · ${c['mar.golpes']} golpes al barco` : ''}.</p>`],
+      ['var(--lav)', `<p>Regalaste</p><b class="wr-num">${regalos.length}</b><p>cosas del kiosco</p>${masItem ? `<div class="wr-item">${ARTE.item(masItem[0], shopItem(masItem[0]).col)}</div><p class="small">Lo que más regalaste: ${esc(shopItem(masItem[0]).n.toLowerCase())}.</p>` : ''}${masPara ? `<p class="small">A quien más le regalaste: ${esc(person(masPara[0]).n)}.</p>` : ''}`],
+      ['var(--coral)', `<p>Pusiste</p><b class="wr-num">${reacMias.length}</b><p>reacciones · recibiste ${recibidas}</p>${masReac ? `<img class="face wr-face chica" src="${face(masReac[0])}" alt=""><p class="small">A quien más le reaccionaste: ${esc(person(masReac[0]).n)} (${masReac[1]}).</p>` : ''}`],
+      ['var(--celeste)', `<p>Terminaste en</p><b class="wr-num">nivel ${L.i + 1}</b><p>${esc(L.n)} · ${xp} XP</p><p class="small">${st.dias} días entrando a la app.</p>`],
+      ['var(--butter)', `<p>Tu título de la temporada</p><b class="wr-titulo">${esc(titulo[1])}</b>${titulo[0] ? `<p class="small">Puesto ${titulo[2]} de ${D.PEOPLE.length} en lo tuyo.</p>` : ''}<p>Nos vemos en el capítulo 2.</p>`],
+    ];
+    S.contar('wrapped.visto');
+    const ov = document.createElement('div');
+    ov.className = 'wrapped';
+    ov.innerHTML = `<div class="wr-barras">${slides.map(() => '<i><b></b></i>').join('')}</div><button class="wr-cerrar" aria-label="Cerrar">✕</button><div class="wr-slide"></div>`;
+    document.body.appendChild(ov);
+    let i = 0, t = null;
+    const mostrar = (k) => {
+      i = Math.max(0, Math.min(slides.length - 1, k));
+      ov.style.setProperty('--fondo', slides[i][0]);
+      ov.querySelector('.wr-slide').innerHTML = slides[i][1];
+      ov.querySelectorAll('.wr-barras i').forEach((b, j) => b.classList.toggle('llena', j < i));
+      ov.querySelectorAll('.wr-barras i').forEach((b, j) => b.classList.toggle('va', j === i));
+      clearTimeout(t); if (i < slides.length - 1) t = setTimeout(() => mostrar(i + 1), 7000);
+    };
+    ov.addEventListener('click', (e) => {
+      if (e.target.closest('.wr-cerrar')) { clearTimeout(t); ov.remove(); return; }
+      mostrar(e.clientX < innerWidth / 3 ? i - 1 : i + 1);
+    });
+    mostrar(0);
+  }
+
   // ---------- salvavidas de racha ----------
   function salvavidasHTML() {
     const n = S.salvavidas();
@@ -1520,6 +1645,8 @@
         <p class="on-sky-soft como">Sacá la foto que pide cada misión: se vuelve figurita en tu álbum y te da monedas para tu altarcito${antesFoto ? `. Con ${D.FOTO.figus} figuritas aparecés en la foto del 8/12` : ''}.</p>
         ${enLineaHTML()}
         ${horaHTML()}
+        ${wrappedHTML()}
+        ${premiosHTML()}
         ${capsulaHTML()}
         ${laRuta()}
         ${entreCapitulos() ? ideasCard() : ''}
@@ -1903,6 +2030,8 @@
     else if (e.target.closest('[data-sobres]')) mostrarSobres(true);
     else if (e.target.closest('[data-capsula]')) escribirCapsula();
     else if (e.target.closest('[data-capsula-leer]')) leerCapsula();
+    else if (e.target.closest('[data-premios]')) abrirPremios();
+    else if (e.target.closest('[data-wrapped]')) verWrapped();
     else if (e.target.closest('[data-rec]')) verRecuerdo(e.target.closest('[data-rec]').dataset.rec);
     else if (e.target.closest('[data-amigo]')) amigoSheet(e.target.closest('[data-amigo]').dataset.amigo);
   });
@@ -1924,6 +2053,7 @@
     got.forEach((a, i) => setTimeout(() => toast(`<span class="chip" style="--c:var(--butter)">+${a.c} <span class="coin"></span></span><span>${esc(a.t)}</span>`), i * 700));
     if (cosas.length) setTimeout(() => souvenir(cosas[0]), 900);
     if (got.length) { SONIDO.monedas(got.reduce((n, a) => n + a.c, 0)); setTimeout(render, got.length * 700); }
+    setTimeout(cobrarPremios, 1500);
     if (S.salvavidasUsado) { const d = S.salvavidasUsado.split('-'); S.salvavidasUsado = null; setTimeout(() => toast(`<span>🛟 El ${+d[2]}/${+d[1]} no entraste: usaste un salvavidas y tu racha sigue.</span>`, 5000), 600); }
     const rh = S.rachaHoy; S.rachaHoy = null;
     if (rh) setTimeout(() => toastXp(rh.dias === D.RACHA.dorado ? `¡${rh.dias} días seguidos! Tu foto ya tiene borde dorado ✦` : `Racha de ${rh.dias} días seguidos${rh.dias > D.RACHA.dorado ? ' ✦' : ''}`, rh), got.length * 700 + 400);
@@ -3939,7 +4069,7 @@
   }
 
   if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
-  if (PROTO) window.__prueba = { capsulaHTML, escribirCapsula, leerCapsula, horaHTML };
+  if (PROTO) window.__prueba = { capsulaHTML, escribirCapsula, leerCapsula, horaHTML, abrirPremios, ganadoresPremios, verWrapped };
   if (PROTO) window.__mar = { delfin, sirena: () => { if (!solo) solo = { d: 0 }; sirena(); }, escapar: () => fantasma && fantasma.inicio && escaparse(fantasma), barco: () => fantasma && { inicio: fantasma.inicio, nv: fantasma.nv, perros: fantasma.perros, gatos: fantasma.gatos, vm: fantasma.vm, vida: vidaDe(fantasma), mios: fantasma.mios, hundido: !!fantasma.hundido, escapo: !!fantasma.escapo } }; // para probar en el modo demo
 
   // A quien le desaprueban una foto (o la recupera) le llega el aviso con lo que perdió o volvió.

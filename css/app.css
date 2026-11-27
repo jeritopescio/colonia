@@ -474,6 +474,39 @@ body.fiesta #sky .personita:not(.en-agua) svg { animation: baile .45s ease-in-ou
 #sky .banana-mar { transform: translate(-50%, -100%); }
 #sky .agua.banana { width: calc(var(--h, 26px) * .6); }
 #sky .agua.banana .personita.en-agua { left: 50%; bottom: 0; }
+/* Premios Colonia y wrapped */
+.premios, .wrapped-card { display: grid; gap: 4px; text-align: left; }
+.premios-hoja { display: grid; gap: 10px; }
+.premio-cat { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 12px; background: var(--paper); font: inherit; color: var(--ink); cursor: pointer; text-align: left; }
+.premio-opciones { display: grid; gap: 8px; max-height: 62vh; overflow-y: auto; }
+.premio-opciones.foto { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.premio-opciones.persona { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+.premio-op { display: grid; gap: 4px; justify-items: center; padding: 6px; border: 2px solid transparent; border-radius: 12px; background: none; font: inherit; color: var(--ink); cursor: pointer; }
+.premio-op.on { border-color: var(--ink); background: color-mix(in srgb, var(--butter) 55%, var(--paper)); }
+.premio-op img:not(.face) { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--ink); }
+.premio-op .face { width: 56px; height: 56px; }
+.premio-res { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1.5px dashed color-mix(in srgb, var(--ink) 25%, transparent); }
+.premio-ganan { display: flex; flex-wrap: wrap; gap: 10px; }
+.ganador { display: grid; justify-items: center; gap: 3px; }
+.ganador .face { width: 54px; height: 54px; }
+.ganador .foto { width: 110px; aspect-ratio: 1; object-fit: cover; border-radius: 10px; border: 2px solid var(--ink); }
+.wrapped { position: fixed; inset: 0; z-index: 40; background: var(--fondo, var(--celeste)); color: #43365a; display: grid; place-items: center; padding: calc(56px + env(safe-area-inset-top, 0px)) max(22px, env(safe-area-inset-right, 0px)) calc(40px + env(safe-area-inset-bottom, 0px)) max(22px, env(safe-area-inset-left, 0px)); transition: background .5s; cursor: pointer; }
+.wr-barras { position: absolute; left: 16px; right: 16px; top: calc(14px + env(safe-area-inset-top, 0px)); display: flex; gap: 4px; }
+.wr-barras i { flex: 1; height: 4px; border-radius: 2px; background: rgba(67, 54, 90, .25); overflow: hidden; }
+.wr-barras i b { display: block; height: 100%; width: 0; background: #43365a; }
+.wr-barras i.llena b { width: 100%; }
+.wr-barras i.va b { animation: llena-barra 7s linear forwards; }
+@keyframes llena-barra { to { width: 100%; } }
+.wr-cerrar { position: absolute; right: 14px; top: calc(26px + env(safe-area-inset-top, 0px)); width: 40px; height: 40px; border-radius: 50%; border: 2px solid #43365a; background: rgba(255, 250, 241, .7); font-size: 1.1rem; cursor: pointer; }
+.wr-slide { display: grid; justify-items: center; gap: 10px; text-align: center; max-width: 360px; animation: pop .45s ease-out; }
+.wr-slide p { margin: 0; font-size: 1.15rem; }
+.wr-num { font-family: var(--display); font-size: clamp(3rem, 16vw, 4.6rem); line-height: 1; }
+.wr-titulo { font-family: var(--display); font-size: clamp(2rem, 10vw, 2.8rem); line-height: 1.05; text-wrap: balance; }
+.wr-face { width: 120px; height: 120px; }
+.wr-face.chica { width: 72px; height: 72px; }
+.wr-foto { width: min(70vw, 240px); aspect-ratio: 1; object-fit: cover; border-radius: 14px; border: 3px solid #43365a; transform: rotate(-2deg); }
+.wr-item { width: 110px; }
+.wr-item .art { display: block; width: 100%; height: auto; aspect-ratio: var(--ar); }
 /* Hora Colonia, cápsula del tiempo y salvavidas de racha */
 .hora-colonia { border-color: var(--coral); background: color-mix(in srgb, var(--rose) 30%, var(--paper)); }
 .hora-paso { margin: -4px 0 0; text-align: center; }

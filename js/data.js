@@ -372,6 +372,19 @@ window.DATA = (function () {
   const HORA = { desde: 600, hasta: 1260, dura: 5, xp: 25, minimo: 6, c: 30, t: 'Lo que tenés enfrente, ahora mismo' };
   // Cápsula del tiempo: se escribe del 6 al 9/12 y se abre el 10/1, el día que cierra el capítulo.
   const CAPSULA = { desde: '2026-12-06', hasta: '2026-12-09', abre: '2027-01-10' };
+  // Premios Colonia: al volver del viaje se vota (del 9 al 15/12) y el 16/12 salen los ganadores, que cobran 100 monedas.
+  // Las fotos son las que se subieron durante el viaje (del 4 al 9/12). No se vota la foto propia ni a uno mismo.
+  const PREMIOS = { desde: '2026-12-09', hasta: '2026-12-15', resultados: '2026-12-16', viaje: ['2026-12-04', '2026-12-10'], c: 100,
+    cats: [
+      { id: 'foto', t: 'La mejor foto del viaje', tipo: 'foto' },
+      { id: 'risa', t: 'La foto más graciosa', tipo: 'foto' },
+      { id: 'momento', t: 'El momento del viaje', tipo: 'foto' },
+      { id: 'alma', t: 'El alma de la colonia', tipo: 'persona' },
+      { id: 'dormido', t: 'El más dormido', tipo: 'persona' },
+      { id: 'dj', t: 'El mejor DJ de la playa', tipo: 'persona' },
+    ] };
+  // El wrapped de la temporada: se abre el 10/1, cuando cierra el capítulo 1.
+  const WRAPPED = { desde: '2027-01-10' };
   // Las mascotas del kiosco: en Mirar el mar aparecen sentadas en la arena si su dueño está mirando (una de cada una) y cada
   // tanto tiran uno de estos.
   const MASCOTAS = { tulio: 'perro', renu: 'perro', leda: 'perro', pure: 'perro', kuky: 'perro', tony: 'gato', feluchis: 'gato', pompi: 'gato' };
@@ -543,5 +556,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { precioVenta, CUMPLES, LOGROS, BARCO, SIRENA, SALVAVIDAS, HORA, CAPSULA, MASCOTAS, MIMOS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { precioVenta, CUMPLES, LOGROS, BARCO, SIRENA, SALVAVIDAS, HORA, CAPSULA, PREMIOS, WRAPPED, MASCOTAS, MIMOS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

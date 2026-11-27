@@ -690,6 +690,22 @@ window.STORE = (function () {
     },
     // el castillo de arena de todos: cuántas paladas puso cada uno hoy
     palada() { const k = 'castillo.' + window.SKY.arDate(); api.contar(k); return s.cuentas[k] || 0; },
+    // Premios Colonia: el voto de cada uno por categoría (ach.voto:<cat>), el conteo con los votos de todos y el premio.
+    votar(cat, id) { if (!s.me) return; s.ach['voto:' + cat] = id; save(); pushMe(); },
+    voto(cat) { return s.ach['voto:' + cat] || null; },
+    votos(cat) {
+      const out = {};
+      D.PEOPLE.forEach((p) => { const v = api.achDe(p.id)['voto:' + cat]; if (v) out[v] = (out[v] || 0) + 1; });
+      return out;
+    },
+    cobrarPremio(cat) {
+      if (!s.me || s.ach['premio:' + cat]) return 0;
+      s.ach['premio:' + cat] = 1; s.coins += D.PREMIOS.c; save(); pushMe();
+      return D.PREMIOS.c;
+    },
+    // Para el wrapped: las reacciones que puso cada uno y los regalos que hizo.
+    reacDe(pid) { return reacDe(pid) || {}; },
+    regalosDe(pid) { return (s.cache.regalos || []).filter((r) => r.de === (pid || s.me)); },
     salvavidas() { return s.ach.salvavidas || 0; },
     comprarSalvavidas() {
       if (!s.me || (s.ach.salvavidas || 0) >= D.SALVAVIDAS.max || s.coins < D.SALVAVIDAS.p) return false;
