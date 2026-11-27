@@ -387,6 +387,14 @@ body.fantasma.relampaguea #sky .personita svg { filter: brightness(1.05) saturat
 @keyframes mimo { 0% { opacity: 0; transform: translate(-50%, 4px) scale(.4); } 18% { opacity: 1; transform: translate(-50%, -2px) scale(1.18); } 30% { transform: translate(-50%, -4px) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -20px) scale(.95); } }
 [data-sky-dark="1"] #sky .mascota-mar .art { filter: brightness(.36) saturate(.55); }
 body.fantasma #sky .mascota-mar .art { filter: brightness(.45) saturate(.6); }
+/* Hora Colonia, cápsula del tiempo y salvavidas de racha */
+.hora-colonia { border-color: var(--coral); background: color-mix(in srgb, var(--rose) 30%, var(--paper)); }
+.hora-paso { margin: -4px 0 0; text-align: center; }
+.capsula { display: grid; gap: 8px; text-align: left; }
+.capsula-msj { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: start; }
+.capsula-msj .face { width: 40px; height: 40px; }
+.salvavidas-linea { display: grid; gap: 6px; margin-top: 6px; }
+.salvavidas-linea .btn { justify-self: start; padding: 6px 14px; font-size: .9rem; }
 /* La ronda: antorchas (de noche, con luz cálida que titila), la heladerita, la guitarra en las manos de su dueño y la pelota. */
 #sky .antorcha-mar, #sky .heladerita-mar { position: absolute; transform: translate(-50%, -100%); pointer-events: none; }
 #sky .antorcha-mar .cuerpo, #sky .heladerita-mar .cuerpo { display: block; position: relative; z-index: 1; }

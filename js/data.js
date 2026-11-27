@@ -365,6 +365,13 @@ window.DATA = (function () {
   const BARCO = { c: 50, porNivel: 10, s: 1, roba: 2, robaMonedas: 20, item: 'holandes', mision: { id: 'sec-barco', t: 'La colonia después de hundir al Holandés Laburante: foto de todos los que estaban', xp: 40 } };
   // La cola de sirena (Mirar el mar, a solas): si la atrapás, estas monedas (una vez por día).
   const SIRENA = 250;
+  // Salvavidas de racha: se compra (50 monedas, hasta 2 guardados) y cubre un día sin entrar, como mucho uno por semana.
+  const SALVAVIDAS = { p: 50, max: 2, cada: 7 };
+  // Hora Colonia: una vez por día, a una hora al azar entre las 10 y las 21, hay 5 minutos para sacarle una foto a lo que
+  // tenés enfrente. Si la suben 6 o más, cada uno cobra 30 monedas.
+  const HORA = { desde: 600, hasta: 1260, dura: 5, xp: 25, minimo: 6, c: 30, t: 'Lo que tenés enfrente, ahora mismo' };
+  // Cápsula del tiempo: se escribe del 6 al 9/12 y se abre el 10/1, el día que cierra el capítulo.
+  const CAPSULA = { desde: '2026-12-06', hasta: '2026-12-09', abre: '2027-01-10' };
   // Las mascotas del kiosco: en Mirar el mar aparecen sentadas en la arena si su dueño está mirando (una de cada una) y cada
   // tanto tiran uno de estos.
   const MASCOTAS = { tulio: 'perro', renu: 'perro', leda: 'perro', pure: 'perro', kuky: 'perro', tony: 'gato', feluchis: 'gato', pompi: 'gato' };
@@ -517,5 +524,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { precioVenta, CUMPLES, LOGROS, BARCO, SIRENA, MASCOTAS, MIMOS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { precioVenta, CUMPLES, LOGROS, BARCO, SIRENA, SALVAVIDAS, HORA, CAPSULA, MASCOTAS, MIMOS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

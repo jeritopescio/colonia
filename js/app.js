@@ -558,6 +558,7 @@
   }
   const vestigioUrl = (pid, mid) => S.artUrl(`vestigios/${pid}-${mid}.jpg?v=1`);
   function misionDe(mid) {
+    if (mid.startsWith('hora-')) { const [, m, d] = mid.slice(5).split('-'); return `Hora Colonia del ${+d}/${+m}`; }
     if (!mid.startsWith('dia-')) return (D.MISSIONS.find((m) => m.id === mid) || { t: 'Una misión' }).t;
     const d = mid.slice(4);
     return D.DAILY_TRIP[d] || D.DAILY_FIJA[d] || delPool(d);
@@ -1342,7 +1343,108 @@
       <span class="t">${esc(m.t)}${extra ? `<small>${extra}</small>` : ''}</span>
       <span class="chip" style="--c:${ph ? 'var(--mint)' : 'var(--paper)'}">${ph ? 'hecha' : '+' + m.xp}</span></button>`;
   }
-  const allMissions = () => [daily(), D.DUO, ...rutaMisiones(), ...secretasDe(S.me, SKY.arDate()), ...secretasHasta(), ...D.MISSIONS];
+  const allMissions = () => [daily(), D.DUO, ...rutaMisiones(), ...secretasDe(S.me, SKY.arDate()), ...secretasHasta(), ...D.MISSIONS, horaMision()].filter(Boolean);
+  // ---------- Hora Colonia ----------
+  // Cada día, a una hora al azar (la misma en todos los celus) entre las 10 y las 21, hay 5 minutos para subir lo que tenés
+  // enfrente. Si la suben 6 o más dentro del rato, cada uno de ellos cobra 30 monedas.
+  const HORA_PRUEBA = PROTO && /[?&]horaya/.test(location.search) ? Date.now() + 8000 : null;
+  const horaDe = (dia) => D.HORA.desde + (hash('hora' + dia) % (D.HORA.hasta - D.HORA.desde));
+  function ventanaHora(dia = SKY.arDate()) {
+    const m = horaDe(dia), [y, mo, d] = dia.split('-').map(Number);
+    let desde = Date.UTC(y, mo - 1, d, 3) + m * 6e4; // medianoche argentina = 3 UTC
+    if (HORA_PRUEBA && dia === SKY.arDate()) desde = HORA_PRUEBA; // ?horaya: para probarla ahora
+    return { m, desde, hasta: desde + D.HORA.dura * 6e4 };
+  }
+  const horaTexto = (m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+  function horaMision() {
+    const dia = SKY.arDate(), v = ventanaHora(dia), id = 'hora-' + dia, ahora = Date.now();
+    if ((ahora >= v.desde && ahora < v.hasta) || S.photo(id)) return { id, t: D.HORA.t, xp: D.HORA.xp };
+    return null;
+  }
+  function horaHTML() {
+    const dia = SKY.arDate(), v = ventanaHora(dia), ahora = Date.now(), id = 'hora-' + dia;
+    if (ahora >= v.desde && ahora < v.hasta) {
+      const falta = Math.ceil((v.hasta - ahora) / 1000);
+      return `<div class="card hora-colonia"><div class="spread"><div class="eyebrow">⏰ ¡Hora Colonia!</div><span class="chip" style="--c:var(--rose)" data-hora-falta>${Math.floor(falta / 60)}:${String(falta % 60).padStart(2, '0')}</span></div>
+        <p class="small" style="margin:0">Tenés 5 minutos para sacarle una foto a lo que tenés enfrente. Si la suben 6 o más, cada uno cobra ${D.HORA.c} monedas.</p>
+        <div class="list">${mRow(horaMision(), 'Avisale al grupo')}</div></div>`;
+    }
+    if (ahora >= v.hasta) {
+      const n = S.horaQuienes(dia, v.desde, v.hasta + 12e4).size;
+      return `<p class="on-sky-soft small hora-paso">La Hora Colonia de hoy fue a las ${horaTexto(v.m)}${n ? `: la ${n === 1 ? 'subió 1' : `subieron ${n}`}` : ''}.${S.photo(id) ? ' Vos estuviste.' : ''}</p>`;
+    }
+    return '';
+  }
+  // Mientras la app está abierta: avisa cuando empieza y cobra el premio cuando ya pasó.
+  let horaAvisada = '';
+  setInterval(() => {
+    if (!S.me) return;
+    const dia = SKY.arDate(), v = ventanaHora(dia), ahora = Date.now();
+    if (ahora >= v.desde && ahora < v.hasta && horaAvisada !== dia) {
+      horaAvisada = dia;
+      toast(`<span style="font-size:1.5rem">⏰</span><span><b>¡Hora Colonia!</b> Tenés 5 minutos para subir lo que tenés enfrente. <a href="#hoy">Ir a Hoy</a></span>`, 9000);
+      if (location.hash.slice(1) === 'hoy' && scrollY < 40) render();
+    }
+    const el = document.querySelector('[data-hora-falta]');
+    if (el) { const f = Math.max(0, Math.ceil((v.hasta - ahora) / 1000)); el.textContent = `${Math.floor(f / 60)}:${String(f % 60).padStart(2, '0')}`; }
+    cobrarHoras();
+  }, 1000);
+  function cobrarHoras() {
+    [1, 0].forEach((n) => {
+      const d = new Date(SKY.arDate() + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n);
+      const dia = d.toISOString().slice(0, 10), v = ventanaHora(dia);
+      if (Date.now() < v.hasta + 15 * 6e4) return; // se espera un rato a que suban todos
+      const c = S.cobrarHora(dia, v.desde, v.hasta + 12e4);
+      if (c) { SONIDO.monedas(c); toast(`<span class="chip" style="--c:var(--butter)">+${c} <span class="coin"></span></span><span>La Hora Colonia la subieron ${D.HORA.minimo} o más: premio para cada uno.</span>`, 5000); }
+    });
+  }
+
+  // ---------- cápsula del tiempo ----------
+  // Del 6 al 9/12 cada uno escribe algo para la colonia del 10/1 (se puede cambiar hasta el 9). El 10/1 se abre y se leen todas.
+  function capsulaHTML() {
+    const hoy = SKY.arDate(), mia = S.capsula();
+    if (hoy >= D.CAPSULA.abre) {
+      const n = D.PEOPLE.filter((p) => S.capsula(p.id)).length;
+      return n ? `<button class="card capsula" data-capsula-leer><div class="eyebrow">Cápsula del tiempo</div><b>Se abrió la cápsula: ${n} ${n === 1 ? 'mensaje' : 'mensajes'} del viaje</b><span class="small muted">Tocá para leerlos.</span></button>` : '';
+    }
+    if (hoy < D.CAPSULA.desde || hoy > D.CAPSULA.hasta) return '';
+    return `<div class="card capsula"><div class="eyebrow">Cápsula del tiempo</div>
+      <p class="small" style="margin:0">Escribile algo a la colonia del 10 de enero: lo que sentís hoy, lo que no querés olvidarte, una promesa. Nadie lo lee hasta ese día.</p>
+      ${mia ? `<p class="small muted" style="margin:0">Ya guardaste tu mensaje. Lo podés cambiar hasta el 9/12.</p><button class="btn ghost" data-capsula>Cambiar mi mensaje</button>`
+        : '<button class="btn" data-capsula style="--c:var(--lav)">Escribir en la cápsula</button>'}</div>`;
+  }
+  function escribirCapsula() {
+    const mia = S.capsula();
+    sheet(`<div style="display:grid;gap:12px"><h2>Cápsula del tiempo</h2>
+      <p class="small muted" style="margin:0">Se abre el 10/1 y la leen todos. Hasta 500 letras.</p>
+      <textarea id="capsula-t" maxlength="500" rows="6" style="width:100%;font:inherit;padding:10px;border-radius:10px;border:2px solid var(--ink)">${esc(mia ? mia.t : '')}</textarea>
+      <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Cancelar</button><button class="btn" id="capsula-ok" style="--c:var(--lav)">Guardar</button></div></div>`,
+    (bg) => bg.querySelector('#capsula-ok').addEventListener('click', () => {
+      S.escribirCapsula(bg.querySelector('#capsula-t').value); bg.remove(); SONIDO.plop();
+      toast('<span>Guardado en la cápsula. Se abre el 10/1.</span>'); render();
+    }));
+  }
+  function leerCapsula() {
+    const ms = D.PEOPLE.map((p) => [p, S.capsula(p.id)]).filter(([, c]) => c);
+    sheet(`<div style="display:grid;gap:14px"><h2>La cápsula del tiempo</h2><p class="small muted" style="margin:0">Lo que escribieron en el viaje, del 6 al 9 de diciembre.</p>
+      ${ms.map(([p, c]) => `<div class="capsula-msj"><img class="face" src="${face(p.id)}" alt=""><div><b>${esc(p.n)}</b><p style="margin:2px 0 0;white-space:pre-wrap">${esc(c.t)}</p></div></div>`).join('')}
+      <button class="btn" data-close>Cerrar</button></div>`);
+  }
+
+  // ---------- salvavidas de racha ----------
+  function salvavidasHTML() {
+    const n = S.salvavidas();
+    return `<div class="salvavidas-linea small"><span>🛟 Salvavidas de racha: tenés ${n}. Si un día no entrás, te cubre la racha (uno por semana).</span>
+      ${n < D.SALVAVIDAS.max ? `<button class="btn ghost" data-salvavidas>Comprar uno · ${D.SALVAVIDAS.p} <span class="coin"></span></button>` : ''}</div>`;
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-salvavidas]');
+    if (!b) return;
+    if (!S.comprarSalvavidas()) { toast(S.coins < D.SALVAVIDAS.p ? `<span>Te faltan monedas: el salvavidas sale ${D.SALVAVIDAS.p}.</span>` : '<span>Ya tenés los salvavidas que se pueden guardar.</span>'); return; }
+    SONIDO.monedas(1);
+    const l = b.closest('.salvavidas-linea'); if (l) l.outerHTML = salvavidasHTML();
+    toast('<span>🛟 Compraste un salvavidas de racha.</span>');
+  });
   function bindMissions(root) {
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
       const m = allMissions().find((x) => x.id === b.dataset.m);
@@ -1416,6 +1518,8 @@
       screen.innerHTML = `${top()}
         <p class="on-sky-soft como">Sacá la foto que pide cada misión: se vuelve figurita en tu álbum y te da monedas para tu altarcito${antesFoto ? `. Con ${D.FOTO.figus} figuritas aparecés en la foto del 8/12` : ''}.</p>
         ${enLineaHTML()}
+        ${horaHTML()}
+        ${capsulaHTML()}
         ${laRuta()}
         ${entreCapitulos() ? ideasCard() : ''}
         <div class="card"><div class="spread"><div class="eyebrow">Misión del día</div><span class="chip">${c.big} ${esc(c.small)}</span></div>
@@ -1707,7 +1811,7 @@
       <div class="carta-id"><h2>${esc(p.n)}</h2>${c.apodo ? `<p class="carta-apodo">${esc(c.apodo)}</p>` : ''}${c.t ? `<p>${esc(c.t)}</p>` : ''}
         ${c.s || tier ? `<div class="row">${c.s ? `<span class="chip" style="--c:var(--el)">${SIGNO[c.s] || ''}&#xFE0E; ${esc(c.s)}</span>` : ''}${tier ? `<span class="chip tier-chip tier-${tier.id}">Tarjeta de ${tier.n.toLowerCase()}</span>` : ''}</div>` : ''}</div>
       <div class="carta-sec carta-xp"><div class="spread"><b>Nivel ${L.i + 1} · ${esc(L.n)}</b><span class="small">${xp} XP</span></div>
-        ${barraXp(xp)}<p class="small muted">${esc(faltaXp(xp, vos))}</p><p class="small racha-linea">${esc(rachaTexto(pid))}</p>${vos ? COMO_XP() : ''}</div>
+        ${barraXp(xp)}<p class="small muted">${esc(faltaXp(xp, vos))}</p><p class="small racha-linea">${esc(rachaTexto(pid))}</p>${vos ? salvavidasHTML() + COMO_XP() : ''}</div>
       ${c.bio ? `<p class="carta-bio">${esc(c.bio)}</p>` : ''}
       ${hab ? `<div class="carta-sec"><div class="eyebrow">Habilidades</div>${hab}</div>` : ''}
       ${c.poder ? `<div class="carta-sec"><div class="eyebrow">Poder</div><p>${esc(c.poder)}</p></div>` : ''}
@@ -1789,6 +1893,8 @@
     else if (e.target.closest('[data-sumo]')) { S.sumarme(e.target.closest('[data-sumo]').dataset.sumo); SONIDO.plop(); render(); }
     else if (e.target.closest('[data-reac]')) reaccionar(e.target.closest('[data-reac]'));
     else if (e.target.closest('[data-sobres]')) mostrarSobres(true);
+    else if (e.target.closest('[data-capsula]')) escribirCapsula();
+    else if (e.target.closest('[data-capsula-leer]')) leerCapsula();
     else if (e.target.closest('[data-rec]')) verRecuerdo(e.target.closest('[data-rec]').dataset.rec);
     else if (e.target.closest('[data-amigo]')) amigoSheet(e.target.closest('[data-amigo]').dataset.amigo);
   });
@@ -1810,6 +1916,7 @@
     got.forEach((a, i) => setTimeout(() => toast(`<span class="chip" style="--c:var(--butter)">+${a.c} <span class="coin"></span></span><span>${esc(a.t)}</span>`), i * 700));
     if (cosas.length) setTimeout(() => souvenir(cosas[0]), 900);
     if (got.length) { SONIDO.monedas(got.reduce((n, a) => n + a.c, 0)); setTimeout(render, got.length * 700); }
+    if (S.salvavidasUsado) { const d = S.salvavidasUsado.split('-'); S.salvavidasUsado = null; setTimeout(() => toast(`<span>🛟 El ${+d[2]}/${+d[1]} no entraste: usaste un salvavidas y tu racha sigue.</span>`, 5000), 600); }
     const rh = S.rachaHoy; S.rachaHoy = null;
     if (rh) setTimeout(() => toastXp(rh.dias === D.RACHA.dorado ? `¡${rh.dias} días seguidos! Tu foto ya tiene borde dorado ✦` : `Racha de ${rh.dias} días seguidos${rh.dias > D.RACHA.dorado ? ' ✦' : ''}`, rh), got.length * 700 + 400);
   }
@@ -3427,6 +3534,7 @@
   }
 
   if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
+  if (PROTO) window.__prueba = { capsulaHTML, escribirCapsula, leerCapsula, horaHTML };
   if (PROTO) window.__mar = { delfin, sirena: () => { if (!solo) solo = { d: 0 }; sirena(); }, escapar: () => fantasma && fantasma.inicio && escaparse(fantasma), barco: () => fantasma && { inicio: fantasma.inicio, nv: fantasma.nv, perros: fantasma.perros, gatos: fantasma.gatos, vm: fantasma.vm, vida: vidaDe(fantasma), mios: fantasma.mios, hundido: !!fantasma.hundido, escapo: !!fantasma.escapo } }; // para probar en el modo demo
 
   // A quien le desaprueban una foto (o la recupera) le llega el aviso con lo que perdió o volvió.

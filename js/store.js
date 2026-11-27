@@ -188,6 +188,17 @@ window.STORE = (function () {
       t: new Date().toISOString().slice(0, 16),
     };
   }
+  // Los días que cubrió un salvavidas cuentan para la racha (no como días en la app).
+  const diasConSalvavidas = (days, ach) => new Set([...(days || []), ...Object.keys(ach || {}).filter((k) => k.startsWith('salvado:')).map((k) => k.slice(8))]);
+  const diaMenos = (dia, n) => { const d = new Date(dia + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+  // Al entrar: si ayer no entraste pero anteayer sí, y tenés un salvavidas (y no usaste otro en la última semana), te cubre ayer.
+  function usarSalvavidas(hoy) {
+    const set = diasConSalvavidas(s.days, s.ach), ayer = diaMenos(hoy, 1), anteayer = diaMenos(hoy, 2);
+    if (set.has(ayer) || !set.has(anteayer) || !(s.ach.salvavidas > 0)) return;
+    if (s.ach.salvavidasUso && s.ach.salvavidasUso > diaMenos(hoy, D.SALVAVIDAS.cada)) return;
+    s.ach['salvado:' + ayer] = 1; s.ach.salvavidas -= 1; s.ach.salvavidasUso = hoy;
+    api.salvavidasUsado = ayer;
+  }
   let pushT;
   function pushMe() {
     if (!client || !s.me) return;
@@ -272,6 +283,7 @@ window.STORE = (function () {
     if (mid === D.DUO.id) return D.DUO.xp;
     if (mid.startsWith('ruta-')) return D.RUTA.xp;
     if (mid.startsWith('sec-')) return 30;
+    if (mid.startsWith('hora-')) return D.HORA.xp;
     return mid.startsWith('dia-') && D.DAILY_TRIP[mid.slice(4)] ? 40 : 20;
   };
   function revisarDesaprobadas() {
@@ -660,6 +672,40 @@ window.STORE = (function () {
       save(); pushMe();
       return { c, s: D.BARCO.s, primero };
     },
+    salvavidas() { return s.ach.salvavidas || 0; },
+    comprarSalvavidas() {
+      if (!s.me || (s.ach.salvavidas || 0) >= D.SALVAVIDAS.max || s.coins < D.SALVAVIDAS.p) return false;
+      s.coins -= D.SALVAVIDAS.p; s.ach.salvavidas = (s.ach.salvavidas || 0) + 1;
+      api.contar('salvavidas.comprados');
+      save(); pushMe();
+      return true;
+    },
+    // Cápsula del tiempo: lo que escribió cada uno (se guarda en ach.capsula).
+    capsula(pid) {
+      const ach = !pid || pid === s.me ? s.ach : live ? (((s.cache.players[pid] || {}).datos || {}).ach || {}) : {};
+      return ach.capsula || null;
+    },
+    escribirCapsula(t) {
+      t = String(t || '').trim().slice(0, 500);
+      if (!s.me) return;
+      if (t) s.ach.capsula = { t, en: new Date().toISOString() }; else delete s.ach.capsula;
+      save(); pushMe();
+    },
+    // Hora Colonia: quiénes subieron su foto dentro de los 5 minutos (y un poco más, por si tardó en subir).
+    horaQuienes(dia, desde, hasta) {
+      const mid = 'hora-' + dia, quienes = new Set();
+      (s.cache.figs || []).forEach((f) => { if (f.mision === mid && f.creada) { const t = Date.parse(f.creada); if (t >= desde && t <= hasta) quienes.add(f.jugador); } });
+      if (s.photos[mid] && s.ach['horaEn:' + dia] && s.ach['horaEn:' + dia] <= hasta) quienes.add(s.me);
+      return quienes;
+    },
+    cobrarHora(dia, desde, hasta) {
+      if (!s.me || s.ach['hora:' + dia]) return 0;
+      const q = api.horaQuienes(dia, desde, hasta);
+      if (!q.has(s.me) || q.size < D.HORA.minimo) return 0;
+      s.ach['hora:' + dia] = 1; s.coins += D.HORA.c;
+      save(); pushMe();
+      return D.HORA.c;
+    },
     // El brindis con la heladerita (3 o más a la vez): 5 monedas, una vez por día.
     brindar() {
       if (!s.me) return 0;
@@ -727,6 +773,7 @@ window.STORE = (function () {
       if (!first) api.contar('fotos.cambiadas');
       if (first) {
         s.ach['xp:' + mid] = xp; // para saber cuánto descontar si la desaprueban
+        if (mid.startsWith('hora-')) s.ach['horaEn:' + mid.slice(5)] = Date.now(); // cuándo la subió (para el premio de la Hora Colonia)
         s.xp += xp; s.coins += 10; out.push({ xp, coins: 10 });
         // Cada 2 fotos de misiones, un sobre del baúl (se cuenta desde el 23/11, no hacia atrás).
         s.ach.fotosSobre = (s.ach.fotosSobre || 0) + 1;
@@ -782,7 +829,7 @@ window.STORE = (function () {
       if (id === 'fotos') return Object.keys(s.photos).length;
       if (id === 'compras') return new Set(s.owned.filter(Boolean).concat(Object.keys(s.ach).filter((k) => k.startsWith('compra:')).map((k) => k.slice(7)))).size;
       if (id === 'racha') {
-        const dias = [...new Set(s.days)].sort();
+        const dias = [...diasConSalvavidas(s.days, s.ach)].sort();
         let mejor = 0, n = 0, prev = null;
         dias.forEach((d) => { n = prev && Date.parse(d) - Date.parse(prev) === 864e5 ? n + 1 : 1; mejor = Math.max(mejor, n); prev = d; });
         return Math.max(mejor, s.ach.rachaMax || 0);
@@ -833,6 +880,7 @@ window.STORE = (function () {
       const give = (k) => { s.coins += D.ACH[k].c; s.ach[k + ':' + today] = 1; got.push(k); };
       if (!s.ach['sobres:inicio']) { s.ach['sobres:inicio'] = 1; s.sobres = (s.sobres || 0) + D.COLECCION.sobres.inicio; pushMe(); }
       if (!s.days.includes(today)) {
+        usarSalvavidas(today);
         s.days.push(today);
         s.sobres = (s.sobres || 0) + 1;
         give('entrada');
@@ -854,7 +902,7 @@ window.STORE = (function () {
       return got;
     },
     streak() {
-      const set = new Set(s.days);
+      const set = diasConSalvavidas(s.days, s.ach);
       let n = 0;
       const d = window.SKY.arNow();
       while (set.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); }
@@ -864,7 +912,8 @@ window.STORE = (function () {
     // Días seguidos que lleva entrando. Si hoy todavía no entró, cuenta desde ayer: la racha sigue viva hasta que pase un día entero sin entrar.
     rachaDe(pid) {
       const days = pid === s.me ? s.days : live ? ((others()[pid] || {}).datos || {}).days || [] : (DEMO[pid] || {}).days || [];
-      const set = new Set(days), d = window.SKY.arNow();
+      const ach = pid === s.me ? s.ach : live ? ((others()[pid] || {}).datos || {}).ach || {} : {};
+      const set = diasConSalvavidas(days, ach), d = window.SKY.arNow();
       if (!set.has(d.toISOString().slice(0, 10))) d.setUTCDate(d.getUTCDate() - 1);
       let n = 0;
       while (set.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); }
