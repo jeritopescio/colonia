@@ -1378,10 +1378,16 @@
         <div class="chip" style="--c:var(--paper)"><b>${c.big}</b>&nbsp;${c.small}</div>
         <div class="weather small">${esc(weatherLine(st))}</div>
         <div class="on-sky-soft small" id="oir" hidden>tocá la playa para escuchar</div>
+        <button class="silencio small" id="silencio" hidden>🔕 ¿No se escucha? Si el celu está en silencio, tocá acá y suena igual</button>
         <button class="btn ghost mirar" id="mirar">Mirar el mar</button>
       </section>`;
       $('#enter').addEventListener('click', () => go(S.me ? 'hoy' : 'quien'));
       $('#sonido').addEventListener('click', INICIO.alternar);
+      $('#silencio').addEventListener('click', (e) => {
+        SONIDO.sonarEnSilencio();
+        e.currentTarget.textContent = 'Listo: ahora suena aunque el celu esté en silencio';
+        setTimeout(() => { const a = $('#silencio'); if (a) a.hidden = true; }, 3500);
+      });
       $('#mirar').addEventListener('click', mirarMar);
     },
 
@@ -2185,7 +2191,9 @@
   // mia (la mueve este celu), falsa (demo), vaASentarse, ordenada (se sentó a propósito), miraBase, t, visto }
   const escena = new Map();
   let relojMar = null, ultimoEstado = 0, ultimaNota = 0, rafProf = 0;
-  const sinMovimiento = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Con "reducir movimiento" en el celu solo se apagan los destellos de los relámpagos y los sacudones: lo demás se mueve
+  // igual (es lento, y sin eso al que lo tiene prendido no le aparecían las gaviotas, las motos ni las personitas andando).
+  const sinDestellos = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const PASO_MAR = 0.55; // segundos por cada 1 % del ancho: paso lento de orilla (unos 7 px por segundo en un celu)
   // Profundidad: más abajo es más cerca de quien mira (apenas más grande y adelante); cerca de la orilla, apenas más chica.
   const Y_ORILLA = 70.6, Y_CERCA = 82.4;
@@ -2392,7 +2400,7 @@
   // adelante, para atrás o al costado, sin pasarle por encima a nadie. Las de prueba del modo demo además se sientan un rato.
   function vivir(p) {
     const despues = (ms) => { clearTimeout(p.t); p.t = setTimeout(() => vivir(p), ms); };
-    if (!p.el.isConnected || sinMovimiento) return;
+    if (!p.el.isConnected) return;
     if (p.agua) return despues(8000); // en el agua no camina ni se sienta
     if (fantasma) return despues(5000); // con el barco fantasma se quedan paradas
     const r = Math.random(), casa = casas()[p.pid], lado = () => (Math.random() < 0.5 ? 'mira-i' : 'mira-d');
@@ -2557,7 +2565,7 @@
     });
   }
   // ---------- en el agua: moto de agua y surf ----------
-  // Quien tiene la moto de agua y está mirando el mar anda en el mar a la mañana y de día, de un lado al otro; si son varios,
+  // Quien tiene la moto de agua y está mirando el mar anda en el mar mientras hay sol, de un lado al otro; si son varios,
   // de a dos, a la par. Quien tiene la tabla de surf surfea a la mañana, de día y al atardecer: espera la ola sentado en la
   // tabla, se para, la corre hasta la orilla y vuelve a salir. Con las dos cosas, alterna cada 10 minutos. Con tormenta, nadie.
   // Todo sale de la hora, así que en todos los celus se ve igual.
@@ -2569,7 +2577,7 @@
     const st = SKY.state(), m = st.minute, sol = st.sun;
     if (/tormenta/.test(st.kind) || fantasma) return null;
     const moto = tieneCosa(pid, 'moto'), tabla = tieneCosa(pid, 'tabla');
-    const dia = m >= sol.rise + 20 && m <= sol.set - 80, conLuz = m >= sol.rise && m <= sol.set + 15;
+    const dia = m >= sol.rise && m <= sol.set, conLuz = m >= sol.rise && m <= sol.set + 15;
     if (moto && tabla && dia) return Math.floor(Date.now() / 6e5) % 2 ? 'surf' : 'moto';
     if (moto && dia) return 'moto';
     if (tabla && conLuz) return 'surf';
@@ -2605,10 +2613,34 @@
   // Quién está en el agua ahora (se revisa cada segundo, y cuando llega o se va alguien).
   function revisarAgua() {
     escena.forEach((p) => {
-      const tipo = conPersona() && !sinMovimiento ? aguaDe(p.pid) : null;
+      const tipo = conPersona() ? aguaDe(p.pid) : null;
       if (tipo === p.agua) return;
       if (p.agua) salirDelAgua(p);
       if (tipo) entrarAlAgua(p, tipo);
+    });
+    revisarVaradas();
+  }
+  // Lo que no está en el agua queda varado en la orilla (de noche, con tormenta, con el barco fantasma o mientras surfea con
+  // la otra cosa): la moto o la tabla de quien la tiene. Una por persona, en los costados, para no tapar a nadie.
+  const VARADAS = ['moto', 'tabla'], LUGAR_VARADA = [[8.5, 71.2], [91.5, 71.4], [17, 71], [83, 71.1], [25, 70.9], [75, 71]];
+  function revisarVaradas() {
+    const sky = document.getElementById('sky');
+    if (!sky) return;
+    const hay = conPersona() ? [...escena.values()].filter((p) => !p.agua).map((p) => [p.pid, VARADAS.find((id) => tieneCosa(p.pid, id))]).filter((x) => x[1]).sort((a, b) => a[0].localeCompare(b[0])) : [];
+    const claves = hay.map(([pid, id]) => pid + ':' + id);
+    sky.querySelectorAll('.varada').forEach((el) => { if (!claves.includes(el.dataset.k)) el.remove(); });
+    hay.forEach(([pid, id], i) => {
+      const k = claves[i], [x, y] = LUGAR_VARADA[i % LUGAR_VARADA.length];
+      let el = sky.querySelector(`.varada[data-k="${k}"]`);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'varada ' + id; el.dataset.k = k;
+        el.innerHTML = id === 'moto' ? ARTE.item('moto', colorCosa(pid, 'moto')) : tablaSVG(colorCosa(pid, 'tabla') || '#f7b3c6');
+        sky.appendChild(el);
+      }
+      const h = 165 * PX_CM * escalaY(y);
+      el.classList.toggle('izq', x > 50);
+      el.style.cssText = `left:${x}%;top:${y}%;width:${(h * (id === 'moto' ? 1.75 : 1.5)).toFixed(1)}px;z-index:${capaY(y)}`;
     });
   }
   let rafAgua = 0;
@@ -2657,8 +2689,8 @@
   // Es el Holandés Laburante, un boss: viene a llevarse las vacaciones de la colonia. Tiene 5 faroles; cada 10 segundos se
   // abre una ventana de 3 en la que brilla un aro sobre el barco, y si lo tocan al menos 4 personas distintas sale un
   // cañonazo y se apaga un farol. Con los 5 apagados se hunde: premio para cada uno (una vez por día) y no vuelve mientras
-  // esté mirando alguien que ya lo hundió hoy. Si se van antes, no se pierde nada. Con "reducir movimiento" en el celu se ve
-  // igual, pero quieto: sin destellos, sin temblores y sin balas volando.
+  // esté mirando alguien que ya lo hundió hoy. Si se van antes, no se pierde nada. Con "reducir movimiento" en el celu, sin
+  // destellos ni sacudones.
   const FANTASMA_MIN = 6, SUSTOS = ['😨', '☠️', '🏴‍☠️'];
   const FAROLES = 5, CICLO_CANON = 10000, VENTANA_CANON = 3000, PARA_CANON = 4;
   let echadoHoy = ''; // la fecha en que lo hundieron desde este celu (por si los datos de los demás tardan en llegar)
@@ -2795,7 +2827,7 @@
     const f = deFantasma('relampago'), r = deFantasma('rayo');
     if (!fantasma || !f) return;
     const cerca = Math.random() < 0.6;
-    if (sinMovimiento) { INICIO.trueno(0.6 + Math.random(), cerca ? 0.8 : 0.5); return; } // sin destellos: solo el trueno
+    if (sinDestellos) { INICIO.trueno(0.6 + Math.random(), cerca ? 0.8 : 0.5); return; } // sin destellos: solo el trueno
     f.classList.remove('flash'); void f.offsetWidth; f.classList.add('flash');
     document.body.classList.add('relampaguea');
     setTimeout(() => document.body.classList.remove('relampaguea'), 650);
@@ -2892,11 +2924,11 @@
       if (fantasma !== f) return;
       const r = b && b.getBoundingClientRect();
       if (r) chispas(r.left + r.width / 2, r.top + r.height * 0.55, 22, COLORES_AMIGO.flat());
-      if (b && !sinMovimiento) { b.classList.remove('golpe'); void b.offsetWidth; b.classList.add('golpe'); }
+      if (b && !sinDestellos) { b.classList.remove('golpe'); void b.offsetWidth; b.classList.add('golpe'); }
       pintarFaroles();
       if (f.vida <= 0) hundir();
     };
-    if (sinMovimiento || !b) { pega(); return; }
+    if (!b) { pega(); return; }
     const r = b.getBoundingClientRect(), x0 = innerWidth * 0.5, y0 = innerHeight * 0.8, x1 = r.left + r.width / 2, y1 = r.top + r.height * 0.55;
     const bala = document.createElement('div');
     bala.className = 'bala-canon';
@@ -2978,7 +3010,7 @@
     el.innerHTML = `<span class="recorte">${ARTE.item('delfin')}</span>`;
     sky.appendChild(el);
     const salpica = (dx) => { const [px, py] = enPantalla(x, y); chispas(px + (izq ? -dx : dx) * w, py, 9, ['#ffffff', '#c9ecfa', '#a9d6f0']); };
-    if (!sinMovimiento) { setTimeout(() => salpica(-0.45), 250); setTimeout(() => { salpica(0.5); SONIDO.chap(0.25); }, 1750); }
+    setTimeout(() => salpica(-0.45), 250); setTimeout(() => { salpica(0.5); SONIDO.chap(0.25); }, 1750);
     setTimeout(() => el.remove(), 2300);
     S.contar('mar.delfines');
   }

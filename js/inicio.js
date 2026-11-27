@@ -387,6 +387,23 @@ window.INICIO = (function () {
       reloj = setInterval(() => motor && motor.hasta(c.currentTime + 5), 800);
     }
     motor.nivel(0.82, 3.2);
+    try { localStorage.setItem('colonia.sono', new Date().toISOString().slice(0, 10)); } catch (e) { /* nada */ }
+    avisoSilencio();
+  }
+  // En iPhone la música de la app respeta el modo silencio, y desde acá no hay forma de saber si está puesto. Las primeras
+  // veces que suena, aparece un rato el aviso para que suene igual.
+  const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let avisado = false;
+  function avisoSilencio() {
+    const a = document.getElementById('silencio');
+    if (!a || avisado || !IOS || !navigator.audioSession || !motor || corte || !quiere()) return;
+    if (window.SONIDO && SONIDO.sonarIgual && SONIDO.sonarIgual()) return;
+    let n = 0;
+    try { n = +localStorage.getItem('colonia.silencioAvisos') || 0; localStorage.setItem('colonia.silencioAvisos', String(n + 1)); } catch (e) { /* nada */ }
+    if (n >= 8) return;
+    avisado = true;
+    a.hidden = false;
+    setTimeout(() => { a.hidden = true; }, 16000);
   }
   function apagar(seg) {
     if (!motor || corte) return;
@@ -423,7 +440,6 @@ window.INICIO = (function () {
   // ---------- gaviotas ----------
   // Lejos, una gaviota es apenas una v que aletea.
   const DIBUJO = '<svg viewBox="0 0 28 14" aria-hidden="true"><path class="ala a" d="M14 9C11 5 7 3 2 4"/><path class="ala b" d="M14 9c3-4 7-6 12-5"/></svg>';
-  const quieta = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let turno = null, llamadas = [];
   const cielo = () => document.getElementById('gaviotas');
 
@@ -453,7 +469,7 @@ window.INICIO = (function () {
   function ciclo() { soltar(0); turno = setTimeout(ciclo, azar(11, 21) * 1000); }
   function gaviotasOn() {
     const box = cielo();
-    if (!box || quieta || turno) return;
+    if (!box || turno) return;
     box.classList.remove('fuera');
     if (!box.children.length) { soltar(0.34); setTimeout(() => enPortada && soltar(0.12), 400); }
     turno = setTimeout(ciclo, azar(6, 11) * 1000);
@@ -472,7 +488,7 @@ window.INICIO = (function () {
   });
 
   return {
-    entrar() { enPortada = true; gaviotasOn(); acomodar(); },
+    entrar() { enPortada = true; avisado = false; gaviotasOn(); acomodar(); },
     salir() {
       if (!enPortada) return;
       enPortada = false; document.body.classList.remove('quieto');

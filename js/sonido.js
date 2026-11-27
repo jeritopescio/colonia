@@ -5,7 +5,17 @@
 window.SONIDO = (function () {
   const AC = window.AudioContext || window.webkitAudioContext;
   let ctx = null, out = null, seco = null, noise = null, pend = null;
-  if (navigator.audioSession) { try { navigator.audioSession.type = 'ambient'; } catch (e) { /* no pasa nada */ } } // no corta la música y respeta el silencio
+  // Por defecto no corta la música de otras apps y respeta el modo silencio del iPhone. Quien elige que suene igual
+  // (el aviso del inicio, solo en iPhone) pasa a 'playback': suena aunque el celu esté en silencio.
+  const SILENCIO = 'colonia.silencio';
+  const sonarIgual = () => { try { return localStorage.getItem(SILENCIO) === 'sonar'; } catch (e) { return false; } };
+  function sesion() { if (navigator.audioSession) { try { navigator.audioSession.type = sonarIgual() ? 'playback' : 'ambient'; } catch (e) { /* no pasa nada */ } } }
+  sesion();
+  function sonarEnSilencio() {
+    try { localStorage.setItem(SILENCIO, 'sonar'); } catch (e) { /* queda como está */ }
+    sesion();
+    if (ctx && ctx.state === 'running') ctx.suspend().then(() => ctx.resume()).catch(() => {});
+  }
 
   function init() {
     if (ctx || !AC) return;
@@ -176,5 +186,5 @@ window.SONIDO = (function () {
 
   // La música del inicio usa el mismo contexto de audio.
   const audio = () => { init(); return ctx; };
-  return { plop, trtss, chap, si, no, monedas, bocina, audio };
+  return { plop, trtss, chap, si, no, monedas, bocina, audio, sonarEnSilencio, sonarIgual };
 })();

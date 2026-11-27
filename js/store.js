@@ -172,12 +172,27 @@ window.STORE = (function () {
     presencia.send({ type: 'broadcast', event: 'mar', payload: Object.assign({ de: s.me }, m) });
   }
 
+  // Qué celu usa cada uno, para entender por qué a alguien no le aparece algo: sistema, navegador, si tiene "reducir
+  // movimiento", si la app está instalada, si la música del inicio está prendida, el último día que sonó y si eligió
+  // que suene aunque el iPhone esté en silencio.
+  function dispositivo() {
+    const ua = navigator.userAgent, ls = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    const ios = /iPhone|iPad|iPod/.test(ua) && ua.match(/OS (\d+)_(\d+)/), and = ua.match(/Android (\d+)/);
+    return {
+      so: ios ? `iOS ${ios[1]}.${ios[2]}` : and ? `Android ${and[1]}` : /Macintosh/.test(ua) ? 'Mac o iPad' : /Windows/.test(ua) ? 'Windows' : 'otro',
+      nav: /CriOS|Chrome/.test(ua) ? 'chrome' : /FxiOS|Firefox/.test(ua) ? 'firefox' : /Safari/.test(ua) ? 'safari' : 'otro',
+      rm: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      app: matchMedia('(display-mode: standalone)').matches || !!navigator.standalone,
+      musica: ls('colonia.musica') !== '0', sono: ls('colonia.sono'), silencio: ls('colonia.silencio') === 'sonar',
+      t: new Date().toISOString().slice(0, 16),
+    };
+  }
   let pushT;
   function pushMe() {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacT: s.reacT, cuentas: s.cuentas, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos, tiradas: (s.tiradas || []).slice(-20), leidas: (s.leidas || []).slice(-200),
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacT: s.reacT, cuentas: s.cuentas, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos, tiradas: (s.tiradas || []).slice(-20), leidas: (s.leidas || []).slice(-200), disp: dispositivo(),
         perfil: String(s.perfil || '').startsWith('data:') ? (((s.cache.players[s.me] || {}).datos || {}).perfil || null) : s.perfil };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
