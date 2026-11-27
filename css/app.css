@@ -269,6 +269,54 @@ body.fantasma.relampaguea #sky .personita svg { filter: brightness(1.05) saturat
 @keyframes susto { from { transform: translateX(-50%) scale(1) rotate(-6deg); } to { transform: translateX(-50%) scale(1.14) rotate(6deg); } }
 .personita .grito { position: absolute; left: 50%; bottom: calc(100% + 15px); font-size: 22px; line-height: 1; transform: translateX(-50%); pointer-events: none; animation: grito 1s ease-out forwards; }
 @keyframes grito { 0% { opacity: 0; transform: translate(-50%, 4px) scale(.3); } 14% { opacity: 1; transform: translate(-50%, 0) scale(1.18); } 28% { transform: translate(-50%, -2px) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -12px) scale(.95); } }
+/* El Holandés Laburante como boss: 5 faroles verdes arriba del barco (los apagados, grises; el próximo en caer late),
+   el aro que brilla cuando hay que tocarlo, el cartel "¡Ahora! 2/4", la bala de chispas, el sacudón y el hundimiento. */
+.pista-barco { top: calc(118px + env(safe-area-inset-top, 0px)); width: min(330px, calc(100% - 32px)); white-space: normal; border-radius: 16px; background: color-mix(in srgb, #1d1a2b 70%, transparent); color: #eafff6; animation-delay: 1.6s; }
+#sky .barco-fantasma .faroles { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); display: flex; gap: 7px; }
+#sky .barco-fantasma .faroles i { width: 9px; height: 12px; border-radius: 45% 45% 40% 40%; background: radial-gradient(circle at 50% 40%, #f4fff8, #7ef3c6 55%, #2b9f7d); box-shadow: 0 0 8px 2px rgba(126, 243, 198, .7); transition: background .4s, box-shadow .4s, opacity .4s; }
+#sky .barco-fantasma .faroles i.apagado { background: #3b3648; box-shadow: none; opacity: .7; }
+#sky .barco-fantasma.apunta .faroles i.prox { animation: farol .45s ease-in-out infinite alternate; }
+@keyframes farol { to { transform: scale(1.35); box-shadow: 0 0 14px 5px rgba(126, 243, 198, .95); } }
+#sky .barco-fantasma .aro { position: absolute; left: 50%; top: 52%; width: 118%; aspect-ratio: 2.1; transform: translate(-50%, -50%); border-radius: 50%; border: 2.5px dashed rgba(190, 255, 230, .95); box-shadow: 0 0 14px 3px rgba(126, 243, 198, .55), inset 0 0 14px 3px rgba(126, 243, 198, .35); opacity: 0; pointer-events: none; transition: opacity .25s; }
+#sky .barco-fantasma.apunta .aro { opacity: 1; animation: aro .9s ease-in-out infinite alternate; }
+@keyframes aro { from { transform: translate(-50%, -50%) scale(.96); } to { transform: translate(-50%, -50%) scale(1.05); } }
+#sky .barco-fantasma .cartel-canon { position: absolute; left: 50%; bottom: calc(100% + 24px); transform: translateX(-50%); white-space: nowrap; font-family: var(--display); font-size: 1rem; color: #eafff6; text-shadow: 0 0 6px #1d1a2b, 0 0 12px rgba(126, 243, 198, .8); pointer-events: none; }
+#sky .barco-fantasma .cartel-canon:empty { display: none; }
+#sky .barco-fantasma .risa-barco { position: absolute; left: 50%; top: 18%; font-size: 30px; line-height: 1; transform: translateX(-50%); pointer-events: none; animation: risa 1.6s ease-out forwards; }
+@keyframes risa { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.4); } 18% { opacity: 1; transform: translate(-50%, 0) scale(1.2) rotate(-8deg); } 36% { transform: translate(-50%, -4px) scale(1) rotate(8deg); } 54% { transform: translate(-50%, -6px) rotate(-8deg); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -22px) rotate(0); } }
+#sky .barco-fantasma.golpe .vista { animation: golpe .5s ease-out; }
+@keyframes golpe { 0%, 100% { translate: 0 0; } 15% { translate: -6px 2px; } 35% { translate: 5px -1px; } 55% { translate: -3px 1px; } 75% { translate: 2px 0; } }
+#sky .barco-fantasma.se-hunde img { animation: hundirse 3.6s ease-in forwards; }
+#sky .barco-fantasma.se-hunde .faroles, #sky .barco-fantasma.se-hunde .aro { opacity: 0; transition: opacity .6s; }
+@keyframes hundirse { 0% { transform: rotate(0) translateY(0); opacity: 1; } 25% { transform: rotate(-9deg) translateY(4%); } 100% { transform: rotate(16deg) translateY(62%); opacity: 0; } }
+.bala-canon { position: fixed; left: 0; top: 0; z-index: 17; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #ffffff 0 20%, #ffe39a 32%, #f7b3c6 50%, #a9d6f0 66%, rgba(207, 192, 240, 0) 72%); box-shadow: 0 0 16px 6px rgba(255, 240, 200, .75); }
+.barco-ganado .cumple-titulo { color: #3e8f76; font-size: clamp(1.6rem, 8vw, 2.2rem); }
+.barco-trofeo { width: 84px; }
+.barco-trofeo .art { width: 100%; height: auto; }
+
+/* A solas: un delfín que salta en el mar (se corta abajo, en la superficie) y la cola de sirena que asoma, brilla y se va. */
+#sky .delfin-mar, #sky .cola-sirena { position: absolute; transform: translate(-50%, -100%); pointer-events: none; }
+#sky .delfin-mar .recorte, #sky .cola-sirena .recorte { display: block; clip-path: inset(-400% -220% 0 -220%); }
+#sky .delfin-mar.izq .recorte { transform: scaleX(-1); }
+#sky .delfin-mar .art, #sky .cola-sirena .art { display: block; width: 100%; height: auto; aspect-ratio: var(--ar); }
+#sky .delfin-mar .art { animation: delfin-salta 2.1s ease-in-out forwards; transform-origin: 50% 60%; }
+@keyframes delfin-salta { 0% { transform: translate(-70%, 120%) rotate(-50deg); } 30% { transform: translate(-26%, 6%) rotate(-24deg); } 50% { transform: translate(0, -42%) rotate(4deg); } 70% { transform: translate(28%, 8%) rotate(32deg); } 100% { transform: translate(66%, 125%) rotate(55deg); } }
+#sky .cola-sirena .art { animation: sirena-asoma 5s ease-in-out forwards; transform-origin: 50% 100%; }
+@keyframes sirena-asoma { 0% { transform: translateY(105%) rotate(-6deg); } 14% { transform: translateY(18%) rotate(5deg); } 28%, 50% { transform: translateY(6%) rotate(-5deg); } 40%, 62% { transform: translateY(9%) rotate(5deg); } 78% { transform: translateY(12%) rotate(-4deg); } 100% { transform: translateY(105%) rotate(4deg); } }
+#sky .cola-sirena .destello { position: absolute; left: 50%; top: -6%; font-size: 15px; font-style: normal; transform: translate(-50%, 0) scale(0); opacity: 0; }
+#sky .cola-sirena.brilla .art { filter: drop-shadow(0 0 4px #fff2c8) drop-shadow(0 0 10px rgba(255, 227, 154, .9)); transition: filter .5s; }
+#sky .cola-sirena.brilla .destello { animation: destello 1.1s ease-in-out infinite alternate; }
+@keyframes destello { from { opacity: .4; transform: translate(-60%, 4px) scale(.7) rotate(-15deg); } to { opacity: 1; transform: translate(-30%, -6px) scale(1.2) rotate(15deg); } }
+#sky .cola-sirena.atrapada { transition: opacity .8s, transform .8s; opacity: 0; transform: translate(-50%, -150%) scale(1.4); }
+[data-sky-dark="1"] #sky .delfin-mar .art { filter: brightness(.6); }
+/* Con "reducir movimiento": el barco se queda quieto y sin temblores (los destellos ya no se prenden desde la app). */
+@media (prefers-reduced-motion: reduce) {
+  .personita.asustada svg, .personita .susto, #sky .barco-fantasma img, #sky .nube-negra img, #sky .nubes-fantasma img, #sky .barco-fantasma .aro, #sky .barco-fantasma .faroles i.prox, .personita .grito, #sky .barco-fantasma .risa-barco { animation: none; }
+  #sky .barco-fantasma.se-hunde img { animation: none; opacity: 0; transition: opacity 2s; }
+  #sky .delfin-mar .art { animation: none; transform: translateY(40%); }
+  #sky .cola-sirena .art { animation: none; transform: translateY(10%); }
+}
 
 /* gaviotas del inicio */
 #gaviotas { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; transition: opacity 1.5s; }

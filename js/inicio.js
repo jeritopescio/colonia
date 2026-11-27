@@ -222,6 +222,26 @@ window.INICIO = (function () {
       }
       if (registro) (registro.truenos = registro.truenos || []).push(t);
     }
+    // El Holandés Laburante. El aviso de que se abre la ventana del cañonazo: dos campanitas agudas (do y fa: van con todo).
+    function aviso() { const t = ctx.currentTime + 0.03; nota(t, 84, 0.55, -0.2, true, null, 1); nota(t + 0.15, 89, 0.6, 0.2, true, null, 1); }
+    // El cañonazo: un golpe grave que cae, la explosión (ruido que se oscurece) y su eco.
+    function canon() {
+      const t = ctx.currentTime + 0.03, out = ctx.createGain(); out.gain.value = 0.7; enviar(out, 0.9, 0.45);
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.38);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 0.55); g.gain.linearRampToValueAtTime(0, t + 0.58);
+      o.connect(g); g.connect(out); vive(o, [t, t + 0.6]);
+      const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), sg = ctx.createGain();
+      s.buffer = ruido; f.type = 'lowpass'; f.frequency.setValueAtTime(2600, t); f.frequency.exponentialRampToValueAtTime(280, t + 0.7);
+      sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(0.9, t + 0.008); sg.gain.exponentialRampToValueAtTime(0.001, t + 1); sg.gain.linearRampToValueAtTime(0, t + 1.03);
+      s.connect(f); f.connect(sg); sg.connect(out); vive(s, [t, t + 1.1]);
+    }
+    // Hundido: un arpegio de fa mayor que sube y el acorde.
+    function fanfarria() {
+      const t = ctx.currentTime + 0.05;
+      [65, 69, 72, 77, 81].forEach((n, i) => nota(t + i * 0.13, n, 0.85, (i - 2) * 0.15, false, null, 1.4));
+      [65, 69, 72, 77].forEach((n) => nota(t + 0.85, n, 0.5, 0, false, null, 1.2));
+    }
     // Normal o fantasma: la capa vieja se va con un fundido, la nueva entra, y los acordes vuelven a empezar desde el primero.
     function cambiarModo(m) {
       if (m === modo || !capa[m]) return;
@@ -343,7 +363,7 @@ window.INICIO = (function () {
       vivos.clear();
       master.disconnect(); comp.disconnect(); rev.disconnect();
     }
-    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia, trueno, modo: cambiarModo };
+    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia, trueno, aviso, canon, fanfarria, modo: cambiarModo };
   }
 
   // ---------- encendido y apagado ----------
@@ -473,6 +493,10 @@ window.INICIO = (function () {
     // El barco fantasma: la música se pone tensa (y vuelve). Los truenos suenan "demora" segundos después.
     fantasma(si) { modoQuiere = si ? 'fantasma' : 'normal'; if (motor) motor.modo(modoQuiere); },
     trueno(demora, fuerza) { const c = ctx(); if (motor && !corte && c) motor.trueno(c.currentTime + (demora || 0), fuerza == null ? 1 : fuerza); },
+    // El Holandés Laburante: el aviso de la ventana, el cañonazo y la fanfarria al hundirlo.
+    aviso() { if (motor && !corte) motor.aviso(); },
+    canon() { if (motor && !corte) motor.canon(); },
+    fanfarria() { if (motor && !corte) motor.fanfarria(); },
     sonando: () => !!motor && !corte,
     _motor: crearMotor, // para medir la música sin parlantes
   };

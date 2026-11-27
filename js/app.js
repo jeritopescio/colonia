@@ -539,6 +539,9 @@
       const dia = new Date(t).toISOString().slice(0, 10);
       if (dia !== hoy || S.secretSeen()) out.push(...secretasDe(S.me, dia).map((m) => Object.assign(m, { dia })));
     }
+    // la del Holandés Laburante, desde el día que lo hundiste por primera vez
+    const barco = S.barcoPrimero();
+    if (barco) out.splice(out.filter((m) => m.dia > barco).length, 0, Object.assign({ s: 'secreta', dia: barco }, D.BARCO.mision));
     return out;
   }
   const fechaCorta = (dia) => `${+dia.slice(8)}/${+dia.slice(5, 7)}`;
@@ -1013,6 +1016,7 @@
     if (n.l.id === 'baul') return `Completaste el ${n.meta}% del baúl`;
     if (n.l.id === 'racha') return `${n.meta} días seguidos entrando`;
     if (n.l.id === 'juntos' && n.meta === 1) return 'Te sentaste a mirar el mar con alguien';
+    if (n.l.id === 'barcos' && n.meta === 1) return 'Hundiste al Holandés Laburante';
     return `${n.meta} ${n.l.u}`;
   }
   function revisarLogros() {
@@ -1931,6 +1935,7 @@
     const alto = (e) => 1 - e.clientY / innerHeight, lado = (e) => (e.clientX / innerWidth) * 2 - 1, equis = (e) => e.clientX / innerWidth;
     capa.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button')) return;
+      if (tocarSirena(e.clientX, e.clientY) || tocarBarco(e.clientX, e.clientY)) return; // la cola de sirena, o el barco con el aro
       if (tocarPersonita(e.clientX, e.clientY)) return; // a una personita se la toca para sentarse o saludar, no suena
       chispas(e.clientX, e.clientY);
       INICIO.toque(lado(e), alto(e));
@@ -2298,10 +2303,13 @@
     escena.forEach((p, id) => { if (p.mia && !nuevas.includes(p) && !p.sentada && !p.vaASentarse) andarA(p, c[id].x, c[id].y); });
     ponerFogon();
     revisarFantasma();
+    revisarSolo();
     revisarAgua();
   }
   function sacarEscena() {
     seVaFantasma(true);
+    terminaSolo();
+    document.querySelectorAll('#sky .delfin-mar, #sky .cola-sirena').forEach((n) => n.remove());
     escena.forEach((p) => clearTimeout(p.t));
     escena.clear();
     cancelAnimationFrame(rafProf); rafProf = 0;
@@ -2312,7 +2320,7 @@
   function publicar(p) {
     if (!p || p.falsa || p.pid !== yoEnElMar() || !conPersona()) return;
     ultimoEstado = Date.now();
-    S.enviarMar({ t: 'estado', como: p.como, x: +p.x.toFixed(1), y: +p.y.toFixed(1), sentada: p.sentada, mira: p.mira, va: p.vaASentarse ? 1 : 0 });
+    S.enviarMar({ t: 'estado', como: p.como, x: +p.x.toFixed(1), y: +p.y.toFixed(1), sentada: p.sentada, mira: p.mira, va: p.vaASentarse ? 1 : 0, fv: fantasma && !fantasma.hundido ? fantasma.vida : undefined });
   }
   // Camina hasta (x, y), despacio, y si hacía falta se levanta antes. "luego" corre al llegar.
   function andarA(p, x, y, luego) {
@@ -2443,6 +2451,10 @@
   function recibirMar(m) {
     if (!m || !m.de || m.de === yoEnElMar() || !document.querySelector('.mirar-capa') || !conPersona()) return;
     if (m.t === 'hola') { publicar(escena.get(yoEnElMar())); return; }
+    // el barco fantasma: alguien lo tocó con el aro, o salió un cañonazo que contó otro celu (con los faroles que le quedan)
+    if (m.t === 'canon') { toqueDe(m.de, m.c); return; }
+    if (m.t === 'pum') { if (fantasma && !fantasma.hechos.has(m.c)) canonazo(m.c, false); vidaDeOtro(m.vida); return; }
+    if (m.t === 'estado' && m.fv != null) vidaDeOtro(m.fv);
     const my = m.y != null ? m.y : 73.5; // las versiones viejas no mandan la profundidad
     let p = escena.get(m.de);
     if (!p && (m.t === 'estado' || m.t === 'hola') && PERSONITAS[m.como || m.de]) p = nuevaPersonita(m.de, m.como || m.de, m.x != null ? m.x : 50, my, false, false);
@@ -2477,6 +2489,7 @@
     });
     aLaSombra();
     revisarFantasma();
+    revisarSolo();
     revisarAgua();
   }
   // Doce segundos sentados uno al lado del otro: estrella fugaz de noche, bandada de día, y cuenta para el logro.
@@ -2641,7 +2654,14 @@
   // Las personitas salen del agua y se paran derechitas, temblando, con un ❗ arriba; cada 2 segundos una (por turno) tira
   // un 😨, ☠️ o 🏴‍☠️ que dura 1 segundo. Tocar la tuya le hace tirar uno. El barco, la nube y los sustos salen de la hora:
   // en todos los celus se ven igual. Se va cuando quedan menos de 6 por unos segundos.
+  // Es el Holandés Laburante, un boss: viene a llevarse las vacaciones de la colonia. Tiene 5 faroles; cada 10 segundos se
+  // abre una ventana de 3 en la que brilla un aro sobre el barco, y si lo tocan al menos 4 personas distintas sale un
+  // cañonazo y se apaga un farol. Con los 5 apagados se hunde: premio para cada uno (una vez por día) y no vuelve mientras
+  // esté mirando alguien que ya lo hundió hoy. Si se van antes, no se pierde nada. Con "reducir movimiento" en el celu se ve
+  // igual, pero quieto: sin destellos, sin temblores y sin balas volando.
   const FANTASMA_MIN = 6, SUSTOS = ['😨', '☠️', '🏴‍☠️'];
+  const FAROLES = 5, CICLO_CANON = 10000, VENTANA_CANON = 3000, PARA_CANON = 4;
+  let echadoHoy = ''; // la fecha en que lo hundieron desde este celu (por si los datos de los demás tardan en llegar)
   const PERIODO_BARCO = 240000; // va y vuelve en 4 minutos
   const xBarco = (t) => 50 + 25 * Math.sin((2 * Math.PI * t) / PERIODO_BARCO); // sin salirse de la pantalla
   const vaDerecha = (t) => Math.cos((2 * Math.PI * t) / PERIODO_BARCO) > 0;
@@ -2661,24 +2681,26 @@
   const deFantasma = (cls) => document.querySelector(`#sky .${cls}:not(.se-va)`);
   function revisarFantasma() {
     const mirando = !!document.getElementById('sky') && !!document.querySelector('.mirar-capa') && conPersona();
-    const hay = mirando && !sinMovimiento && escena.size >= FANTASMA_MIN;
+    const hoy = SKY.arDate(), echado = echadoHoy === hoy || [...escena.keys()].some((pid) => S.hundioHoy(pid));
+    const hay = mirando && escena.size >= FANTASMA_MIN && (!echado || (fantasma && fantasma.hundido));
     if (hay && !fantasma) { llegaFantasma(); return; }
     if (!fantasma) return;
-    if (hay) { fantasma.bajo = 0; moverBarco(); marcarSustos(); return; }
+    if (hay) { fantasma.bajo = 0; moverBarco(); if (!fantasma.hundido) marcarSustos(); return; }
     if (!mirando) { seVaFantasma(true); return; }
     if (!fantasma.bajo) fantasma.bajo = Date.now();
     if (Date.now() - fantasma.bajo > 6000) seVaFantasma(); else moverBarco();
   }
   function llegaFantasma() {
     const sky = document.getElementById('sky');
-    fantasma = { desde: Date.now(), bajo: 0 };
+    fantasma = { desde: Date.now(), bajo: 0, vida: FAROLES, toques: {}, hechos: new Set(), c0: Math.floor((Date.now() + 2000) / CICLO_CANON) };
     document.body.classList.add('fantasma');
     const poner = (cls, html = '') => { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; sky.appendChild(el); return el; };
     poner('fantasma-oscuro');
     // más nubes negras por el cielo, más transparentes, que se mueven despacito (la que sigue al barco va adelante)
     poner('nubes-fantasma', NUBES_FANTASMA.map(([x, y, w, o, espejo], i) => `<img src="img/mar/nube-negra.webp?v=1" alt="" draggable="false" style="left:${x}%;top:${y}%;width:${w}%;--o:${o};--d:${38 + i * 7}s;animation-delay:-${i * 9}s${espejo ? ';--e:-1' : ''}">`).join(''));
     // las vistas para el giro: de costado (proa a la derecha), de frente, y de costado espejada (proa a la izquierda)
-    poner('barco-fantasma', ['fantasma', 'fantasma-frente', 'fantasma'].map((v) => `<span class="vista"><img src="img/mar/${v}.webp?v=1" alt="" draggable="false"></span>`).join(''));
+    poner('barco-fantasma', ['fantasma', 'fantasma-frente', 'fantasma'].map((v) => `<span class="vista"><img src="img/mar/${v}.webp?v=1" alt="" draggable="false"></span>`).join('')
+      + `<i class="aro" aria-hidden="true"></i><span class="faroles" aria-hidden="true">${'<i></i>'.repeat(FAROLES)}</span><span class="cartel-canon" aria-live="polite"></span>`);
     poner('rayo', '<svg viewBox="0 0 40 100" preserveAspectRatio="none" aria-hidden="true"><path d="M24 0L15 31L25 35L10 66L20 69L6 100"/><path class="rama" d="M18 47L30 58L27 70"/></svg>');
     poner('nube-negra', '<img src="img/mar/nube-negra.webp?v=1" alt="" draggable="false">');
     poner('relampago');
@@ -2691,11 +2713,22 @@
     S.contar('mar.fantasmas');
     relampagos(true);
     fantasma.g = setTimeout(sustos, 1800);
+    pintarFaroles();
+    proximaVentana();
+    const capa = document.querySelector('.mirar-capa');
+    if (capa) {
+      const p = document.createElement('div');
+      p.className = 'pista-mar pista-barco';
+      p.innerHTML = '¡El <b>Holandés Laburante</b> viene a llevarse las vacaciones! Cuando brille el aro, tóquenlo de a 4 o más a la vez.';
+      capa.appendChild(p);
+      setTimeout(() => p.classList.add('fuera'), 8000); setTimeout(() => p.remove(), 9500);
+    }
   }
   function seVaFantasma(ya) {
     if (!fantasma) return;
-    clearTimeout(fantasma.t); clearTimeout(fantasma.g);
+    clearTimeout(fantasma.t); clearTimeout(fantasma.g); clearTimeout(fantasma.v);
     fantasma = null;
+    document.querySelectorAll('.pista-barco').forEach((n) => n.remove());
     document.body.classList.remove('fantasma', 'relampaguea');
     INICIO.fantasma(false);
     document.querySelectorAll('#sky .fantasma-oscuro, #sky .nubes-fantasma, #sky .barco-fantasma, #sky .nube-negra, #sky .relampago, #sky .rayo').forEach((n) => {
@@ -2762,6 +2795,7 @@
     const f = deFantasma('relampago'), r = deFantasma('rayo');
     if (!fantasma || !f) return;
     const cerca = Math.random() < 0.6;
+    if (sinMovimiento) { INICIO.trueno(0.6 + Math.random(), cerca ? 0.8 : 0.5); return; } // sin destellos: solo el trueno
     f.classList.remove('flash'); void f.offsetWidth; f.classList.add('flash');
     document.body.classList.add('relampaguea');
     setTimeout(() => document.body.classList.remove('relampaguea'), 650);
@@ -2772,7 +2806,210 @@
     INICIO.trueno(cerca ? 0.12 + Math.random() * 0.25 : 0.9 + Math.random() * 1.2, cerca ? 1 : 0.55);
   }
 
+  // ---------- el Holandés Laburante: faroles, cañonazos y hundirse ----------
+  // La ventana de cada ciclo de 10 s son sus últimos 3 s (sale de la hora: en todos los celus se abre al mismo tiempo).
+  function proximaVentana() {
+    const f = fantasma;
+    if (!f || f.hundido) return;
+    const t = Date.now();
+    let c = Math.max(Math.floor(t / CICLO_CANON), f.c0 + 1);
+    let ini = c * CICLO_CANON + CICLO_CANON - VENTANA_CANON;
+    if (ini + VENTANA_CANON - 400 <= t) { c++; ini += CICLO_CANON; }
+    clearTimeout(f.v);
+    f.v = setTimeout(() => abrirVentana(c, ini + VENTANA_CANON), Math.max(0, ini - t));
+  }
+  function abrirVentana(c, fin) {
+    const f = fantasma, b = deFantasma('barco-fantasma');
+    if (!f || f.hundido || !b) return;
+    f.abierta = c; f.toques[c] = f.toques[c] || new Set();
+    b.classList.add('apunta');
+    marcarToques();
+    INICIO.aviso();
+    // en el modo demo, las personitas de prueba también lo tocan (casi siempre)
+    if (!S.live) escena.forEach((p) => { if (p.falsa && Math.random() < 0.72) setTimeout(() => toqueDe(p.pid, c), 350 + Math.random() * 2200); });
+    f.v = setTimeout(() => cerrarVentana(c), Math.max(0, fin - Date.now()) + 300); // un margen para los toques que llegan tarde
+  }
+  function cerrarVentana(c) {
+    const f = fantasma, b = deFantasma('barco-fantasma');
+    if (!f || f.hundido) return;
+    f.abierta = null;
+    if (b) b.classList.remove('apunta');
+    const n = (f.toques[c] || new Set()).size, cartel = b && b.querySelector('.cartel-canon');
+    if (n >= PARA_CANON || f.hechos.has(c)) {
+      if (cartel) { cartel.textContent = '¡Fuego!'; setTimeout(() => { if (fantasma === f && f.abierta == null) cartel.textContent = ''; }, 1500); }
+      canonazo(c, true);
+    } else seRie(n);
+    proximaVentana();
+  }
+  // Alguien tocó el barco con la ventana abierta (vos, o te llega de otro celu): chispitas de su color sobre su personita.
+  function toqueDe(pid, c) {
+    const f = fantasma;
+    if (!f || f.hundido) return;
+    (f.toques[c] = f.toques[c] || new Set()).add(pid);
+    const p = escena.get(pid);
+    if (p && p.el.isConnected) { const r = p.el.getBoundingClientRect(); chispas(r.left + r.width / 2, r.top - 4, 7, coloresDe(pid)); }
+    if (f.abierta === c) marcarToques();
+  }
+  function tocarBarco(x, y) {
+    const f = fantasma, b = deFantasma('barco-fantasma');
+    if (!f || f.hundido || f.abierta == null || !b) return false;
+    const r = b.getBoundingClientRect();
+    if (x < r.left - 26 || x > r.right + 26 || y < r.top - 40 || y > r.bottom + 20) return false;
+    const yo = yoEnElMar(), c = f.abierta;
+    chispas(x, y, 12, coloresDe(yo));
+    SONIDO.plop();
+    if (!(f.toques[c] && f.toques[c].has(yo))) { toqueDe(yo, c); S.enviarMar({ t: 'canon', c }); S.contar('mar.canonazos'); }
+    return true;
+  }
+  function marcarToques() {
+    const f = fantasma, el = deFantasma('barco-fantasma');
+    if (!f || !el) return;
+    const n = f.abierta != null ? (f.toques[f.abierta] || new Set()).size : 0;
+    el.querySelector('.cartel-canon').textContent = f.abierta != null ? `¡Ahora! ${Math.min(n, PARA_CANON)}/${PARA_CANON}` : '';
+  }
+  function pintarFaroles() {
+    const f = fantasma, el = deFantasma('barco-fantasma');
+    if (!f || !el) return;
+    el.querySelectorAll('.faroles i').forEach((i, k) => { i.classList.toggle('apagado', k >= f.vida); i.classList.toggle('prox', k === f.vida - 1); });
+  }
+  // Te llega de otro celu cuántos faroles le quedan (si te faltó algún cañonazo, o recién llegás a la pelea).
+  function vidaDeOtro(vida) {
+    const f = fantasma;
+    if (!f || f.hundido || vida == null || vida >= f.vida) return;
+    f.vida = Math.max(0, vida);
+    pintarFaroles();
+    if (f.vida <= 0) hundir();
+  }
+  // El cañonazo: una bola de chispas de todos los colores sale de la orilla y le pega al barco, que se sacude y pierde un farol.
+  function canonazo(c, propio) {
+    const f = fantasma;
+    if (!f || f.hundido || f.hechos.has(c)) return;
+    f.hechos.add(c); f.vida = Math.max(0, f.vida - 1);
+    if (propio) S.enviarMar({ t: 'pum', c, vida: f.vida });
+    const b = deFantasma('barco-fantasma');
+    INICIO.canon();
+    const pega = () => {
+      if (fantasma !== f) return;
+      const r = b && b.getBoundingClientRect();
+      if (r) chispas(r.left + r.width / 2, r.top + r.height * 0.55, 22, COLORES_AMIGO.flat());
+      if (b && !sinMovimiento) { b.classList.remove('golpe'); void b.offsetWidth; b.classList.add('golpe'); }
+      pintarFaroles();
+      if (f.vida <= 0) hundir();
+    };
+    if (sinMovimiento || !b) { pega(); return; }
+    const r = b.getBoundingClientRect(), x0 = innerWidth * 0.5, y0 = innerHeight * 0.8, x1 = r.left + r.width / 2, y1 = r.top + r.height * 0.55;
+    const bala = document.createElement('div');
+    bala.className = 'bala-canon';
+    document.body.appendChild(bala);
+    bala.animate([
+      { transform: `translate(${x0}px, ${y0}px) scale(1)` },
+      { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - innerHeight * 0.16}px) scale(.85)`, offset: 0.5 },
+      { transform: `translate(${x1}px, ${y1}px) scale(.6)` },
+    ], { duration: 800, easing: 'cubic-bezier(.3,.1,.6,1)' }).onfinish = () => { bala.remove(); pega(); };
+  }
+  // Nadie (o pocos) lo tocaron a tiempo: se ríe con un trueno y una calavera. No se pierde nada.
+  function seRie(n) {
+    const b = deFantasma('barco-fantasma');
+    if (!b) return;
+    const cartel = b.querySelector('.cartel-canon'), faltan = PARA_CANON - n;
+    cartel.textContent = n ? `Faltó ${faltan === 1 ? 'uno' : faltan}` : 'Se ríe de ustedes';
+    setTimeout(() => { if (fantasma && fantasma.abierta == null && cartel.isConnected) cartel.textContent = ''; }, 2200);
+    const risa = document.createElement('span');
+    risa.className = 'risa-barco'; risa.textContent = '☠️'; risa.setAttribute('aria-hidden', 'true');
+    b.appendChild(risa);
+    setTimeout(() => risa.remove(), 1600);
+    INICIO.trueno(0.15, 0.7);
+  }
+  // Se hunde: se inclina y se va abajo del agua, vuelve la música de siempre con una fanfarria, las personitas festejan,
+  // la tormenta se va y cada uno cobra su premio.
+  function hundir() {
+    const f = fantasma, b = deFantasma('barco-fantasma');
+    if (!f || f.hundido) return;
+    f.hundido = true; f.abierta = null; clearTimeout(f.v); clearTimeout(f.t); clearTimeout(f.g);
+    echadoHoy = SKY.arDate();
+    if (b) { b.classList.remove('apunta'); b.classList.add('se-hunde'); b.querySelector('.cartel-canon').textContent = ''; }
+    document.querySelectorAll('.pista-barco').forEach((n) => n.remove());
+    INICIO.fanfarria();
+    setTimeout(() => INICIO.fantasma(false), 600);
+    document.querySelectorAll('#sky .personita').forEach((el) => { el.classList.remove('asustada'); el.querySelectorAll('.susto').forEach((x) => x.remove()); });
+    escena.forEach((p) => setTimeout(() => { saludar(p); tirarSusto(p, ['🎉', '🥳', '🙌'][hash(p.pid) % 3]); }, 300 + Math.random() * 900));
+    const premio = S.hundirBarco();
+    setTimeout(() => seVaFantasma(), 3800);
+    setTimeout(() => premioBarco(premio), 3400);
+  }
+  function premioBarco(premio) {
+    const it = shopItem(D.BARCO.item);
+    const cosas = premio
+      ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><span class="chip" style="--c:var(--butter)">+${premio.c} <span class="coin"></span></span><span class="chip" style="--c:var(--lav)">+${premio.s} sobre</span></div>
+        ${premio.primero ? `<div class="barco-trofeo">${ARTE.item(D.BARCO.item)}</div><p class="small" style="margin:0">La <b>${esc(it.n)}</b> para tu altarcito, y una <b>misión secreta</b> nueva: la foto de todos los que estaban.</p>` : ''}`
+      : '<p class="small muted" style="margin:0">Hoy ya cobraste el premio del barco. Mañana puede volver.</p>';
+    sheet(`<div class="hallazgo-hoja barco-ganado"><div class="cumple-titulo">¡HUNDIERON AL HOLANDÉS LABURANTE!</div>
+      <p class="cumple-sub">Las vacaciones están a salvo. Por hoy no vuelve.</p>${cosas}
+      <button class="btn" data-close>¡Vamos!</button></div>`);
+    if (premio) { SONIDO.monedas(premio.c); setTimeout(revisarLogros, 1200); }
+  }
+
+  // ---------- a solas: delfines y la cola de sirena ----------
+  // Si estás mirando el mar sin nadie más: cada 25 segundos salta un delfín en algún lugar del mar, y en algún momento al
+  // azar (una vez por visita) asoma una cola de sirena: está 5 segundos, brilla y se va. Si la tocás a tiempo, 250 monedas
+  // (una vez por día; si ya la atrapaste hoy, no aparece).
+  let solo = null; // { d: reloj de los delfines, s: el de la sirena }
+  const DELFIN_CADA = 25000, SIRENA_DURA = 5000;
+  function revisarSolo() {
+    const aSolas = !!document.querySelector('.mirar-capa') && conPersona() && escena.size === 1 && !fantasma;
+    if (aSolas && !solo) {
+      solo = { d: setInterval(delfin, DELFIN_CADA) };
+      if (!S.sirenaHoy()) solo.s = setTimeout(sirena, 20000 + Math.random() * 100000);
+    } else if (!aSolas && solo) terminaSolo();
+  }
+  function terminaSolo() {
+    if (!solo) return;
+    clearInterval(solo.d); clearTimeout(solo.s); solo = null;
+  }
+  // Dónde queda en la pantalla un punto del cielo (en %).
+  const enPantalla = (x, y) => { const r = document.getElementById('sky').getBoundingClientRect(); return [r.left + (r.width * x) / 100, r.top + (r.height * y) / 100]; };
+  function delfin() {
+    const sky = document.getElementById('sky');
+    if (!sky || !document.querySelector('.mirar-capa')) return;
+    const izq = Math.random() < 0.5, x = 18 + Math.random() * 64, y = 59.5 + Math.random() * 5, w = 40 + (y - 59.5) * 4;
+    const el = document.createElement('div');
+    el.className = 'delfin-mar' + (izq ? ' izq' : '');
+    el.style.cssText = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${w.toFixed(0)}px;z-index:${capaY(y)}`;
+    el.innerHTML = `<span class="recorte">${ARTE.item('delfin')}</span>`;
+    sky.appendChild(el);
+    const salpica = (dx) => { const [px, py] = enPantalla(x, y); chispas(px + (izq ? -dx : dx) * w, py, 9, ['#ffffff', '#c9ecfa', '#a9d6f0']); };
+    if (!sinMovimiento) { setTimeout(() => salpica(-0.45), 250); setTimeout(() => { salpica(0.5); SONIDO.chap(0.25); }, 1750); }
+    setTimeout(() => el.remove(), 2300);
+    S.contar('mar.delfines');
+  }
+  function sirena() {
+    const sky = document.getElementById('sky');
+    if (!solo || !sky || S.sirenaHoy()) return;
+    const x = 20 + Math.random() * 60, y = 60.5 + Math.random() * 4, w = 24 + (y - 60.5) * 2;
+    const el = document.createElement('div');
+    el.className = 'cola-sirena';
+    el.style.cssText = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${w.toFixed(0)}px;z-index:${capaY(y)}`;
+    el.innerHTML = `<span class="recorte">${ARTE.item('sirena')}</span><i class="destello" aria-hidden="true">✨</i>`;
+    el.dataset.hasta = Date.now() + SIRENA_DURA;
+    sky.appendChild(el);
+    setTimeout(() => el.classList.add('brilla'), 1400);
+    setTimeout(() => { if (!el.classList.contains('atrapada')) el.remove(); }, SIRENA_DURA + 200);
+  }
+  function tocarSirena(x, y) {
+    const el = document.querySelector('#sky .cola-sirena:not(.atrapada)');
+    if (!el || Date.now() > +el.dataset.hasta) return false;
+    const r = el.getBoundingClientRect();
+    if (x < r.left - 30 || x > r.right + 30 || y < r.top - 30 || y > r.bottom + 24) return false;
+    el.classList.add('atrapada');
+    chispas(r.left + r.width / 2, r.top + r.height / 2, 24, ['#ffe39a', '#fff2c8', '#f9d27a', '#ffffff']);
+    const c = S.atraparSirena();
+    if (c) { SONIDO.monedas(c); toast(`<span style="font-size:1.6rem">🧜‍♀️</span><span>¡Atrapaste la cola de sirena! <b>+${c}</b> monedas.</span>`, 4500); }
+    setTimeout(() => el.remove(), 900);
+    return true;
+  }
+
   if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
+  if (PROTO) window.__mar = { delfin, sirena: () => { if (!solo) solo = { d: 0 }; sirena(); } }; // para probar en el modo demo
 
   // A quien le desaprueban una foto (o la recupera) le llega el aviso con lo que perdió o volvió.
   function avisarDesaprobadas(cambios) {

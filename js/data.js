@@ -356,7 +356,13 @@ window.DATA = (function () {
     { id: 'hallazgos', t: 'Cosas que trajo el mar', u: 'botellas y galletas abiertas', ic: '🍾', pasos: [[5, 50], [15, 0, 1]] },
     { id: 'visitas', t: 'De visita', u: 'altarcitos visitados', ic: '🏖️', pasos: [[5, 20], ['todo', 50]] },
     { id: 'juntos', t: 'Mirar el mar juntos', u: 'personas con las que te sentaste a mirar el mar', ic: '🌊', pasos: [[1, 30], [3, 60], [6, 0, 1]] },
+    { id: 'barcos', t: 'El Holandés Laburante', u: 'barcos fantasma hundidos', ic: '🏴‍☠️', pasos: [[1, 30], [3, 60], [5, 0, 1]] },
   ];
+  // El Holandés Laburante (Mirar el mar, con más de 5): premio para cada uno de los que estaban al hundirlo, una vez por día.
+  // La primera vez, además, la bandera para el altarcito y una misión secreta con foto.
+  const BARCO = { c: 50, s: 1, item: 'holandes', mision: { id: 'sec-barco', t: 'La colonia después de hundir al Holandés Laburante: foto de todos los que estaban', xp: 40 } };
+  // La cola de sirena (Mirar el mar, a solas): si la atrapás, estas monedas (una vez por día).
+  const SIRENA = 250;
   // La botella entre amigos (desde "Mirar el mar"): una por día; a quien le llega, al abrirla, estas monedas.
   const BOTELLA_AMIGO = 10;
 
@@ -438,6 +444,7 @@ window.DATA = (function () {
     // Únicas (unico: true): no se venden en el kiosco, llegan solo de regalo (cumpleaños y fechas así).
     // venta = cuánto te dan si lo vendés (sin venta, el 80% del precio).
     { id: 'mellis', n: 'Cartel de mellis sueltas', p: 0, venta: 100, lv: 1, unico: true, d: 'Señalización oficial de la Costa: por esta playa andan dos mellis sueltas. Del cumple de las mellis, 26/11/2026.' },
+    { id: 'holandes', n: 'Bandera del Holandés', p: 0, venta: 100, lv: 1, unico: true, d: 'La bandera del Holandés Laburante, el barco fantasma que vino a llevarse las vacaciones. Lo hundieron a cañonazos desde la orilla.' },
   ];
   // Regalos de cumpleaños: cuando llega de regalo una de estas cosas, se abre con un saludo grande y papelitos.
   const CUMPLES = { mellis: { t: '¡FELIZ CUMPLE, MELLIS!', s: 'Hay dos mellis sueltas por la playa. Avisen a los guardavidas.' } };
@@ -504,5 +511,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { precioVenta, CUMPLES, LOGROS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { precioVenta, CUMPLES, LOGROS, BARCO, SIRENA, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

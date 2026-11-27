@@ -152,7 +152,8 @@ window.STORE = (function () {
     if (document.hidden) presencia.untrack(); else anunciar();
   });
   // Avisa a los demás que estás (o ya no) mirando el mar. En el modo demo, al rato aparecen Rochi y Nico mirando también;
-  // con ?demo&gente=7, van llegando de a uno hasta ser 7 (para ver el barco fantasma, que aparece con más de 5).
+  // con ?demo&gente=7, van llegando de a uno hasta ser 7 (para ver el barco fantasma, que aparece con más de 5);
+  // con ?demo&gente=1 no llega nadie (para ver los delfines y la cola de sirena, que salen a solas).
   let demoMarT = [];
   const DEMO_GENTE = +((location.search.match(/[?&]gente=(\d+)/) || [])[1] || 0);
   function mirarElMar(si) {
@@ -160,7 +161,7 @@ window.STORE = (function () {
     mirando = !!si;
     if (live) { anunciar(); return; }
     demoMarT.forEach(clearTimeout); demoMarT = [];
-    const llegan = DEMO_GENTE > 1
+    const llegan = DEMO_GENTE > 0
       ? ['rochi', 'nico', 'juani', 'pachi', 'viqui', 'rich', 'sofi', 'chino', 'grego', 'jose', 'nachote', 'juli', 'jero'].filter((id) => id !== s.me).slice(0, DEMO_GENTE - 1).map((id, i) => [id, 1500 + i * 1500])
       : [['rochi', 2500], ['nico', 6000]];
     if (si) llegan.forEach(([id, ms]) => demoMarT.push(setTimeout(() => { enElMar.add(id); listeners.forEach((f) => f({ presencia: true })); }, ms)));
@@ -588,6 +589,33 @@ window.STORE = (function () {
     },
     // Cosas que se ven una sola vez por persona (también desde otro celu): se anotan en ach.
     visto(k) { return !!s.ach[k]; },
+    // El Holandés Laburante: si alguien ya lo hundió hoy (mientras esté mirando el mar, no vuelve), y el premio de cada uno.
+    hundioHoy(pid) {
+      const ach = !pid || pid === s.me ? s.ach : live ? (((s.cache.players[pid] || {}).datos || {}).ach || {}) : {};
+      return !!ach['barco:' + window.SKY.arDate()];
+    },
+    barcoPrimero() { return s.ach['barco:primero'] || null; },
+    hundirBarco() {
+      if (!s.me) return null;
+      const hoy = window.SKY.arDate();
+      if (s.ach['barco:' + hoy]) return null;
+      s.ach['barco:' + hoy] = 1; s.ach.barcos = (s.ach.barcos || 0) + 1;
+      s.coins += D.BARCO.c; s.sobres = (s.sobres || 0) + D.BARCO.s;
+      const primero = !s.ach['barco:primero'];
+      if (primero) { s.ach['barco:primero'] = hoy; s.owned.push(D.BARCO.item); }
+      api.contar('mar.hundidos');
+      save(); pushMe();
+      return { c: D.BARCO.c, s: D.BARCO.s, primero };
+    },
+    // La cola de sirena: una por día.
+    sirenaHoy() { return !!s.ach['sirena:' + window.SKY.arDate()]; },
+    atraparSirena() {
+      if (!s.me || api.sirenaHoy()) return 0;
+      s.ach['sirena:' + window.SKY.arDate()] = 1; s.coins += D.SIRENA;
+      api.contar('mar.sirenas');
+      save(); pushMe();
+      return D.SIRENA;
+    },
     marcar(k) { s.ach[k] = 1; save(); pushMe(); },
 
     // Ideas para el capítulo que viene: cada persona deja una (datos.idea) y toca ♡ en las de otros (datos.sumo = de quiénes).
@@ -697,6 +725,7 @@ window.STORE = (function () {
       if (id === 'hallazgos') return api.hallazgos('botella').length + api.hallazgos('galleta').length;
       if (id === 'visitas') return (s.visitas || []).filter((p) => p !== s.me).length;
       if (id === 'juntos') return Object.keys(s.ach).filter((k) => k.startsWith('juntos:')).length;
+      if (id === 'barcos') return s.ach.barcos || 0;
       return 0;
     },
     // 'todo': todos los altarcitos de los demás, o todo el kiosco (sin la sombrilla ni la carpa, que no se pueden tener juntas).
