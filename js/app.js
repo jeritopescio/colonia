@@ -505,7 +505,7 @@
     const d = SKY.arDate(), yo = person(S.me);
     // Durante el viaje: la del viaje; quienes juegan a distancia y alguna persona puntual tienen la suya.
     const trip = (D.DAILY_PROPIA[S.me] || {})[d] || (yo && !yo.trip ? D.DAILY_LEJOS[d] : null) || D.DAILY_TRIP[d];
-    return { id: 'dia-' + d, s: 'dia', t: trip || delPool(d), xp: trip ? 40 : 20 };
+    return { id: 'dia-' + d, s: 'dia', t: trip || D.DAILY_FIJA[d] || delPool(d), xp: trip ? 40 : 20 };
   }
   // Misiones secretas: dos por día y por persona, cada una en su propio orden, sin repetir hasta agotar la lista.
   function barajar(n, semilla) {
@@ -557,7 +557,7 @@
   function misionDe(mid) {
     if (!mid.startsWith('dia-')) return (D.MISSIONS.find((m) => m.id === mid) || { t: 'Una misión' }).t;
     const d = mid.slice(4);
-    return D.DAILY_TRIP[d] || delPool(d);
+    return D.DAILY_TRIP[d] || D.DAILY_FIJA[d] || delPool(d);
   }
   function tituloFoto(mid, pid) {
     if (mid.startsWith('ruta-')) { const p = R.paradas.find((x) => 'ruta-' + x.id === mid); return p ? p.t : 'La ruta'; }
@@ -635,24 +635,46 @@
 
   // ---------- fotos de la colonia y reacciones ----------
   let verFotos = 15; // cuántas se muestran en Colonia ("Ver más" suma 15)
-  const fechaFoto = (iso) => { const t = Date.parse(iso); if (!t) return ''; const d = new Date(t - 3 * 36e5); return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`; };
-  function postHTML(f) {
-    const key = f.pid + '/' + f.mision, mia = f.pid === S.me, mi = S.miReaccion(key), rs = S.reacciones(key);
-    const img = `<img class="post-foto" src="${f.url || face(f.pid)}" alt="" loading="lazy"${f.url ? '' : ' style="filter:saturate(.5) sepia(.25)"'}>`;
-    // En tus fotos no reaccionás: ves cuántas te pusieron.
+  // Fecha y hora (de Argentina) de una foto: "27/11 · 18:05".
+  const fechaFoto = (iso) => {
+    const t = Date.parse(iso); if (!t) return '';
+    const d = new Date(t - 3 * 36e5), hh = String(d.getUTCHours()).padStart(2, '0'), mm = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${d.getUTCDate()}/${d.getUTCMonth() + 1} · ${hh}:${mm}`;
+  };
+  // Con 4 cruces rojas la foto queda desaprobada: una cruz grande encima (y no suma hasta que se cambie).
+  const marcaDesap = (pid, mid) => (S.desaprobada(pid, mid) ? '<span class="desap" role="img" aria-label="Foto desaprobada">❌</span>' : '');
+  // Los botones de reacción de una foto y quiénes pusieron cada una. En tus fotos no reaccionás: ves cuántas te pusieron.
+  function reacsHTML(key) {
+    const mia = key.split('/')[0] === S.me, mi = S.miReaccion(key), rs = S.reacciones(key);
     const botones = REAC.filter(([id]) => !mia || rs[id]).map(([id, e, n]) => {
       const c = (rs[id] || []).length;
       return mia ? `<span class="reac"><span aria-hidden="true">${e}</span><b>${c}</b><span class="sr">${n}</span></span>`
         : `<button class="reac${mi === id ? ' on' : ''}" data-reac="${id}" data-foto="${key}" aria-pressed="${mi === id}" aria-label="${n}${c ? ': ' + c : ''}" data-mudo><span aria-hidden="true">${e}</span>${c ? `<b>${c}</b>` : ''}</button>`;
     }).join('');
     const quienes = REAC.filter(([id]) => rs[id]).map(([id, e]) => `<span class="reac-quien"><span aria-hidden="true">${e}</span><span class="mini-caras">${rs[id].map((p) => `<img class="face" src="${face(p)}" alt="${esc(person(p).n)}" title="${esc(person(p).n)}">`).join('')}</span></span>`).join('');
+    const desap = S.desaprobada(...key.split('/'));
+    return `<div class="reacs">${botones || '<span class="small muted">Todavía sin reacciones.</span>'}</div>${quienes ? `<div class="reac-quienes">${quienes}</div>` : ''}
+      ${desap ? `<p class="small desap-nota">${mia ? `Tu foto quedó desaprobada: ${S.cruces} cruces rojas. No suma hasta que la cambies.` : `Desaprobada: ${S.cruces} o más cruces rojas.`}</p>` : ''}`;
+  }
+  function postHTML(f) {
+    const key = f.pid + '/' + f.mision;
+    const img = `<div class="post-foto-w"><img class="post-foto" src="${f.url || face(f.pid)}" alt="" loading="lazy"${f.url ? '' : ' style="filter:saturate(.5) sepia(.25)"'}>${marcaDesap(f.pid, f.mision)}</div>`;
     return `<div class="card post" data-post="${key}"><div class="post-top"><button class="post-quien" data-carta="${f.pid}"><img class="face" src="${face(f.pid)}" alt=""><b>${esc(person(f.pid).n)}</b></button><span class="small muted">${fechaFoto(f.creada)}</span></div>
       <p class="post-t">${esc(tituloFoto(f.mision, f.pid))}</p>${img}
-      <div class="reacs">${botones || '<span class="small muted">Todavía sin reacciones.</span>'}</div>${quienes ? `<div class="reac-quienes">${quienes}</div>` : ''}</div>`;
+      ${reacsHTML(key)}</div>`;
   }
   function reaccionar(b) {
     const key = b.dataset.foto, r = b.dataset.reac;
     S.reaccionar(key, r); SONIDO.plop(); setTimeout(revisarAmigos, 500);
+    // En la foto abierta desde una tarjeta: se vuelven a dibujar solo sus reacciones (y la cruz grande, si cambió).
+    const caja = b.closest('.foto-reacs');
+    if (caja) {
+      caja.innerHTML = reacsHTML(key);
+      const w = caja.parentElement.querySelector('.foto-grande-w'), [pid, mid] = key.split('/');
+      if (w) { const m = w.querySelector('.desap'); if (m) m.remove(); w.insertAdjacentHTML('beforeend', marcaDesap(pid, mid)); }
+      const nb = caja.querySelector(`[data-reac="${r}"]`); if (nb && nb.classList.contains('on')) nb.classList.add('pop');
+      return;
+    }
     const f = S.fotosColonia().find((x) => x.pid + '/' + x.mision === key), post = b.closest('.post');
     if (!f || !post) return render();
     post.outerHTML = postHTML(f);
@@ -1323,7 +1345,8 @@
       const ph = S.photo(m.id);
       if (!ph) return askPhoto(m);
       sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
-        <div class="polaroid"><img src="${ph}" alt=""></div><h2>${esc(m.t)}</h2>
+        <div class="polaroid foto-grande-w"><img src="${ph}" alt="">${marcaDesap(S.me, m.id)}</div><h2>${esc(m.t)}</h2>
+        ${m.id.startsWith('sec-') ? '' : `<div class="foto-reacs" style="width:100%">${reacsHTML(S.me + '/' + m.id)}</div>`}
         <div class="row" style="justify-content:center"><button class="btn ghost" data-redo>Cambiar foto</button><button class="btn" data-close>Listo</button></div></div>`,
       (bg) => bg.querySelector('[data-redo]').addEventListener('click', () => { bg.remove(); askPhoto(m); }));
     }));
@@ -1455,17 +1478,21 @@
         const who = new Set(S.doneBy(id).map((p) => p.id));
         const strip = D.PEOPLE.filter((p) => p.id !== S.me && who.has(p.id)).map((p) => {
           const theirs = S.photoOf(p.id, id);
-          return `<figure>${theirs ? `<img class="sq" src="${theirs}" alt="" loading="lazy">` : `<img class="sq" src="${face(p.id)}" alt="" style="filter:saturate(.5) sepia(.25)">`}<figcaption>${esc(p.n)}</figcaption></figure>`;
+          return `<figure><button class="vf" data-vf="${p.id}" aria-label="Ver la foto de ${esc(p.n)}"><span class="carta-ft-w">${theirs ? `<img class="sq" src="${theirs}" alt="" loading="lazy">` : `<img class="sq" src="${face(p.id)}" alt="" style="filter:saturate(.5) sepia(.25)">`}${marcaDesap(p.id, id)}</span></button><figcaption>${esc(p.n)}</figcaption></figure>`;
         }).join('');
         const hecha = S.photo(id);
         sheet(`<div style="display:grid;gap:12px;justify-items:center;text-align:center">
-          ${hecha ? `<div class="polaroid"><img src="${hecha}" alt=""></div>` : ''}
+          ${hecha ? `<div class="polaroid foto-grande-w"><img src="${hecha}" alt="">${marcaDesap(S.me, id)}</div>` : ''}
           <h2>${esc(m.t)}</h2>
+          ${hecha && !id.startsWith('sec-') ? `<div class="foto-reacs" style="width:100%">${reacsHTML(S.me + '/' + id)}</div>` : ''}
           ${hecha ? '' : `<p class="small muted" style="margin:0">Sacá esta foto y se vuelve tu figurita: +${m.xp || 20} de experiencia y +10 monedas.</p>`}
           ${strip ? `<div style="width:100%;text-align:left"><div class="eyebrow">${hecha ? 'Las de los demás' : 'Ya la sacaron'}</div><div class="strip">${strip}</div></div>` : ''}
           <div class="row" style="justify-content:center">${hecha ? '<button class="btn ghost" id="go">Cambiar mi foto</button><button class="btn" data-close>Listo</button>'
             : `<button class="btn ghost" data-close>${NAH}</button><button class="btn" id="go" style="--c:var(--mint)">Sacar la foto</button>`}</div></div>`,
-        (bg) => { const g = bg.querySelector('#go'); if (g) g.addEventListener('click', () => { bg.remove(); askPhoto(m); }); });
+        (bg) => {
+          const g = bg.querySelector('#go'); if (g) g.addEventListener('click', () => { bg.remove(); askPhoto(m); });
+          bg.querySelectorAll('[data-vf]').forEach((v) => v.addEventListener('click', () => verFoto(v.dataset.vf, id, S.photoOf(v.dataset.vf, id), m.t)));
+        });
       }));
     },
 
@@ -1645,11 +1672,22 @@
   const SIGNO = { Acuario: '♒', Sagitario: '♐', Leo: '♌', Capricornio: '♑', Piscis: '♓', Cáncer: '♋', Tauro: '♉', Géminis: '♊' };
   // Todas las fotos que subió alguien, con la misión de cada una (las secretas, solo en tu propia tarjeta).
   function fotosDe(pid) {
-    const out = S.fotosColonia().filter((f) => f.pid === pid).map((f) => ({ url: f.url, t: tituloFoto(f.mision, pid), creada: f.creada }));
-    if (pid === S.me) secretasHasta().filter((m) => S.photo(m.id)).forEach((m) => out.push({ url: S.photo(m.id), t: m.t, creada: m.dia + 'T15:00:00Z', secreta: true }));
+    const out = S.fotosColonia().filter((f) => f.pid === pid).map((f) => ({ url: f.url, t: tituloFoto(f.mision, pid), creada: f.creada, mision: f.mision }));
+    if (pid === S.me) secretasHasta().filter((m) => S.photo(m.id)).forEach((m) => out.push({ url: S.photo(m.id), t: m.t, creada: m.dia + 'T15:00:00Z', secreta: true, mision: m.id }));
     return out.sort((a, b) => String(b.creada).localeCompare(String(a.creada))).map((f) => Object.assign(f, { cuando: fechaFoto(f.creada) }));
   }
+  // Una foto en grande: qué misión era, de quién, cuándo, y para reaccionar como en Colonia (las secretas no se reaccionan).
+  function verFoto(pid, mid, url, t, cuando, secreta) {
+    if (cuando == null) { const f = S.fotosColonia().find((x) => x.pid === pid && x.mision === mid); cuando = f ? fechaFoto(f.creada) : ''; }
+    sheet(`<div class="sobre-hoja"><div class="polaroid recuerdo-grande foto-grande-w"><img src="${url || face(pid)}" alt="">${secreta ? '' : marcaDesap(pid, mid)}</div>
+      <div class="eyebrow">${secreta ? 'Misión secreta' : 'Misión'}</div><h2 style="margin-top:-6px">${esc(t || tituloFoto(mid, pid))}</h2>
+      <p class="small muted" style="margin:0">${esc(person(pid).n)}${cuando ? ' · ' + cuando : ''}</p>
+      ${secreta ? '' : `<div class="foto-reacs">${reacsHTML(pid + '/' + mid)}</div>`}
+      <button class="btn" data-close>Listo</button></div>`,
+    (hb) => hb.addEventListener('click', (e) => { const rb = e.target.closest('[data-reac]'); if (rb) reaccionar(rb); }));
+  }
   function carta(pid) {
+    S.contar('tarjetas');
     const vos = pid === S.me, p = person(pid), c = (CARTAS && CARTAS[pid]) || {}, xp = vos ? S.xp : S.xpOf(pid), L = level(xp);
     const hab = (c.hab || []).map(([k, n]) => `<div class="hab${n > 10 ? ' over' : ''}"><span>${esc(k)}</span><span class="nivel"><i style="width:${Math.min(n, 10) * 10}%"></i></span><b>${n}</b></div>`).join('');
     const tier = tierDePid(pid), fotos = fotosDe(pid);
@@ -1665,17 +1703,16 @@
       ${c.deb ? `<div class="carta-sec"><div class="eyebrow">Debilidad</div><p>${esc(c.deb)}</p></div>` : ''}
       ${c.dato ? `<p class="carta-dato">${esc(c.dato)}</p>` : ''}
       <div class="carta-sec"><div class="eyebrow">${vos ? 'Tus fotos' : 'Sus fotos'} · ${fotos.length}</div>
-        ${fotos.length ? `<div class="carta-fotos">${fotos.map((f, i) => `<button class="carta-ft" data-ft="${i}"><img src="${f.url || face(pid)}" alt="" loading="lazy" decoding="async"${f.url ? '' : ' style="filter:saturate(.5) sepia(.25)"'}><span>${esc(f.t)}</span><small>${f.secreta ? 'misión secreta · ' : ''}${f.cuando}</small></button>`).join('')}</div>`
+        ${fotos.length ? `<div class="carta-fotos">${fotos.map((f, i) => `<button class="carta-ft" data-ft="${i}"><span class="carta-ft-w"><img src="${f.url || face(pid)}" alt="" loading="lazy" decoding="async"${f.url ? '' : ' style="filter:saturate(.5) sepia(.25)"'}>${f.secreta ? '' : marcaDesap(pid, f.mision)}</span><span>${esc(f.t)}</span><small>${f.secreta ? 'misión secreta · ' : ''}${f.cuando}</small></button>`).join('')}</div>`
           : `<p class="small muted">${vos ? 'Todavía no subiste' : 'Todavía no subió'} ninguna foto.</p>`}</div>
       <div class="row" style="justify-content:center">${vos ? '<button class="btn ghost" id="miPerfil">Cambiar mi foto de perfil</button>' : '<button class="btn ghost" id="suAltar">Ver su altarcito</button>'}<button class="btn" data-close>Listo</button></div></div>`,
     (bg) => {
+      bg.insertAdjacentHTML('afterbegin', '<button class="cruz cerrar-hoja" data-close aria-label="Cerrar la tarjeta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>');
       const im = bg.querySelector('.carta-foto img'), al = bg.querySelector('#suAltar');
       im.addEventListener('error', () => { im.src = face(pid); }, { once: true });
       bg.querySelectorAll('[data-ft]').forEach((b) => b.addEventListener('click', () => {
         const f = fotos[+b.dataset.ft];
-        sheet(`<div class="sobre-hoja"><div class="polaroid recuerdo-grande"><img src="${f.url || face(pid)}" alt=""></div>
-          <h2>${esc(f.t)}</h2><p class="small muted" style="margin:0">${esc(p.n)}${f.secreta ? ' · misión secreta' : ''}${f.cuando ? ' · ' + f.cuando : ''}</p>
-          <button class="btn" data-close>Listo</button></div>`);
+        verFoto(pid, f.mision, f.url, f.t, f.cuando, f.secreta);
       }));
       if (al) al.addEventListener('click', () => { bg.remove(); visit(pid); });
       const mp = bg.querySelector('#miPerfil'); if (mp) mp.addEventListener('click', () => { bg.remove(); cambiarPerfil(); });
@@ -1817,13 +1854,14 @@
 
   // ---------- navegación ----------
   function go(r) { if (location.hash === '#' + r) render(); else location.hash = r; }
-  let logrosT = null;
+  let logrosT = null, ultimaPantalla = '';
   function render() {
     let r = location.hash.slice(1) || 'portada';
     if (r === 'misiones') r = 'album'; // Misiones quedó adentro del álbum
     if (!SCREENS[r]) r = 'portada';
     if (r !== 'portada' && r !== 'quien' && !S.me) r = 'quien';
     if (r === 'quien' && S.me) r = 'hoy';
+    if (r !== ultimaPantalla) { ultimaPantalla = r; S.contar('ver.' + r); } // para el wrapped: qué pantallas se usan más
     if (r !== 'kiosco') regalarA = null; // el modo "regalarle a alguien" dura mientras estás en el kiosco
     if (r !== 'portada') salirDelMar();
     actualizarDorados();
@@ -1877,8 +1915,12 @@
   // Arriba a la derecha, "volver"; arriba a la izquierda, la botella para tirarle un mensaje a alguien de la colonia.
   let dedo = null; // el dedo apoyado: { id, t (para empezar el colchón), pad, halo, ult }
   const SOSTENER_MS = 320;
+  // Para el wrapped: cuántas veces, cuánto tiempo (total y la más larga), a qué hora, y cuántas notas y colchones.
+  let marDesde = 0;
   function mirarMar() {
     document.body.classList.add('quieto', 'mirando');
+    marDesde = Date.now();
+    S.contar('mar.veces'); S.contar('mar.h' + String(new Date(Date.now() - 3 * 36e5).getUTCHours()).padStart(2, '0'));
     const capa = document.createElement('div');
     capa.className = 'mirar-capa';
     capa.innerHTML = `<button class="volver-mirar" data-mudo>volver</button>
@@ -1892,6 +1934,7 @@
       if (tocarPersonita(e.clientX, e.clientY)) return; // a una personita se la toca para sentarse o saludar, no suena
       chispas(e.clientX, e.clientY);
       INICIO.toque(lado(e), alto(e));
+      S.contar('mar.notas');
       mandarNota(e);
       if (dedo) return; // un solo colchón a la vez; los otros dedos solo tocan notas
       try { capa.setPointerCapture(e.pointerId); } catch (err) { /* sin captura igual anda */ }
@@ -1899,6 +1942,7 @@
       d.t = setTimeout(() => {
         if (dedo !== d) return;
         d.pad = INICIO.sostener(1 - d.y / innerHeight, d.x / innerWidth);
+        S.contar('mar.colchones');
         d.halo = document.createElement('div');
         d.halo.className = 'halo-dedo';
         document.body.appendChild(d.halo);
@@ -1945,6 +1989,7 @@
   }
   function salirDelMar() {
     soltarDedo();
+    if (marDesde) { const seg = Math.round((Date.now() - marDesde) / 1000); S.contar('mar.seg', seg); S.record('mar.max', seg); marDesde = 0; }
     document.body.classList.remove('quieto', 'mirando');
     document.querySelectorAll('.mirar-capa').forEach((n) => n.remove());
     clearInterval(relojMar); relojMar = null;
@@ -1979,6 +2024,7 @@
         const t = ta.value.trim();
         if (!t) { ta.focus(); return; }
         if (!S.tirarBotella(t)) return;
+        S.contar('botellas');
         bg.remove();
         vuelaBotella();
         setTimeout(() => toast('<span>Tu botella va flotando hacia el altarcito de alguien de la colonia.</span>', 4200), 1300);
@@ -2149,7 +2195,7 @@
   const COLORES_AMIGO = [['#f7b3c6', '#ffd6e2'], ['#cfc0f0', '#e6defb'], ['#b6e5cd', '#dff5ea'], ['#ffe39a', '#fff2c8'], ['#a9d6f0', '#d6eefb'], ['#f6a38f', '#fcd2c6']];
   const coloresDe = (pid) => COLORES_AMIGO[hash(pid) % COLORES_AMIGO.length];
   function pintarPersonita(p) {
-    const ropa = ropaAhora();
+    const ropa = p.agua ? 'malla' : ropaAhora(); // en el agua, siempre en malla
     if (p.el.dataset.ropa !== ropa) {
       const globo = p.el.querySelector('.globito, .corazon');
       p.el.innerHTML = personitaSVG(PERSONITAS[p.como], ropa);
@@ -2203,6 +2249,7 @@
     return Math.abs(p.x - LONA.x) < 12 && Math.abs(p.y - 76.4) < 2.5 ? 'lona' : '';
   }
   function ubicar(p) {
+    if (p.agua) return; // en el agua la mueve moverAgua
     p.el.style.left = p.x.toFixed(2) + '%';
     p.el.style.top = p.y.toFixed(2) + '%';
     p.el.style.height = (PERSONITAS[p.como].cm * PX_CM * escalaY(p.y)).toFixed(1) + 'px';
@@ -2250,12 +2297,14 @@
     nuevas.forEach((p) => { p.x = c[p.pid].x; p.y = c[p.pid].y; ubicar(p); });
     escena.forEach((p, id) => { if (p.mia && !nuevas.includes(p) && !p.sentada && !p.vaASentarse) andarA(p, c[id].x, c[id].y); });
     ponerFogon();
+    revisarAgua();
   }
   function sacarEscena() {
     escena.forEach((p) => clearTimeout(p.t));
     escena.clear();
     cancelAnimationFrame(rafProf); rafProf = 0;
-    document.querySelectorAll('#sky .personita, #sky .cosa-mar, .estrella-fugaz').forEach((n) => n.remove());
+    cancelAnimationFrame(rafAgua); rafAgua = 0;
+    document.querySelectorAll('#sky .personita, #sky .cosa-mar, #sky .agua, .estrella-fugaz').forEach((n) => n.remove());
   }
   // Cuenta a los demás dónde está y qué hace tu personita.
   function publicar(p) {
@@ -2265,7 +2314,7 @@
   }
   // Camina hasta (x, y), despacio, y si hacía falta se levanta antes. "luego" corre al llegar.
   function andarA(p, x, y, luego) {
-    if (x == null || !p.el.isConnected) return;
+    if (x == null || !p.el.isConnected || p.agua) return;
     if (p.sentada) { p.sentada = false; p.el.classList.remove('sentada'); publicar(p); clearTimeout(p.fin); p.fin = setTimeout(() => andarA(p, x, y, luego), 1000); return; }
     moverA(p, x, y, luego);
     publicar(p);
@@ -2333,6 +2382,7 @@
   function vivir(p) {
     const despues = (ms) => { clearTimeout(p.t); p.t = setTimeout(() => vivir(p), ms); };
     if (!p.el.isConnected || sinMovimiento) return;
+    if (p.agua) return despues(8000); // en el agua no camina ni se sienta
     const r = Math.random(), casa = casas()[p.pid], lado = () => (Math.random() < 0.5 ? 'mira-i' : 'mira-d');
     if (p.falsa && p.sentada) { if (r < 0.3) levantarse(p); else if (r < 0.55) mirarA(p, lado(), 1800 + Math.random() * 1500); return despues(8000 + Math.random() * 6000); }
     if (p.ordenada || p.vaASentarse) { if (r < 0.35) mirarA(p, lado(), 1800 + Math.random() * 1500); return despues(7000 + Math.random() * 6000); }
@@ -2352,12 +2402,15 @@
     const yo = escena.get(yoEnElMar());
     if (p === yo) {
       SONIDO.plop();
+      if (p.agua) { saludar(p); return true; } // en la moto o en la tabla, saluda
       if (p.sentada || p.vaASentarse) { levantarse(p); return true; }
+      S.contar('mar.sentadas');
       irASentarse(p);
       return true;
     }
     globito(p, (person(p.pid) || {}).n || p.pid);
     if (yo) { saludar(yo); S.enviarMar({ t: 'saludo', a: p.pid }); }
+    S.contar('mar.saludos');
     if (p.falsa) setTimeout(() => { saludar(p); corazon(p); globito(p, '¡Hola!'); }, 1400);
     return true;
   }
@@ -2392,6 +2445,7 @@
     if (m.t === 'estado' && p) {
       if (m.como && m.como !== p.como && PERSONITAS[m.como]) { p.como = m.como; p.el.dataset.ropa = ''; pintarPersonita(p); ubicar(p); }
       p.vaASentarse = !!m.va;
+      if (p.agua) { p.x = m.x; p.y = my; p.sentada = !!m.sentada; return; } // está en el agua: lo de la orilla queda para cuando salga
       const llegar = () => { p.sentada = !!m.sentada; p.el.classList.toggle('sentada', p.sentada); };
       if (Math.abs(m.x - p.x) > 0.3 || Math.abs(my - p.y) > 0.3) { p.el.classList.remove('sentada'); moverA(p, m.x, my, llegar); } else llegar();
       p.mira = m.mira || ''; p.el.classList.remove('mira-i', 'mira-d'); if (p.mira) p.el.classList.add(p.mira);
@@ -2417,6 +2471,7 @@
       if (yo.juntos[q.pid] === 12) juntos(q);
     });
     aLaSombra();
+    revisarAgua();
   }
   // Doce segundos sentados uno al lado del otro: estrella fugaz de noche, bandada de día, y cuenta para el logro.
   function juntos(q) {
@@ -2482,7 +2537,108 @@
       p.el.classList.toggle('a-la-sombra', adentro);
     });
   }
+  // ---------- en el agua: moto de agua y surf ----------
+  // Quien tiene la moto de agua y está mirando el mar anda en el mar a la mañana y de día, de un lado al otro; si son varios,
+  // de a dos, a la par. Quien tiene la tabla de surf surfea a la mañana, de día y al atardecer: espera la ola sentado en la
+  // tabla, se para, la corre hasta la orilla y vuelve a salir. Con las dos cosas, alterna cada 10 minutos. Con tormenta, nadie.
+  // Todo sale de la hora, así que en todos los celus se ve igual.
+  const tieneCosa = (pid, id) => { try { return S.altar(pid).items.some((x) => x.id === id); } catch (e) { return false; } };
+  function colorCosa(pid, id) {
+    try { const a = S.altar(pid), it = a.items.find((x) => x.id === id); return (it && (a.place[it.k] || {}).c) || shopItem(id).col; } catch (e) { return shopItem(id).col; }
+  }
+  function aguaDe(pid) {
+    const st = SKY.state(), m = st.minute, sol = st.sun;
+    if (/tormenta/.test(st.kind)) return null;
+    const moto = tieneCosa(pid, 'moto'), tabla = tieneCosa(pid, 'tabla');
+    const dia = m >= sol.rise + 20 && m <= sol.set - 80, conLuz = m >= sol.rise && m <= sol.set + 15;
+    if (moto && tabla && dia) return Math.floor(Date.now() / 6e5) % 2 ? 'surf' : 'moto';
+    if (moto && dia) return 'moto';
+    if (tabla && conLuz) return 'surf';
+    return null;
+  }
+  const tablaSVG = (col) => `<svg viewBox="0 0 64 14" aria-hidden="true"><path d="M2 7C10 1.2 50 .6 62 7C50 13.4 10 12.8 2 7Z" fill="${col}" stroke="var(--tinta)" stroke-width="1.2"/><path d="M8 7H56" stroke="#fffaf0" stroke-width="1.6" opacity=".8"/></svg>`;
+  function entrarAlAgua(p, tipo) {
+    const sky = document.getElementById('sky');
+    const w = document.createElement('div');
+    w.className = 'agua ' + tipo;
+    w.innerHTML = `<span class="nave">${tipo === 'moto' ? ARTE.item('moto', colorCosa(p.pid, 'moto')) : tablaSVG(colorCosa(p.pid, 'tabla') || '#f7b3c6')}</span><i class="estela" aria-hidden="true"></i>`;
+    sky.appendChild(w);
+    clearTimeout(p.fin); p.anda = null;
+    p.el.classList.remove('camina', 'sentada', 'mira-i', 'mira-d', 'a-la-sombra');
+    p.el.classList.add('en-agua');
+    p.el.style.left = ''; p.el.style.top = ''; p.el.style.zIndex = '';
+    w.appendChild(p.el);
+    p.agua = tipo; p.w = w;
+    if (tipo === 'moto') p.el.classList.add('sentada');
+    pintarPersonita(p);
+    if (!rafAgua) rafAgua = requestAnimationFrame(moverAgua);
+  }
+  function salirDelAgua(p) {
+    const sky = document.getElementById('sky'), w = p.w;
+    p.agua = null; p.w = null;
+    p.el.classList.remove('en-agua', 'sentada', 'surfea', 'izq');
+    p.el.style.opacity = '';
+    if (sky) sky.appendChild(p.el);
+    if (w) w.remove();
+    p.el.classList.toggle('sentada', !!p.sentada);
+    ubicar(p); pintarPersonita(p);
+  }
+  // Quién está en el agua ahora (se revisa cada segundo, y cuando llega o se va alguien).
+  function revisarAgua() {
+    escena.forEach((p) => {
+      const tipo = conPersona() && !sinMovimiento ? aguaDe(p.pid) : null;
+      if (tipo === p.agua) return;
+      if (p.agua) salirDelAgua(p);
+      if (tipo) entrarAlAgua(p, tipo);
+    });
+  }
+  let rafAgua = 0;
+  const suave = (k) => k * k * (3 - 2 * k);
+  function moverAgua() {
+    const ahora = Date.now(), en = [...escena.values()].filter((p) => p.agua && p.w);
+    if (!en.length) { rafAgua = 0; return; }
+    const motos = en.filter((p) => p.agua === 'moto').sort((a, b) => a.pid.localeCompare(b.pid));
+    const surfers = en.filter((p) => p.agua === 'surf').sort((a, b) => a.pid.localeCompare(b.pid));
+    // Motos: de a dos, a la par (el segundo un poco más cerca), cada pareja en su carril. Van y vuelven en 44 s.
+    motos.forEach((p, i) => {
+      const par = Math.floor(i / 2), T = 44000, u = (ahora / T + par * 0.31) % 1, ida = u < 0.5, k = suave(ida ? u * 2 : 2 - u * 2);
+      // a la par: el segundo de cada pareja va por el carril de al lado (más cerca) y apenas atrás, para que se vean los dos
+      const atras = (i % 2) * (ida ? -3 : 3), x = 10 + 80 * k + atras, y = 60.6 - par * 1.9 + (i % 2) * 2.6 + Math.sin(ahora / 520 + i) * 0.12;
+      ponerEnAgua(p, x, y, !ida, 1, Math.abs(Math.sin(u * Math.PI * 2)) > 0.15);
+    });
+    // Surf: espera la ola sentado, se para y la corre hacia la orilla, se cae y vuelve a salir. Cada uno a su ritmo.
+    surfers.forEach((p, i) => {
+      const T = 24000, fase = (ahora / T + i * 0.43), u = fase % 1, vuelta = Math.floor(fase);
+      const dir = (vuelta + i) % 2 ? 1 : -1, r = ((i * 37 + vuelta * 17) % 52) / 52, x0 = dir > 0 ? 10 + r * 52 : 38 + r * 52; // la ola termina adentro de la pantalla
+      let x = x0, y = 59.2 + Math.sin(ahora / 700 + i) * 0.15, op = 1, parado = false;
+      if (u < 0.06) op = u / 0.06;
+      else if (u >= 0.38 && u < 0.8) { const k = (u - 0.38) / 0.42; x = x0 + dir * 26 * k; y = 59.2 + 6.6 * suave(k); parado = true; }
+      else if (u >= 0.8) { x = x0 + dir * 26; y = 65.8; op = u < 0.86 ? 1 - (u - 0.8) / 0.06 : 0; parado = u < 0.83; }
+      p.el.classList.toggle('sentada', !parado); p.el.classList.toggle('surfea', parado);
+      p.w.classList.toggle('ola', parado);
+      ponerEnAgua(p, x, y, dir < 0, op, parado);
+    });
+    rafAgua = requestAnimationFrame(moverAgua);
+  }
+  function ponerEnAgua(p, x, y, izq, op, estela) {
+    const h = PERSONITAS[p.como].cm * PX_CM * escalaY(y);
+    p.w.style.left = x.toFixed(2) + '%'; p.w.style.top = y.toFixed(2) + '%';
+    p.w.style.setProperty('--h', h.toFixed(1) + 'px');
+    p.w.style.zIndex = capaY(y);
+    p.w.style.opacity = op.toFixed(2);
+    p.w.classList.toggle('izq', izq); p.w.classList.toggle('con-estela', estela);
+  }
   if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
+
+  // A quien le desaprueban una foto (o la recupera) le llega el aviso con lo que perdió o volvió.
+  function avisarDesaprobadas(cambios) {
+    cambios.slice(0, 3).forEach((c, i) => setTimeout(() => {
+      const t = esc(tituloFoto(c.mid, S.me)), cuanto = `${c.xp} XP${c.c ? ` y ${c.c} monedas` : ''}`;
+      toast(c.mala ? `<span style="font-size:1.6rem">❌</span><span>Tu foto <b>${t}</b> quedó desaprobada: ${S.cruces} cruces rojas. Perdiste ${cuanto}. Cambiala para recuperarlos.</span>`
+        : `<span style="font-size:1.6rem">✅</span><span>Tu foto <b>${t}</b> volvió a valer. Recuperaste ${cuanto}.</span>`, 6000);
+    }, i * 1200));
+    if (cambios.length) { SONIDO[cambios[0].mala ? 'no' : 'si'](); setTimeout(render, 300); }
+  }
 
   // ---------- quién está en la colonia ----------
   // Cuando alguien abre la app mientras vos la tenés abierta: un cartelito con su cara (una vez cada 3 h por persona).
@@ -2506,6 +2662,7 @@
   S.onChange((ev) => {
     if (ev && ev.llego) return avisarLlegada(ev.llego);
     if (ev && ev.mar) return recibirMar(ev.mar);
+    if (ev && ev.desap) avisarDesaprobadas(ev.desap);
     if (ev && ev.presencia) { const el = $('#enLinea'); if (el) el.outerHTML = enLineaHTML(); armarEscena(); return; }
     if (ev && ev.gift) setTimeout(mostrarRegalos, 300);
     if (ev && ev.uploadFailed) toast('<span>No se pudo subir la foto. Queda guardada y se reintenta cuando haya señal.</span>', 4500);
@@ -2516,7 +2673,21 @@
 
   SKY.start();
   render();
-  S.ready.then(() => { render(); avisarBocinas(); if (S.me) setTimeout(welcome, 400); });
+  S.ready.then(() => { render(); avisarBocinas(); if (S.me) { setTimeout(welcome, 400); S.contar('app.aperturas'); } });
+  // Para el wrapped: cuántas veces abrís la app (volver después de media hora cuenta como otra) y cuánto tiempo la tenés a la vista.
+  // Si la cerrás mirando el mar, ese rato también cuenta como mirar el mar.
+  let vistaDesde = Date.now(), ocultaDesde = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      ocultaDesde = Date.now();
+      S.contar('app.seg', Math.round((ocultaDesde - vistaDesde) / 1000));
+      if (marDesde) { const seg = Math.round((ocultaDesde - marDesde) / 1000); S.contar('mar.seg', seg); S.record('mar.max', seg); marDesde = 0; }
+    } else {
+      if (ocultaDesde && Date.now() - ocultaDesde > 30 * 6e4) S.contar('app.aperturas');
+      vistaDesde = Date.now();
+      if (document.body.classList.contains('mirando')) marDesde = Date.now();
+    }
+  });
   // Actualización sola: la app instalada queda abierta en segundo plano y vuelve sin recargar.
   // Al volver a mirarla se fija si hay versión nueva; si la hay, recarga cuando no estás haciendo nada.
   if ('serviceWorker' in navigator && location.protocol === 'https:') {

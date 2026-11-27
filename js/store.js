@@ -10,7 +10,7 @@ window.STORE = (function () {
   const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js';
   const pub = (path) => `${C.supabaseUrl}/storage/v1/object/public/figuritas/${path}`;
 
-  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacVistas: [], sobres: 0, recuerdos: [], visitas: [], amigos: [], perfil: null, tiradas: [], leidas: [],
+  const blank = () => ({ me: null, xp: 0, coins: 0, photos: {}, owned: [], place: {}, gifts: [], days: [], ach: {}, secretSeen: false, am: null, bocinas: {}, regalosVistos: [], idea: null, sumo: [], hallazgos: {}, reac: {}, reacT: {}, cuentas: {}, reacVistas: [], sobres: 0, recuerdos: [], visitas: [], amigos: [], perfil: null, tiradas: [], leidas: [],
     cache: { players: {}, figs: [], regalos: [] } });
   let s;
   try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { s = blank(); }
@@ -76,7 +76,8 @@ window.STORE = (function () {
         s.xp = mine.xp; s.coins = mine.monedas;
         const d = mine.datos;
         s.owned = d.owned || []; s.place = d.place || {}; s.days = d.days || []; s.ach = d.ach || {}; s.secretSeen = d.secretSeen || false; s.am = d.am || null; s.bocinas = d.bocinas || {};
-        s.idea = d.idea || null; s.sumo = d.sumo || []; s.hallazgos = d.hallazgos || {}; s.reac = d.reac || {};
+        s.idea = d.idea || null; s.sumo = d.sumo || []; s.hallazgos = d.hallazgos || {}; s.reac = d.reac || {}; s.reacT = d.reacT || {};
+        s.cuentas = juntarCuentas(d.cuentas, s.cuentas);
         s.reacVistas = [...new Set([...(d.reacVistas || []), ...s.reacVistas])];
         s.sobres = d.sobres || 0;
         if (!String(s.perfil || '').startsWith('data:')) s.perfil = d.perfil || null;
@@ -88,6 +89,7 @@ window.STORE = (function () {
     if (s.me) s.cache.figs.filter((x) => x.jugador === s.me).forEach((x) => { if (!String(s.photos[x.mision] || '').startsWith('data:')) s.photos[x.mision] = pub(x.foto); });
     save();
     devolverRetirados();
+    revisarDesaprobadas();
   }
   // Lo que se sacó del kiosco (retirado: true en D.SHOP): se devuelve lo que se pagó, una sola vez, a quien lo compró o lo regaló.
   function devolverRetirados() {
@@ -100,11 +102,11 @@ window.STORE = (function () {
   }
   function subscribe() {
     client.channel('colonia')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jugadores' }, (p) => { if (p.new && p.new.id) { s.cache.players[p.new.id] = p.new; save(); emit(); } })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jugadores' }, (p) => { if (p.new && p.new.id) { s.cache.players[p.new.id] = p.new; save(); emit(); if (p.new.id !== s.me) revisarDesaprobadas(); } })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'figuritas' }, (p) => {
         if (!p.new || !p.new.jugador) return;
         s.cache.figs = s.cache.figs.filter((x) => !(x.jugador === p.new.jugador && x.mision === p.new.mision)).concat(p.new);
-        save(); emit();
+        save(); emit(); revisarDesaprobadas();
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'regalos' }, (p) => {
         if (s.cache.regalos.some((r) => r.id === p.new.id)) return; // ya lo agregó quien lo regaló
@@ -169,7 +171,7 @@ window.STORE = (function () {
     if (!client || !s.me) return;
     clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos, tiradas: (s.tiradas || []).slice(-20), leidas: (s.leidas || []).slice(-200),
+      const datos = { v: 1, owned: s.owned, place: s.place, days: s.days.slice(-40), ach: s.ach, secretSeen: s.secretSeen, am: s.am, bocinas: s.bocinas, regalosVistos: s.regalosVistos.slice(-200), idea: s.idea, sumo: s.sumo, hallazgos: s.hallazgos, reac: s.reac, reacT: s.reacT, cuentas: s.cuentas, reacVistas: s.reacVistas.slice(-400), sobres: s.sobres, recuerdos: s.recuerdos, visitas: s.visitas, amigos: s.amigos, tiradas: (s.tiradas || []).slice(-20), leidas: (s.leidas || []).slice(-200),
         perfil: String(s.perfil || '').startsWith('data:') ? (((s.cache.players[s.me] || {}).datos || {}).perfil || null) : s.perfil };
       const { error } = await client.from('jugadores').update({ xp: s.xp, monedas: s.coins, datos, actualizado: new Date().toISOString() }).eq('id', s.me);
       if (error) console.warn('No se pudo guardar', error);
@@ -190,7 +192,7 @@ window.STORE = (function () {
         if (ins.error) throw ins.error;
         s.photos[mid] = pub(path);
         s.cache.figs = s.cache.figs.filter((x) => !(x.jugador === s.me && x.mision === mid)).concat(row);
-        save(); emit();
+        save(); emit(); revisarDesaprobadas();
       } catch (e) {
         console.warn('Foto pendiente, se reintenta', e);
         listeners.forEach((f) => f({ uploadFailed: true }));
@@ -233,6 +235,49 @@ window.STORE = (function () {
     return { xp: n, antes, despues: s.xp, levelUp: subio > 0 ? levelOf(s.xp) : null };
   }
   const reacDe = (pid) => (pid === s.me ? s.reac : live ? ((s.cache.players[pid] || {}).datos || {}).reac || {} : DEMO[pid].reac || {});
+  // Cuándo puso cada uno su reacción. Las de antes de que existiera esto cuentan como puestas el 27/11 a la mañana.
+  const REAC_VIEJA = '2026-11-27T12:00:00.000Z';
+  const reacTDe = (pid) => (pid === s.me ? s.reacT : live ? ((s.cache.players[pid] || {}).datos || {}).reacT || {} : {});
+  // Cuándo se subió la foto que hay ahora (al cambiarla, las reacciones de antes ya no cuentan).
+  const creadaDe = (pid, mid) => { const f = s.cache.figs.find((x) => x.jugador === pid && x.mision === mid); return f ? f.creada || '' : ''; };
+  // Fotos desaprobadas: con CRUCES o más cruces rojas, la foto pierde lo que dio (experiencia y monedas) hasta que se cambie.
+  const CRUCES = 4;
+  // La experiencia que dio cada misión (anotada al subirla; para las de antes, la de la misión).
+  const xpMision = (mid) => {
+    if (s.ach['xp:' + mid]) return s.ach['xp:' + mid];
+    const m = D.MISSIONS.find((x) => x.id === mid);
+    if (m) return m.xp;
+    if (mid === D.DUO.id) return D.DUO.xp;
+    if (mid.startsWith('ruta-')) return D.RUTA.xp;
+    if (mid.startsWith('sec-')) return 30;
+    return mid.startsWith('dia-') && D.DAILY_TRIP[mid.slice(4)] ? 40 : 20;
+  };
+  function revisarDesaprobadas() {
+    if (!s.me) return;
+    const cambios = [];
+    Object.keys(s.photos).forEach((mid) => {
+      const mala = api.desaprobada(s.me, mid), k = 'desap:' + mid, ya = s.ach[k];
+      if (mala && !ya) {
+        const xp = Math.min(s.xp, xpMision(mid)), c = Math.min(s.coins, 10);
+        s.xp -= xp; s.coins -= c; s.ach[k] = [xp, c]; cambios.push({ mid, mala: true, xp, c });
+      } else if (!mala && ya) {
+        const [xp, c] = Array.isArray(ya) ? ya : [0, 0];
+        s.xp += xp; s.coins += c; delete s.ach[k]; cambios.push({ mid, mala: false, xp, c });
+      }
+    });
+    if (!cambios.length) return;
+    save(); pushMe();
+    listeners.forEach((f) => f({ desap: cambios }));
+  }
+  // Las cuentas para el wrapped se juntan quedándose con lo más alto de cada una (por si usás dos celus).
+  function juntarCuentas(a, b) {
+    const out = Object.assign({}, a || {});
+    Object.entries(b || {}).forEach(([k, v]) => { out[k] = Math.max(out[k] || 0, v); });
+    return out;
+  }
+  let cuentasT = null;
+  const subirCuentas = () => { if (!cuentasT) cuentasT = setTimeout(() => { cuentasT = null; pushMe(); }, 20000); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden && cuentasT) { clearTimeout(cuentasT); cuentasT = null; pushMe(); } });
 
   const api = {
     live, ready,
@@ -265,7 +310,7 @@ window.STORE = (function () {
     setMe(id) {
       s.me = id;
       const row = s.cache.players[id];
-      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacVistas = row.datos.reacVistas || []; s.sobres = row.datos.sobres || 0; s.recuerdos = row.datos.recuerdos || []; s.visitas = row.datos.visitas || []; s.amigos = row.datos.amigos || []; s.perfil = row.datos.perfil || null; s.tiradas = row.datos.tiradas || []; s.leidas = row.datos.leidas || []; }
+      if (row && row.datos && row.datos.v) { s.xp = row.xp; s.coins = row.monedas; s.owned = row.datos.owned || []; s.place = row.datos.place || {}; s.days = row.datos.days || []; s.ach = row.datos.ach || {}; s.secretSeen = row.datos.secretSeen || false; s.am = row.datos.am || null; s.bocinas = row.datos.bocinas || {}; s.regalosVistos = row.datos.regalosVistos || []; s.idea = row.datos.idea || null; s.sumo = row.datos.sumo || []; s.hallazgos = row.datos.hallazgos || {}; s.reac = row.datos.reac || {}; s.reacT = row.datos.reacT || {}; s.cuentas = juntarCuentas(row.datos.cuentas, s.cuentas); s.reacVistas = row.datos.reacVistas || []; s.sobres = row.datos.sobres || 0; s.recuerdos = row.datos.recuerdos || []; s.visitas = row.datos.visitas || []; s.amigos = row.datos.amigos || []; s.perfil = row.datos.perfil || null; s.tiradas = row.datos.tiradas || []; s.leidas = row.datos.leidas || []; }
       s.cache.figs.filter((x) => x.jugador === id).forEach((x) => { s.photos[x.mision] = pub(x.foto); });
       save(); conectarPresencia();
     },
@@ -418,7 +463,7 @@ window.STORE = (function () {
       Object.values(reac).forEach((r) => { porTipo[r] = (porTipo[r] || 0) + 1; });
       const hz = d.hallazgos || {};
       return {
-        fotos: api.figuritas(pid),
+        fotos: api.figuritas(pid) - api.desaprobadasDe(pid),
         reacciones: Object.keys(reac).length,
         regalos: live ? s.cache.regalos.filter((r) => r.de === pid).length : d.regalosHechos || 0,
         dias: (d.days || []).length,
@@ -445,13 +490,34 @@ window.STORE = (function () {
       return out.filter((x) => !x.mision.startsWith('sec-')).sort((a, b) => String(b.creada).localeCompare(String(a.creada)));
     },
     // Cada persona tiene una reacción por foto (datos.reac['jugador/mision'] = 'risa'). Tocar la misma la saca.
-    reaccionar(foto, r) { if (s.reac[foto] === r) delete s.reac[foto]; else s.reac[foto] = r; save(); pushMe(); },
-    miReaccion(foto) { return s.reac[foto] || null; },
+    // Cada reacción guarda cuándo se puso (datos.reacT): si después se cambia la foto, las de antes dejan de contar.
+    reaccionar(foto, r) {
+      if (s.reac[foto] === r) { delete s.reac[foto]; delete s.reacT[foto]; } else { s.reac[foto] = r; s.reacT[foto] = new Date().toISOString(); }
+      api.contar('reacciones');
+      save(); pushMe();
+    },
+    miReaccion(foto) { return api.vigente(s.me, foto) ? s.reac[foto] || null : null; },
+    // ¿La reacción de pid a esta foto es de la foto que hay ahora?
+    vigente(pid, foto) {
+      const [due, mid] = foto.split('/'), creada = creadaDe(due, mid);
+      return !creada || (reacTDe(pid)[foto] || REAC_VIEJA) >= creada;
+    },
     reacciones(foto) {
       const out = {};
-      D.PEOPLE.forEach((p) => { const r = reacDe(p.id)[foto]; if (r) (out[r] = out[r] || []).push(p.id); });
+      D.PEOPLE.forEach((p) => { const r = reacDe(p.id)[foto]; if (r && api.vigente(p.id, foto)) (out[r] = out[r] || []).push(p.id); });
       return out;
     },
+    // Con 4 cruces rojas (de 4 personas distintas, puestas a la foto que hay ahora), la foto queda desaprobada.
+    desaprobada(pid, mid) {
+      if (mid.startsWith('sec-')) return false;
+      return ((api.reacciones(pid + '/' + mid).no) || []).length >= CRUCES;
+    },
+    cruces: CRUCES,
+    // ---------- cuentas para el wrapped ----------
+    // Cuántas veces (o cuántos segundos) hacés cada cosa. Quedan en datos.cuentas y se suben cada tanto.
+    contar(k, n = 1) { if (!s.me || !n) return; s.cuentas[k] = (s.cuentas[k] || 0) + n; save(); subirCuentas(); },
+    record(k, n) { if (!s.me || (s.cuentas[k] || 0) >= n) return; s.cuentas[k] = n; save(); subirCuentas(); },
+    cuentas(pid) { return pid === s.me || !pid ? s.cuentas : live ? (((s.cache.players[pid] || {}).datos || {}).cuentas || {}) : {}; },
     // Las que otros pusieron en tus fotos y todavía no viste (el aviso sale una sola vez, también desde otro celu).
     reaccionesNuevas() {
       const out = [];
@@ -471,6 +537,7 @@ window.STORE = (function () {
     misRecuerdos() { return s.recuerdos || []; },
     // Abre un sobre: un recuerdo que no tengas (a veces, una rareza de la suerte). Si ya tenés todos, monedas.
     abrirSobre(items) {
+      api.contar('sobres.abiertos');
       if (!(s.sobres > 0) || !items || !items.length) return null;
       s.sobres -= 1;
       const faltan = items.filter((x) => !s.recuerdos.includes(x.id));
@@ -486,7 +553,7 @@ window.STORE = (function () {
       save(); pushMe();
       return it || { repetido: true };
     },
-    visitar(pid) { if (!s.visitas.includes(pid)) { s.visitas.push(pid); save(); pushMe(); } },
+    visitar(pid) { api.contar('visitas'); if (!s.visitas.includes(pid)) { s.visitas.push(pid); save(); pushMe(); } },
     // Qué hiciste con cada persona: reaccionar a una foto suya, visitar su altarcito, regalarle algo.
     conAmigo(pid) {
       return {
@@ -541,6 +608,10 @@ window.STORE = (function () {
       const bocinas = D.RUTA.vehiculos.reduce((n, v) => n + api.bocinas(v.id).total, 0);
       return { fotos, regalos, bocinas };
     },
+    desaprobadasDe(id) {
+      const mids = id === s.me ? Object.keys(s.photos) : live ? s.cache.figs.filter((x) => x.jugador === id).map((x) => x.mision) : DEMO[id].done;
+      return mids.filter((m) => api.desaprobada(id, m)).length;
+    },
     figuritas(id) {
       if (id === s.me) return Object.keys(s.photos).length;
       return live ? s.cache.figs.filter((x) => x.jugador === id).length : DEMO[id].done.length;
@@ -552,7 +623,9 @@ window.STORE = (function () {
       const first = !s.photos[mid];
       s.photos[mid] = dataUrl;
       const out = [];
+      if (!first) api.contar('fotos.cambiadas');
       if (first) {
+        s.ach['xp:' + mid] = xp; // para saber cuánto descontar si la desaprueban
         s.xp += xp; s.coins += 10; out.push({ xp, coins: 10 });
         // Cada 2 fotos de misiones, un sobre del baúl (se cuenta desde el 23/11, no hacia atrás).
         s.ach.fotosSobre = (s.ach.fotosSobre || 0) + 1;
@@ -593,6 +666,7 @@ window.STORE = (function () {
         return xpGanada;
       }
       s.owned.push(item.id);
+      api.contar('kiosco.compras'); api.contar('kiosco.gastado', item.p);
       s.ach['compra:' + item.id] = 1; // para el logro de coleccionista: cuenta cosas distintas, aunque después las vendas
       save(); pushMe();
       return 'o' + (s.owned.length - 1);

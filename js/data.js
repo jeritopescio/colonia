@@ -47,6 +47,7 @@ window.DATA = (function () {
     { id: 'morfi', n: 'Golosinas y morfi', d: 'Lo que comemos' },
     { id: 'selfies', n: 'Selfies', d: 'Caras de colonia' },
     { id: 'paisajes', n: 'Paisajes', d: 'Mar, cielo y arena' },
+    { id: 'memes', n: 'Memes y stickers', d: 'Lo que circula por el grupo (vale captura de pantalla)' },
   ];
 
   // Cada misión se cumple subiendo una foto. Al subirla, queda hecha.
@@ -71,6 +72,12 @@ window.DATA = (function () {
     { id: 'mar-manana', s: 'paisajes', t: 'El mar a la mañana', xp: 25, costa: true },
     { id: 'nubes', s: 'paisajes', t: 'La nube más rara', xp: 25 },
     { id: 'huellas', s: 'paisajes', t: 'Huellas en la arena', xp: 25, costa: true },
+    { id: 'sticker-fav', s: 'memes', t: 'Tu sticker favorito del grupo', xp: 25 },
+    { id: 'meme-fav', s: 'memes', t: 'Tu meme favorito', xp: 25 },
+    { id: 'emojis', s: 'memes', t: 'Tus emojis más usados (captura del teclado)', xp: 25 },
+    { id: 'meme-colonia', s: 'memes', t: 'Un meme que solo la colonia entiende', xp: 30 },
+    { id: 'sticker-verano', s: 'memes', t: 'El sticker del verano', xp: 30 },
+    { id: 'meme-verano', s: 'memes', t: 'El meme del verano', xp: 30 },
   ];
 
   // Misión del día: fija durante el viaje, rotativa antes.
@@ -85,6 +92,12 @@ window.DATA = (function () {
     'Algo amarillo', 'Tu almuerzo de hoy', 'Una planta de tu casa', 'Tus zapatillas de hoy',
     'El cielo desde tu ventana', 'Algo que te recuerde al verano', 'Tu taza favorita', 'Un animalito de tu barrio (vale cualquier ternurita)',
   ];
+  // Algunos días tienen su misión fija (van antes que la rotativa; solo días que todavía no pasaron, para no cambiar fotos viejas).
+  const DAILY_FIJA = {
+    '2026-11-28': 'El último sticker que mandaste',
+    '2026-11-30': 'El meme que te representa hoy',
+    '2026-12-02': 'El sticker que mandarías si se cancela el viaje',
+  };
   // Quienes juegan a distancia tienen su propia misión del día mientras la colonia está en la costa.
   const DAILY_LEJOS = {
     '2026-12-04': 'Un cartelito de "¡Buen viaje!" para los autos',
@@ -98,6 +111,7 @@ window.DATA = (function () {
     'Una foto de la colonia que nunca mostraste', 'Algo que querés llevar al próximo viaje', 'Tu verano de hoy',
     'Un lugar al que irías con la colonia', 'Algo que te haga acordar a Costa Esmeralda', 'El cielo de hoy, estés donde estés',
     'Lo que estás escuchando', 'Un rincón lindo de tu casa', 'Algo rico para la próxima juntada', 'Tus ojotas',
+    'El sticker que más usaste este verano', 'Un meme para la próxima juntada',
   ];
   // Alguna persona con su propia misión del día (Jose sale recién el sábado).
   const DAILY_PROPIA = { jose: { '2026-12-04': 'Un cartelito de "¡Ya voy!" para la colonia' } };
@@ -490,5 +504,5 @@ window.DATA = (function () {
   // Fotos subidas durante la beta (persona, misión, fecha). Las de misiones secretas no van acá.
   const VESTIGIOS = [['rochi', 'dia-2026-11-17', '17/11'], ['nico', 'dia-2026-11-17', '17/11'], ['nico', 'flor', '18/11'],
     ['jero', 'dia-2026-11-18', '18/11'], ['rochi', 'selfie-nueva', '18/11'], ['viqui', 'dia-2026-11-18', '18/11']];
-  return { precioVenta, CUMPLES, LOGROS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
+  return { precioVenta, CUMPLES, LOGROS, LOTES, BOTELLA_AMIGO, RACHA, xpRegalo, PEOPLE, LEVELS, SERIES, COSTA, MISSIONS, DAILY_TRIP, DAILY_FIJA, DAILY_POOL, DAILY_ENTRE, DAILY_LEJOS, DAILY_PROPIA, DUO, RUTA, JUEGO, CAPITULOS, COLECCION, BONOS, HALLAZGOS, SECRETAS, ACH, SHOP, ALIAS, COLORS, FOTO, CARTAS_V, VESTIGIOS };
 })();

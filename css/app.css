@@ -194,6 +194,31 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 #sky .cosa-mar.fogata::before { content: ""; position: absolute; left: 50%; top: 55%; width: 120px; height: 70px; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(rgba(255, 190, 110, .42), rgba(255, 160, 90, .12) 45%, transparent 70%); animation: fuego 1.8s ease-in-out infinite alternate; z-index: -1; }
 @keyframes fuego { from { opacity: .75; transform: translate(-50%, -50%) scale(.94); } to { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } }
 [data-sky-dark="1"] #sky .cosa-mar.sombrilla, [data-sky-dark="1"] #sky .cosa-mar.toalla { filter: brightness(.45); }
+/* En el agua: moto de agua y surf. --h = el alto de la personita a esa distancia (lo pone la app en cada cuadro). */
+#sky .agua { position: absolute; transform: translate(-50%, -100%); width: calc(var(--h, 26px) * 1.8); pointer-events: none; }
+#sky .agua.surf { width: calc(var(--h, 26px) * 1.5); }
+#sky .agua .nave { display: block; position: relative; z-index: 1; }
+#sky .agua .nave .ai { display: block; width: 100%; height: auto; aspect-ratio: var(--ar); }
+#sky .agua .nave svg { display: block; width: 100%; height: auto; aspect-ratio: 64 / 14; overflow: visible; }
+#sky .agua.izq .nave { transform: scaleX(-1); }
+#sky .agua .personita.en-agua { position: absolute; top: auto; left: 34%; bottom: 58%; height: var(--h, 26px); transform: translateX(-50%); animation: none; transition: filter 1.2s; z-index: 2; }
+#sky .agua.izq .personita.en-agua { left: 66%; }
+#sky .agua.surf .personita.en-agua, #sky .agua.surf.izq .personita.en-agua { left: 50%; bottom: 38%; }
+#sky .agua.surf .personita.en-agua.sentada { bottom: 24%; }
+/* la estela: espuma blanca atrás de la moto, o la ola que corre quien surfea */
+#sky .agua .estela { position: absolute; z-index: 0; bottom: -8%; left: -42%; width: 70%; height: 46%; border-radius: 50%; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(ellipse at 100% 60%, rgba(255, 255, 255, .95), rgba(255, 255, 255, .5) 40%, rgba(255, 255, 255, 0) 72%); }
+#sky .agua.izq .estela { left: auto; right: -42%; background: radial-gradient(ellipse at 0% 60%, rgba(255, 255, 255, .95), rgba(255, 255, 255, .5) 40%, rgba(255, 255, 255, 0) 72%); }
+#sky .agua.con-estela .estela { opacity: 1; animation: estela .5s ease-in-out infinite alternate; }
+#sky .agua.surf .estela { width: 90%; height: 80%; bottom: -24%; }
+@keyframes estela { to { transform: scaleX(1.12) translateY(1px); } }
+/* surfeando: parada, con los brazos abiertos y un poco inclinada */
+.personita.surfea .brazo.i { transform: rotate(64deg); }
+.personita.surfea .brazo.d { transform: rotate(-64deg); }
+.personita .brazo { transition: transform .4s ease-out; }
+.personita.surfea svg { transform: rotate(-5deg); }
+#sky .agua.izq .personita.surfea svg { transform: rotate(5deg); }
+[data-sky-dark="1"] #sky .agua .nave { filter: brightness(.6); }
 /* estrella fugaz: cuando dos se quedan sentados juntos de noche */
 .estrella-fugaz { position: absolute; z-index: 1; width: 110px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff); transform: rotate(20deg); animation: fugaz 1.4s ease-out forwards; pointer-events: none; }
 @keyframes fugaz { from { opacity: 0; translate: -40px 0; } 15% { opacity: 1; } to { opacity: 0; translate: 220px 80px; } }
@@ -433,6 +458,17 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 .post-quien .face { width: 36px; height: 36px; border-width: 2px; }
 .post-t { margin: 0; font-family: "Patrick Hand", var(--hand); font-size: 1.1rem; line-height: 1.2; }
 .post-foto { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; border: 2.5px solid var(--ink); border-radius: 12px 14px 10px 16px; background: var(--paper); }
+/* Foto desaprobada (4 cruces rojas): una cruz grande encima, y la foto apagada. */
+.post-foto-w, .carta-ft-w, .foto-grande-w { position: relative; display: block; container-type: inline-size; }
+.desap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-8deg); font-size: 46cqw; line-height: 1; pointer-events: none; filter: drop-shadow(0 2px 0 rgba(255, 255, 255, .8)) drop-shadow(0 3px 6px rgba(43, 37, 64, .35)); animation: pop .4s ease-out; }
+.post-foto-w:has(.desap) img, .carta-ft-w:has(.desap) img, .foto-grande-w:has(.desap) img { filter: grayscale(.6) brightness(.85); }
+.post-foto-w .desap, .carta-ft-w .desap, .foto-grande-w .desap { font-size: 46cqw; line-height: 1; }
+.desap-nota { margin: 0; color: #b4473a; font-weight: 600; }
+.foto-reacs { display: grid; gap: 8px; justify-items: center; }
+.foto-reacs .reacs { justify-content: center; }
+.strip .vf { padding: 0; border: 0; background: none; cursor: pointer; display: block; width: 100%; }
+/* La cruz para cerrar una hoja larga (la tarjeta): siempre a la vista, arriba a la derecha. */
+.cruz.cerrar-hoja { position: fixed; z-index: 21; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: 40px; height: 40px; padding: 9px; box-shadow: 0 2px 0 var(--ink); }
 .reacs { display: flex; flex-wrap: wrap; gap: 6px; }
 .reac { display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 3px 10px; border: 2px solid var(--ink); border-radius: 99px; background: var(--paper); color: var(--ink); font-family: var(--display); font-weight: 600; font-size: .95rem; cursor: pointer; }
 .reac span[aria-hidden] { font-size: 1.15rem; line-height: 1; }
