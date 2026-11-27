@@ -600,7 +600,7 @@
     const cambio = JSON.stringify(j) !== JSON.stringify(MENC);
     MENC = j;
     try { localStorage.setItem('colonia.menciones', JSON.stringify(j)); } catch (e) { /* sin lugar */ }
-    if (cambio && location.hash.slice(1) === 'colonia') render();
+    if (cambio && location.hash.slice(1) === 'colonia') renderSiArriba();
   }).catch(() => {});
   function ranking() {
     const filas = D.PEOPLE.map((p) => { const st = S.stats(p.id); return { id: p.id, st, pts: Object.entries(PUNTOS).reduce((t, [k, v]) => t + st[k] * v, 0) }; })
@@ -912,7 +912,7 @@
     const cambio = JSON.stringify(j) !== JSON.stringify(RECUERDOS);
     RECUERDOS = j;
     try { localStorage.setItem('colonia.recuerdos', JSON.stringify(j)); } catch (e) { /* sin lugar */ }
-    if (cambio && ['album', 'hoy'].includes(location.hash.slice(1))) render();
+    if (cambio && ['album', 'hoy'].includes(location.hash.slice(1))) renderSiArriba();
   }).catch(() => {});
   const recUrl = (id) => S.artUrl(`recuerdos/${id}.webp?v=${(RECUERDOS && RECUERDOS.v) || 1}`);
   // Miniatura liviana (260 px) para las grillas; la grande se baja recién al abrirla.
@@ -1087,7 +1087,7 @@
     const cambio = JSON.stringify(j) !== JSON.stringify(AGENDA);
     AGENDA = j;
     try { localStorage.setItem('colonia.agenda', JSON.stringify(j)); } catch (e) { /* sin lugar */ }
-    if (cambio && ['hoy', 'calendario'].includes(location.hash.slice(1))) render();
+    if (cambio && ['hoy', 'calendario'].includes(location.hash.slice(1))) renderSiArriba();
   }).catch(() => {});
   const TIPO = { plan: ['var(--rose)', 'juntada'], gig: ['var(--coral)', 'show'], bday: ['var(--butter)', 'cumple'], trip: ['var(--mint)', 'costa'], out: ['var(--celeste)', 'alguien de viaje'] };
   const PRIORIDAD = ['trip', 'bday', 'gig', 'plan', 'out'];
@@ -1864,7 +1864,9 @@
 
   // ---------- navegación ----------
   function go(r) { if (location.hash === '#' + r) render(); else location.hash = r; }
-  let logrosT = null, ultimaPantalla = '';
+  let logrosT = null, ultimaPantalla = '', dibujada = '', altoT = null, pendiente = false;
+  // Lo que llega solo (listas del bucket al abrir): se redibuja si estás arriba de todo; si no, queda para después.
+  function renderSiArriba() { if (scrollY < 40 && !document.querySelector('.sheet-bg') && !dragging) render(); else pendiente = true; }
   function render() {
     let r = location.hash.slice(1) || 'portada';
     if (r === 'misiones') r = 'album'; // Misiones quedó adentro del álbum
@@ -1876,7 +1878,12 @@
     if (r !== 'portada') salirDelMar();
     actualizarDorados();
     if (S.devuelto && S.me) { const n = S.devuelto; S.devuelto = 0; setTimeout(() => toast(`<span class="chip" style="--c:var(--butter)">+${n} <span class="coin"></span></span><span>Sacamos el buzo del kiosco: te devolvimos lo que pagaste.</span>`, 5000), 1200); }
+    // Si es la misma pantalla (después de tocar algo), se queda donde estabas: el alto se sostiene mientras cargan las fotos.
+    const misma = r === dibujada, y = scrollY;
+    if (misma) { clearTimeout(altoT); screen.style.minHeight = screen.offsetHeight + 'px'; }
     SCREENS[r]();
+    dibujada = r; pendiente = false;
+    if (misma) { scrollTo(0, y); altoT = setTimeout(() => { screen.style.minHeight = ''; }, 1500); }
     screen.querySelectorAll('img:not([decoding])').forEach((i) => { i.decoding = 'async'; }); // que decodificar fotos no trabe el scroll
     if (fotoPorArmar) setTimeout(() => armarFoto(screen), 300);
     if (r === 'portada') INICIO.entrar(); else INICIO.salir();
@@ -3222,7 +3229,8 @@
     return `<div id="enLinea">${ids.length ? `<div class="en-linea"><span class="small">Ahora en la colonia</span><span class="caras">${ids.map((id) => `<button class="cara-linea" data-carta="${id}" aria-label="${esc(person(id).n)} está en la colonia: ver su tarjeta"><img class="face" src="${face(id)}" alt=""><i aria-hidden="true"></i></button>`).join('')}</span></div>` : ''}</div>`;
   }
 
-  // Cambios de los demás en vivo: se vuelve a dibujar la pantalla (las hojas abiertas no se tocan).
+  // Cambios de los demás en vivo: la pantalla ya no se vuelve a dibujar sola (con cada cosa que hacía cualquiera se movía
+  // el scroll); se ven al deslizar hacia abajo estando arriba de todo, o al cambiar de sección.
   S.onChange((ev) => {
     if (ev && ev.llego) return avisarLlegada(ev.llego);
     if (ev && ev.mar) return recibirMar(ev.mar);
@@ -3231,9 +3239,53 @@
     if (ev && ev.gift) setTimeout(mostrarRegalos, 300);
     if (ev && ev.uploadFailed) toast('<span>No se pudo subir la foto. Queda guardada y se reintenta cuando haya señal.</span>', 4500);
     avisarBocinas();
-    if (!document.querySelector('.sheet-bg') && !dragging) render();
+    pendiente = true;
     avisarReacciones();
   });
+
+  // Deslizar hacia abajo estando arriba de todo: trae lo nuevo de la base y vuelve a dibujar la pantalla (como casi todas
+  // las apps). No en la portada, ni con una hoja abierta, ni arrastrando algo en el altarcito.
+  (function deslizarParaActualizar() {
+    const UMBRAL = 74;
+    let y0 = null, dy = 0, cargando = false;
+    const ind = document.createElement('div');
+    ind.className = 'ptr'; ind.setAttribute('aria-hidden', 'true');
+    ind.innerHTML = '<svg viewBox="0 0 24 24"><path class="flecha" d="M12 5v13M6.5 12.5 12 18l5.5-5.5"/><circle class="giro" cx="12" cy="12" r="7.5"/></svg>';
+    document.body.appendChild(ind);
+    const svg = ind.firstChild;
+    const puede = (e) => {
+      const r = location.hash.slice(1) || 'portada';
+      return !cargando && scrollY <= 0 && e.touches.length === 1 && S.me && r !== 'portada' && r !== 'quien' && !dragging
+        && !document.querySelector('.sheet-bg') && !document.body.classList.contains('mirando') && !(e.target.closest && e.target.closest('.altar, input, textarea, select'));
+    };
+    function mostrar(d) {
+      const k = Math.min(1, d / UMBRAL);
+      ind.style.transform = `translate(-50%, ${(Math.min(d * 0.55, 70) - 48).toFixed(1)}px)`;
+      ind.style.opacity = d > 8 ? Math.min(1, k * 1.5).toFixed(2) : '0';
+      svg.style.transform = `rotate(${k >= 1 ? 180 : Math.round(k * 150)}deg)`;
+      ind.classList.toggle('listo', k >= 1);
+    }
+    addEventListener('touchstart', (e) => { y0 = puede(e) ? e.touches[0].clientY : null; dy = 0; }, { passive: true });
+    addEventListener('touchmove', (e) => {
+      if (y0 == null) return;
+      if (scrollY > 2) { y0 = null; mostrar(0); return; }
+      dy = Math.max(0, e.touches[0].clientY - y0);
+      mostrar(dy);
+    }, { passive: true });
+    const soltar = async () => {
+      if (y0 == null) return;
+      y0 = null;
+      if (dy < UMBRAL) { mostrar(0); return; }
+      cargando = true;
+      ind.classList.add('cargando'); ind.style.transform = 'translate(-50%, 14px)'; ind.style.opacity = '1'; svg.style.transform = '';
+      try { await Promise.race([S.refrescar(), new Promise((ok) => setTimeout(ok, 6000))]); } catch (e) { /* sin señal: se dibuja con lo que hay */ }
+      if (!document.querySelector('.sheet-bg')) render();
+      ind.classList.remove('cargando', 'listo'); mostrar(0);
+      cargando = false;
+    };
+    addEventListener('touchend', soltar, { passive: true });
+    addEventListener('touchcancel', () => { y0 = null; mostrar(0); }, { passive: true });
+  })();
 
   SKY.start();
   render();

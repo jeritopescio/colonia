@@ -303,6 +303,8 @@ window.STORE = (function () {
   const api = {
     live, ready,
     onChange(f) { listeners.push(f); },
+    // Deslizar para actualizar: vuelve a traer todo de la base (si hay señal).
+    async refrescar() { if (!client) return false; await pull(); emit(); return true; },
     // La foto de perfil: la que cada uno eligió en la app (datos.perfil) o, si no, la de WhatsApp que puso Jero (caras/).
     faceUrl(id) {
       const perfil = id === s.me ? s.perfil : live ? ((s.cache.players[id] || {}).datos || {}).perfil : null;
