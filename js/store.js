@@ -151,14 +151,19 @@ window.STORE = (function () {
     if (!presencia) return;
     if (document.hidden) presencia.untrack(); else anunciar();
   });
-  // Avisa a los demás que estás (o ya no) mirando el mar. En el modo demo, al rato aparecen Rochi y Nico mirando también.
+  // Avisa a los demás que estás (o ya no) mirando el mar. En el modo demo, al rato aparecen Rochi y Nico mirando también;
+  // con ?demo&gente=7, van llegando de a uno hasta ser 7 (para ver el barco fantasma, que aparece con más de 5).
   let demoMarT = [];
+  const DEMO_GENTE = +((location.search.match(/[?&]gente=(\d+)/) || [])[1] || 0);
   function mirarElMar(si) {
     if (mirando === !!si) return;
     mirando = !!si;
     if (live) { anunciar(); return; }
     demoMarT.forEach(clearTimeout); demoMarT = [];
-    if (si) [['rochi', 2500], ['nico', 6000]].forEach(([id, ms]) => demoMarT.push(setTimeout(() => { enElMar.add(id); listeners.forEach((f) => f({ presencia: true })); }, ms)));
+    const llegan = DEMO_GENTE > 1
+      ? ['rochi', 'nico', 'juani', 'pachi', 'viqui', 'rich', 'sofi', 'chino', 'grego', 'jose', 'nachote', 'juli', 'jero'].filter((id) => id !== s.me).slice(0, DEMO_GENTE - 1).map((id, i) => [id, 1500 + i * 1500])
+      : [['rochi', 2500], ['nico', 6000]];
+    if (si) llegan.forEach(([id, ms]) => demoMarT.push(setTimeout(() => { enElMar.add(id); listeners.forEach((f) => f({ presencia: true })); }, ms)));
     else enElMar.clear();
   }
   function enviarMar(m) {

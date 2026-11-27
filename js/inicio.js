@@ -1,5 +1,6 @@
 /* El inicio: la playa con música. Todo sintetizado, sin archivos.
    Colchón de tres acordes con novena (fa mayor), melodía lenta que suele descansar en la novena, olas y gaviotas.
+   Con el barco fantasma (mirando el mar, más de 5): acordes menores y tensos, blues, viento y truenos.
    Suena solo en la portada: al entrar a la app se va con un fade. */
 window.INICIO = (function () {
   const hz = (n) => 440 * Math.pow(2, (n - 69) / 12);
@@ -13,6 +14,22 @@ window.INICIO = (function () {
     { bajo: 46, voces: [50, 53, 57, 60], meta: [65, 69, 74, 72] },
   ];
   const ESCALA = [65, 67, 69, 72, 74, 77, 79, 81]; // pentatónica de fa: no choca con ningún acorde
+  // Con el barco fantasma la música se pone tensa: Fa menor 9, Reb maj7(#11) y Do7(b9), y la melodía y los toques van por la
+  // pentatónica menor de fa (fa, lab, sib, do, mib: la del blues). Las frases suelen terminar en el mib o en la novena.
+  const ACORDES_F = [
+    { bajo: 41, voces: [48, 51, 56, 67], meta: [68, 72, 75, 67] },
+    { bajo: 37, voces: [48, 53, 56, 67], meta: [68, 72, 77, 75] },
+    { bajo: 36, voces: [46, 52, 55, 61], meta: [70, 72, 67, 75] },
+  ];
+  const ESCALA_F = [65, 68, 70, 72, 75, 77, 80, 82];
+  // La distorsión del colchón del dedo con el barco fantasma: satura suave (tanh) y no se pasa de 1.
+  let curvaDistor = null;
+  const distor = () => {
+    if (curvaDistor) return curvaDistor;
+    const n = 2048, k = 7, c = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
+    return (curvaDistor = c);
+  };
 
   function crearMotor(ctx, salida, registro) {
     const master = ctx.createGain(); master.gain.value = 0;
@@ -46,16 +63,31 @@ window.INICIO = (function () {
       n.connect(a); n.connect(b); a.connect(master); b.connect(rev);
     };
 
+    // Cada modo (normal o fantasma) suena por su capa: al cambiar, una se va con un fundido y la otra entra.
+    let modo = 'normal';
+    const capa = {};
+    [['normal', 0.8, 0.34, 1], ['fantasma', 0.72, 0.6, 0]].forEach(([m, seco, humedo, v]) => {
+      const col = ctx.createGain(); col.gain.value = v; enviar(col, seco, humedo);
+      capa[m] = { col, mel: ctx.createGain() };
+      capa[m].mel.gain.value = v;
+    });
+    const fundir = (param, v, seg) => {
+      const t = ctx.currentTime;
+      if (param.cancelAndHoldAtTime) param.cancelAndHoldAtTime(t); else { const x = param.value; param.cancelScheduledValues(t); param.setValueAtTime(x, t); }
+      param.linearRampToValueAtTime(v, t + seg);
+    };
+    const acordesDe = (m) => (m === 'fantasma' ? ACORDES_F : ACORDES);
+
     function colchon(i, t) {
-      const a = ACORDES[i % ACORDES.length], fin = t + ACORDE + 6.5;
-      const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.Q.value = 0.4;
-      fil.frequency.setValueAtTime(430, t);
-      fil.frequency.linearRampToValueAtTime(azar(760, 980), t + ACORDE * 0.55);
-      fil.frequency.linearRampToValueAtTime(420, fin);
+      const m = modo, F = m === 'fantasma', a = acordesDe(m)[i % ACORDES.length], fin = t + ACORDE + 6.5;
+      const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.Q.value = F ? 1.1 : 0.4;
+      fil.frequency.setValueAtTime(F ? 340 : 430, t);
+      fil.frequency.linearRampToValueAtTime(F ? azar(620, 760) : azar(760, 980), t + ACORDE * 0.55);
+      fil.frequency.linearRampToValueAtTime(F ? 330 : 420, fin);
       const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 5.5);
-      g.gain.setValueAtTime(1, t + ACORDE); g.gain.linearRampToValueAtTime(0, fin);
-      fil.connect(g); enviar(g, 0.8, 0.34);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(F ? 1.15 : 1, t + (F ? 2.2 : 5.5));
+      g.gain.setValueAtTime(F ? 1.15 : 1, t + ACORDE); g.gain.linearRampToValueAtTime(0, fin);
+      fil.connect(g); g.connect(capa[m].col);
       [[a.bajo, 'sine', 0.1, 0], ...a.voces.map((n) => [n, 'triangle', 0.034, azar(-0.35, 0.35)])].forEach(([n, tipo, nivel, p], v) => {
         const pan = paneo(p), vg = ctx.createGain(); vg.gain.value = nivel; vg.connect(pan); pan.connect(fil);
         (v ? [-1, 1] : [0]).forEach((lado) => {
@@ -69,7 +101,8 @@ window.INICIO = (function () {
     // Maza con fieltro: fundamental redonda, parciales apenas desafinados que se apagan rápido y un soplido al golpear.
     // Entra y sale con un fundido corto (desde cero, en línea recta) para que no haga clic. "suave": sin el parcial más agudo y con menos soplido.
     // "salida": por dónde sale (la melodía tiene la suya, para poder callarla); "armonicos": cuánto más fuertes van los parciales (las graves).
-    function nota(t, n, v, p, suave, salida, armonicos = 1) {
+    // "sube": cuántos cents abajo arranca y se desliza hasta la nota (la nota de blues "estirada").
+    function nota(t, n, v, p, suave, salida, armonicos = 1, sube = 0) {
       const dur = azar(3.3, 4.8), f = hz(n) * (1 + azar(-0.0009, 0.0009)), entra = azar(0.014, 0.022);
       const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.frequency.value = Math.max(suave ? 2200 : 2500, f * 1.7); fil.Q.value = 0.3;
       const pan = paneo(p); fil.connect(pan);
@@ -77,6 +110,7 @@ window.INICIO = (function () {
       [[1, 1, 1], [2, 0.2, 0.52], [3.01, 0.055, 0.28], [4.17, 0.022, 0.13]].slice(0, suave && armonicos <= 1 ? 3 : 4).forEach(([m, a, d]) => {
         const o = ctx.createOscillator(), g = ctx.createGain(), fin = t + dur * d;
         o.type = 'sine'; o.frequency.value = f * m;
+        if (sube) { o.frequency.setValueAtTime(f * m * Math.pow(2, -sube / 1200), t); o.frequency.exponentialRampToValueAtTime(f * m, t + 0.16); }
         g.gain.setValueAtTime(0, t);
         g.gain.linearRampToValueAtTime(0.15 * v * a * (m > 1 ? armonicos : 1), t + entra);
         g.gain.exponentialRampToValueAtTime(0.0004, fin);
@@ -134,57 +168,114 @@ window.INICIO = (function () {
     }
 
     // Una frase corta: camina por la escala y descansa en una nota del acorde que esté sonando. Sale por melG, que se puede callar.
+    // Con el barco fantasma, por la pentatónica menor; el lab y el mib a veces entran estirados desde abajo, como en el blues.
     const melG = ctx.createGain(); enviar(melG, 0.72, 0.62);
-    const t0 = arranque + 0.1;
-    let tAcorde = t0, iAcorde = 0, tFrase = t0 + 5.5, tOla = t0 + 0.2, idx = 2;
+    capa.normal.mel.connect(melG); capa.fantasma.mel.connect(melG);
+    let t0 = arranque + 0.1; // desde cuándo cuentan los acordes (al cambiar de modo, vuelve a empezar)
+    let tAcorde = t0, iAcorde = 0, tFrase = t0 + 5.5, tOla = t0 + 0.2, idx = 2, tViento = 0;
+    const blues = (n) => (modo === 'fantasma' && (n % 12 === 8 || n % 12 === 3) && Math.random() < 0.45 ? azar(60, 110) : 0);
     function frase() {
-      const a = ACORDES[Math.floor(Math.max(0, tFrase - t0) / ACORDE) % ACORDES.length];
+      const F = modo === 'fantasma', esc = F ? ESCALA_F : ESCALA;
+      const a = acordesDe(modo)[Math.floor(Math.max(0, tFrase - t0) / ACORDE) % ACORDES.length];
       const n = uno([3, 4, 4, 5]), lado = Math.random() < 0.5 ? -0.22 : 0.22;
       let dir = idx > 4 ? -1 : 1;
       for (let i = 0; i < n; i++) {
         const fin = i === n - 1;
         if (i === Math.floor(n / 2)) dir = -dir;
-        idx = Math.max(0, Math.min(ESCALA.length - 1, idx + dir * uno([1, 1, 1, 2])));
-        const m = fin ? (Math.random() < 0.62 ? a.meta[3] : uno(a.meta)) : ESCALA[idx];
+        idx = Math.max(0, Math.min(esc.length - 1, idx + dir * uno([1, 1, 1, 2])));
+        const m = fin ? (Math.random() < 0.62 ? a.meta[3] : uno(a.meta)) : esc[idx];
         const arco = Math.sin(((i + 0.6) / (n + 0.2)) * Math.PI);
-        nota(tFrase + azar(-0.05, 0.05), m, 0.66 + 0.26 * arco + azar(-0.06, 0.06), lado + azar(-0.12, 0.12), false, melG);
-        tFrase += (fin ? uno([2, 2.5, 3]) : uno([1, 1, 1.5, 2])) * PULSO;
+        nota(tFrase + azar(-0.05, 0.05), m, 0.66 + 0.26 * arco + azar(-0.06, 0.06), lado + azar(-0.12, 0.12), false, capa[modo].mel, 1, blues(m));
+        tFrase += (fin ? uno([2, 2.5, 3]) : uno([1, 1, 1.5, 2])) * PULSO * (F ? 1.15 : 1);
       }
       tFrase += azar(0.5, 2.6) * PULSO;
+    }
+
+    // Viento (solo con el barco fantasma): ruido por un filtro que se mueve, en ráfagas que suben y bajan.
+    const viento = ctx.createBufferSource(); viento.buffer = ruido; viento.loop = true;
+    const vientoF = ctx.createBiquadFilter(); vientoF.type = 'bandpass'; vientoF.frequency.value = 500; vientoF.Q.value = 1.4;
+    const vientoG = ctx.createGain(); vientoG.gain.value = 0;
+    viento.connect(vientoF); vientoF.connect(vientoG); enviar(vientoG, 0.75, 0.35);
+    vive(viento, [arranque]);
+    function rafaga(t, d) {
+      const pico = azar(0.32, 0.55), base = azar(0.07, 0.11); // el ruido filtrado es muy finito: necesita bastante volumen
+      vientoG.gain.setValueAtTime(base, t); vientoG.gain.linearRampToValueAtTime(pico, t + d * azar(0.35, 0.6)); vientoG.gain.linearRampToValueAtTime(base, t + d);
+      vientoF.frequency.setValueAtTime(azar(380, 520), t); vientoF.frequency.exponentialRampToValueAtTime(azar(820, 1500), t + d * 0.5); vientoF.frequency.exponentialRampToValueAtTime(azar(380, 520), t + d);
+    }
+
+    // Un trueno: si es cerca, un estallido seco primero; después el retumbo, capas de ruido grave que se apagan despacio.
+    function trueno(t, fuerza = 1) {
+      const out = ctx.createGain(); out.gain.value = fuerza; enviar(out, 0.85, 0.45);
+      const capaRuido = (ts, tipo, frec, q, ataque, pico, cae, largo) => {
+        const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        s.buffer = ruido; f.type = tipo; f.frequency.value = frec; f.Q.value = q;
+        g.gain.setValueAtTime(0, ts); g.gain.linearRampToValueAtTime(pico, ts + ataque); g.gain.exponentialRampToValueAtTime(0.0005, ts + ataque + cae); g.gain.linearRampToValueAtTime(0, ts + ataque + cae + 0.03);
+        s.connect(f); f.connect(g); g.connect(out); vive(s, [ts, ts + largo]);
+      };
+      let ts = t;
+      if (fuerza > 0.75) { capaRuido(t, 'bandpass', 1400, 0.4, 0.006, 0.5, 0.5, 0.65); ts += 0.04; }
+      const veces = 4 + Math.floor(Math.random() * 3);
+      for (let k = 0; k < veces; k++) {
+        const cae = azar(1.3, 3.2);
+        capaRuido(ts, 'lowpass', azar(320, 680), 0.8, azar(0.05, 0.3), azar(1.4, 2.2) * (k ? 0.75 : 1), cae, cae + 0.5); // grave pero que se oiga en el parlante del celu
+        ts += azar(0.12, 0.55);
+      }
+      if (registro) (registro.truenos = registro.truenos || []).push(t);
+    }
+    // Normal o fantasma: la capa vieja se va con un fundido, la nueva entra, y los acordes vuelven a empezar desde el primero.
+    function cambiarModo(m) {
+      if (m === modo || !capa[m]) return;
+      const viejo = modo, ahora = ctx.currentTime;
+      modo = m;
+      fundir(capa[viejo].col.gain, 0, 2.5); fundir(capa[viejo].mel.gain, 0, 1.5);
+      fundir(capa[m].col.gain, 1, 2.5); fundir(capa[m].mel.gain, 1, 3);
+      t0 = ahora + 0.05; tAcorde = t0; iAcorde = 0; tFrase = Math.max(tFrase, t0 + 2.5);
+      if (m === 'fantasma') tViento = ahora + 0.3; else fundir(vientoG.gain, 0, 3);
     }
 
     // Un toque en el mar: una nota de la pentatónica de fa, de fa grave (abajo de la pantalla) a fa sobreagudo (arriba), con un poco
     // de azar (a veces sale la vecina). Toda la escala encaja con cualquiera de los tres acordes. Más arriba suena más bajito, pero
     // nunca menos que un piso. Las graves llevan más armónicos para que se oigan en el parlante del celu.
     // Se programa 35 ms adelante: si el celu tarda en avisarle al audio, la nota igual arranca desde cero y no hace clic.
+    // Con el barco fantasma, la pentatónica menor de fa (blues): fa lab sib do mib.
     const PENTA = [5, 7, 9, 0, 2]; // fa sol la do re
     const ARRIBA = []; for (let n = 41; n <= 101; n++) if (PENTA.includes(n % 12)) ARRIBA.push(n); // fa2 a fa7: 26 notas
+    const ARRIBA_F = []; for (let n = 41; n <= 101; n++) if ([5, 8, 10, 0, 3].includes(n % 12)) ARRIBA_F.push(n);
     const lado = (p) => Math.max(-0.8, Math.min(0.8, p));
     const acordeAhora = () => Math.floor(Math.max(0, ctx.currentTime - t0) / ACORDE) % ACORDES.length;
     const cero1 = (v) => Math.max(0, Math.min(1, v));
     function toque(p, alto, cuanto = 1) {
       alto = cero1(alto);
-      const i = Math.max(0, Math.min(ARRIBA.length - 1, Math.round(alto * (ARRIBA.length - 1) + azar(-0.7, 0.7))));
+      const lista = modo === 'fantasma' ? ARRIBA_F : ARRIBA;
+      const i = Math.max(0, Math.min(lista.length - 1, Math.round(alto * (lista.length - 1) + azar(-0.7, 0.7))));
       const v = (0.26 + 0.66 * Math.pow(1 - alto, 0.9)) * azar(0.9, 1.05) * cuanto; // abajo 0,92; arriba nunca menos de 0,26
-      nota(ctx.currentTime + 0.035, ARRIBA[i], v, lado(p + azar(-0.1, 0.1)), true, null, 1 + 1.8 * Math.pow(1 - alto, 1.5));
+      nota(ctx.currentTime + 0.035, lista[i], v, lado(p + azar(-0.1, 0.1)), true, null, 1 + 1.8 * Math.pow(1 - alto, 1.5), blues(lista[i]));
+      if (registro) (registro.toques = registro.toques || []).push(ctx.currentTime);
     }
 
     // Dejar el dedo apoyado: un colchón de sierras suaves por un filtro que resuena (otra textura que el de fondo, que es de triángulos).
     // Arriba y abajo cambia la nota: siempre notas del acorde que suena, de a un paso por vez y deslizándose, sin saltos bruscos.
     // A los costados cambia la onda que mueve el volumen y el filtro: a la izquierda oscila lento; a la derecha, rápido y más bajito.
     // Si cambia el acorde mientras está apoyado, se desliza a las notas nuevas.
+    // Con el barco fantasma: con distorsión (satura y después se le recorta lo más agudo) y bajito.
     function sostener(alto, x) {
-      const t = ctx.currentTime + 0.035;
+      const t = ctx.currentTime + 0.035, F = modo === 'fantasma', nivel = F ? 0.3 : 1;
       // Las notas del acorde j entre la2 y mi6, de grave a aguda. Cada voz toma una de por medio (i, i+2, i+4): acordes abiertos.
-      const delAcorde = (j) => { const a = ACORDES[j], pcs = new Set([a.bajo, ...a.voces, ...a.meta].map((n) => n % 12)); const l = []; for (let n = 45; n <= 88; n++) if (pcs.has(n % 12)) l.push(n); return l; };
+      const delAcorde = (j) => { const a = acordesDe(F ? 'fantasma' : 'normal')[j], pcs = new Set([a.bajo, ...a.voces, ...a.meta].map((n) => n % 12)); const l = []; for (let n = 45; n <= 88; n++) if (pcs.has(n % 12)) l.push(n); return l; };
       let ia = acordeAhora(), lista = delAcorde(ia), donde = cero1(alto), paso = Math.round(donde * (lista.length - 5));
       const voces = () => [lista[paso], lista[paso + 2], lista[paso + 4]];
       const fil = ctx.createBiquadFilter(); fil.type = 'lowpass'; fil.Q.value = 5; fil.frequency.value = 900;
       const trem = ctx.createGain(); trem.gain.value = 0.68;
-      const vol = ctx.createGain(); vol.gain.value = 1;
+      const vol = ctx.createGain(); vol.gain.value = nivel;
       const env = ctx.createGain(); env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(1, t + 0.7);
       const pan = paneo(lado(x * 2 - 1));
-      fil.connect(trem); trem.connect(vol); vol.connect(env); env.connect(pan); enviar(pan, 0.5, 0.9);
+      let cola = fil;
+      if (F) {
+        const empuje = ctx.createGain(), sat = ctx.createWaveShaper(), lima = ctx.createBiquadFilter();
+        empuje.gain.value = 4.5; sat.curve = distor(); sat.oversample = '2x'; lima.type = 'lowpass'; lima.frequency.value = 2300; lima.Q.value = 0.5;
+        fil.connect(empuje); empuje.connect(sat); sat.connect(lima); cola = lima;
+      }
+      cola.connect(trem); trem.connect(vol); vol.connect(env); env.connect(pan); enviar(pan, 0.5, 0.9);
       const lfo = ctx.createOscillator(), lfoA = ctx.createGain(), lfoF = ctx.createGain();
       lfo.type = 'sine'; lfoA.gain.value = 0.32; lfoF.gain.value = 420;
       lfo.connect(lfoA); lfoA.connect(trem.gain); lfo.connect(lfoF); lfoF.connect(fil.frequency);
@@ -202,7 +293,7 @@ window.INICIO = (function () {
         donde = cero1(a); xx = cero1(xx);
         const ahora = ctx.currentTime;
         lfo.frequency.setTargetAtTime(0.35 * Math.pow(8 / 0.35, xx), ahora, 0.06); // de 0,35 a 8 oscilaciones por segundo
-        vol.gain.setTargetAtTime(1 - 0.6 * xx, ahora, 0.08);
+        vol.gain.setTargetAtTime((1 - 0.6 * xx) * nivel, ahora, 0.08);
         fil.frequency.setTargetAtTime(780 + 520 * xx, ahora, 0.1);
         if (pan.pan) pan.pan.setTargetAtTime(lado(xx * 2 - 1), ahora, 0.1);
       }
@@ -239,6 +330,7 @@ window.INICIO = (function () {
       while (tAcorde < T) { colchon(iAcorde++, Math.max(tAcorde, ahora)); tAcorde += ACORDE; }
       while (tFrase < T) frase();
       while (tOla < T) { const d = azar(8, 13); ola(tOla, d); tOla += d * azar(0.96, 1.05); }
+      if (modo === 'fantasma') { tViento = Math.max(tViento, ahora); while (tViento < T) { const d = azar(3.5, 7.5); rafaga(tViento, d); tViento += d; } }
     }
     function nivel(v, seg) {
       const t = ctx.currentTime, g = master.gain;
@@ -251,12 +343,12 @@ window.INICIO = (function () {
       vivos.clear();
       master.disconnect(); comp.disconnect(); rev.disconnect();
     }
-    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia };
+    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia, trueno, modo: cambiarModo };
   }
 
   // ---------- encendido y apagado ----------
   const CLAVE = 'colonia.musica';
-  let enPortada = false, motor = null, reloj = null, corte = null;
+  let enPortada = false, motor = null, reloj = null, corte = null, modoQuiere = 'normal';
   const quiere = () => { try { return localStorage.getItem(CLAVE) !== '0'; } catch (e) { return true; } };
   const ctx = () => (window.SONIDO && SONIDO.audio ? SONIDO.audio() : null);
   let escuchando = false;
@@ -270,6 +362,7 @@ window.INICIO = (function () {
     if (!motor) {
       tocadas = 0; callada = false;
       motor = crearMotor(c, c.destination);
+      motor.modo(modoQuiere);
       motor.hasta(c.currentTime + 5);
       reloj = setInterval(() => motor && motor.hasta(c.currentTime + 5), 800);
     }
@@ -377,6 +470,9 @@ window.INICIO = (function () {
       return { mover: pad.mover, soltar() { if (suelto) return; suelto = true; pad.soltar(); sosteniendo = Math.max(0, sosteniendo - 1); esperar(); } };
     },
     bandada() { soltar(0); setTimeout(() => enPortada && soltar(0.05), 900); },
+    // El barco fantasma: la música se pone tensa (y vuelve). Los truenos suenan "demora" segundos después.
+    fantasma(si) { modoQuiere = si ? 'fantasma' : 'normal'; if (motor) motor.modo(modoQuiere); },
+    trueno(demora, fuerza) { const c = ctx(); if (motor && !corte && c) motor.trueno(c.currentTime + (demora || 0), fuerza == null ? 1 : fuerza); },
     sonando: () => !!motor && !corte,
     _motor: crearMotor, // para medir la música sin parlantes
   };

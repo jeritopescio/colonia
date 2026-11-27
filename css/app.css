@@ -225,6 +225,45 @@ body.quieto .cover > * { opacity: 0; pointer-events: none; }
 /* de quién es, al tocarla */
 .personita .globito { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); padding: 2px 9px; border: 1.5px solid var(--ink); border-radius: 99px; background: var(--paper); color: var(--ink); font-family: var(--display); font-size: .78rem; white-space: nowrap; animation: pop .3s ease-out; }
 @media (prefers-reduced-motion: reduce) { .chispas { display: none; } .personita .respira { animation: none; } #sky .sea, #sky .orilla, #sky .sand, #sky .sky-grad { transition: none; } }
+/* El barco fantasma: se oscurece todo (cielo, mar y arena quedan abajo de la capa oscura), el barco va por el horizonte
+   con su brillo verde, la nube negra lo sigue y cada tanto un relámpago ilumina todo. Las personitas quedan por encima:
+   se oscurecen ellas (no el ❗ ni los sustos), y con el relámpago se iluminan un instante. */
+#sky .fantasma-oscuro { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0; transition: opacity 4s ease-in-out;
+  background: radial-gradient(ellipse 90% 40% at 50% 52%, rgba(40, 70, 72, .2), transparent 70%), linear-gradient(180deg, rgba(12, 9, 24, .86) 0%, rgba(16, 13, 30, .7) 50%, rgba(13, 11, 26, .62) 100%); }
+#sky .barco-fantasma { position: absolute; z-index: 6; top: 58.6%; width: 46%; max-width: 240px; transform: translate(-50%, -100%); pointer-events: none; opacity: 0; transition: left 1.05s linear, opacity 4s ease-in-out; }
+#sky .barco-fantasma .giro { display: block; transition: transform 1.6s ease-in-out; }
+#sky .barco-fantasma.izq .giro { transform: scaleX(-1); }
+#sky .barco-fantasma img { display: block; width: 100%; height: auto; aspect-ratio: 640 / 417; -webkit-mask-image: linear-gradient(#000 82%, transparent 98%); mask-image: linear-gradient(#000 82%, transparent 98%);
+  filter: drop-shadow(0 0 7px rgba(150, 255, 215, .5)); transform-origin: 50% 90%; animation: meceo 7s ease-in-out infinite, titila 2.6s ease-in-out infinite alternate; }
+#sky .barco-fantasma::after { content: ""; position: absolute; left: -12%; right: -12%; bottom: -5%; height: 26%; border-radius: 50%; background: radial-gradient(closest-side, rgba(170, 235, 215, .3), rgba(170, 235, 215, 0)); filter: blur(3px); animation: titila 3.4s ease-in-out infinite alternate; }
+@keyframes meceo { 0%, 100% { transform: rotate(-2.2deg) translateY(0); } 50% { transform: rotate(1.6deg) translateY(2px); } }
+@keyframes titila { from { opacity: .74; } to { opacity: 1; } }
+#sky .nube-negra { position: absolute; z-index: 8; top: 17%; width: 104%; max-width: 520px; transform: translateX(-50%); pointer-events: none; opacity: 0; transition: left 1.05s linear, opacity 4s ease-in-out; }
+#sky .nube-negra img { display: block; width: 100%; height: auto; aspect-ratio: 720 / 280; transition: filter .12s; animation: nube-negra 9s ease-in-out infinite alternate; }
+@keyframes nube-negra { from { transform: translate(-4px, 1px) scale(1); } to { transform: translate(5px, -2px) scale(1.04); } }
+body.relampaguea #sky .nube-negra img { filter: brightness(2.1) saturate(.8); }
+#sky .rayo { position: absolute; z-index: 7; top: 30%; height: 28%; width: 34px; transform: translateX(-50%); pointer-events: none; opacity: 0; }
+#sky .rayo.espejo { transform: translateX(-50%) scaleX(-1); }
+#sky .rayo svg { width: 100%; height: 100%; overflow: visible; fill: none; stroke: #f6f3ff; stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 4px #c9d0ff) drop-shadow(0 0 10px rgba(180, 190, 255, .8)); }
+#sky .rayo .rama { stroke-width: 1.6; }
+#sky .rayo.cae { animation: rayo .6s ease-out forwards; }
+@keyframes rayo { 0% { opacity: 0; } 6% { opacity: 1; } 18% { opacity: .25; } 28% { opacity: 1; } 100% { opacity: 0; } }
+#sky .relampago { position: absolute; inset: 0; z-index: 9; pointer-events: none; opacity: 0; background: radial-gradient(ellipse 80% 50% at 50% 28%, rgba(226, 228, 255, .5), rgba(200, 205, 245, .16) 60%, rgba(200, 205, 245, .06)); }
+#sky .relampago.flash { animation: relampago .6s ease-out; }
+@keyframes relampago { 0% { opacity: 0; } 7% { opacity: 1; } 16% { opacity: .15; } 26% { opacity: .8; } 100% { opacity: 0; } }
+#sky .ve { opacity: 1; }
+body.fantasma #gaviotas { opacity: 0; }
+body.fantasma #sky .cosa-mar.sombrilla, body.fantasma #sky .cosa-mar.toalla { filter: brightness(.42); }
+body.fantasma #sky .personita svg { filter: brightness(.5) saturate(.6); transition: filter .15s; }
+body.fantasma.relampaguea #sky .personita svg { filter: brightness(1.05) saturate(.8); }
+/* Asustadas: paradas derechitas, temblando, con un ❗; el susto (😨 ☠️ 🏴‍☠️) sale de arriba de la cabeza y dura 1 segundo. */
+.personita.asustada .respira { animation: none; }
+.personita.asustada svg { animation: tiembla .17s linear infinite; }
+@keyframes tiembla { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-.5px); } 75% { transform: translateX(.5px); } }
+.personita .susto { position: absolute; left: 50%; bottom: calc(100% + 1px); font-size: 15px; line-height: 1; transform: translateX(-50%); pointer-events: none; animation: susto .45s ease-in-out infinite alternate; }
+@keyframes susto { from { transform: translateX(-50%) scale(1) rotate(-6deg); } to { transform: translateX(-50%) scale(1.14) rotate(6deg); } }
+.personita .grito { position: absolute; left: 50%; bottom: calc(100% + 15px); font-size: 22px; line-height: 1; transform: translateX(-50%); pointer-events: none; animation: grito 1s ease-out forwards; }
+@keyframes grito { 0% { opacity: 0; transform: translate(-50%, 4px) scale(.3); } 14% { opacity: 1; transform: translate(-50%, 0) scale(1.18); } 28% { transform: translate(-50%, -2px) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -12px) scale(.95); } }
 
 /* gaviotas del inicio */
 #gaviotas { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; transition: opacity 1.5s; }

@@ -2297,9 +2297,11 @@
     nuevas.forEach((p) => { p.x = c[p.pid].x; p.y = c[p.pid].y; ubicar(p); });
     escena.forEach((p, id) => { if (p.mia && !nuevas.includes(p) && !p.sentada && !p.vaASentarse) andarA(p, c[id].x, c[id].y); });
     ponerFogon();
+    revisarFantasma();
     revisarAgua();
   }
   function sacarEscena() {
+    seVaFantasma(true);
     escena.forEach((p) => clearTimeout(p.t));
     escena.clear();
     cancelAnimationFrame(rafProf); rafProf = 0;
@@ -2357,6 +2359,7 @@
   }
   // Va a sentarse: a la ronda o a la lona si las hay; si no, al lado de quien esté sentado más cerca; si no, ahí mismo.
   function irASentarse(p) {
+    if (fantasma) return; // con el barco fantasma nadie se sienta
     p.ordenada = true;
     const l = asiento(p);
     if (l) {
@@ -2383,6 +2386,7 @@
     const despues = (ms) => { clearTimeout(p.t); p.t = setTimeout(() => vivir(p), ms); };
     if (!p.el.isConnected || sinMovimiento) return;
     if (p.agua) return despues(8000); // en el agua no camina ni se sienta
+    if (fantasma) return despues(5000); // con el barco fantasma se quedan paradas
     const r = Math.random(), casa = casas()[p.pid], lado = () => (Math.random() < 0.5 ? 'mira-i' : 'mira-d');
     if (p.falsa && p.sentada) { if (r < 0.3) levantarse(p); else if (r < 0.55) mirarA(p, lado(), 1800 + Math.random() * 1500); return despues(8000 + Math.random() * 6000); }
     if (p.ordenada || p.vaASentarse) { if (r < 0.35) mirarA(p, lado(), 1800 + Math.random() * 1500); return despues(7000 + Math.random() * 6000); }
@@ -2403,6 +2407,7 @@
     if (p === yo) {
       SONIDO.plop();
       if (p.agua) { saludar(p); return true; } // en la moto o en la tabla, saluda
+      if (fantasma) { tirarSusto(p, SUSTOS[Math.floor(Math.random() * SUSTOS.length)]); return true; } // asustada, tira un susto
       if (p.sentada || p.vaASentarse) { levantarse(p); return true; }
       S.contar('mar.sentadas');
       irASentarse(p);
@@ -2471,6 +2476,7 @@
       if (yo.juntos[q.pid] === 12) juntos(q);
     });
     aLaSombra();
+    revisarFantasma();
     revisarAgua();
   }
   // Doce segundos sentados uno al lado del otro: estrella fugaz de noche, bandada de día, y cuenta para el logro.
@@ -2548,7 +2554,7 @@
   }
   function aguaDe(pid) {
     const st = SKY.state(), m = st.minute, sol = st.sun;
-    if (/tormenta/.test(st.kind)) return null;
+    if (/tormenta/.test(st.kind) || fantasma) return null;
     const moto = tieneCosa(pid, 'moto'), tabla = tieneCosa(pid, 'tabla');
     const dia = m >= sol.rise + 20 && m <= sol.set - 80, conLuz = m >= sol.rise && m <= sol.set + 15;
     if (moto && tabla && dia) return Math.floor(Date.now() / 6e5) % 2 ? 'surf' : 'moto';
@@ -2628,6 +2634,123 @@
     p.w.style.opacity = op.toFixed(2);
     p.w.classList.toggle('izq', izq); p.w.classList.toggle('con-estela', estela);
   }
+  // ---------- el barco fantasma ----------
+  // Con más de 5 mirando el mar aparece en el horizonte un barco fantasma todo roto, que va y viene despacio con una nube
+  // negra atrás. Se oscurece todo, cada tanto hay relámpagos y truenos, y sopla viento. La música se pone tensa: acordes
+  // menores, las notas pasan a la pentatónica menor (blues) y el colchón del dedo suena con distorsión, bajito.
+  // Las personitas salen del agua y se paran derechitas, temblando, con un ❗ arriba; cada 2 segundos una (por turno) tira
+  // un 😨, ☠️ o 🏴‍☠️ que dura 1 segundo. Tocar la tuya le hace tirar uno. El barco, la nube y los sustos salen de la hora:
+  // en todos los celus se ven igual. Se va cuando quedan menos de 6 por unos segundos.
+  const FANTASMA_MIN = 6, SUSTOS = ['😨', '☠️', '🏴‍☠️'];
+  const PERIODO_BARCO = 240000; // va y vuelve en 4 minutos
+  const xBarco = (t) => 50 + 25 * Math.sin((2 * Math.PI * t) / PERIODO_BARCO); // sin salirse de la pantalla
+  const vaDerecha = (t) => Math.cos((2 * Math.PI * t) / PERIODO_BARCO) > 0;
+  let fantasma = null; // { desde, bajo (desde cuándo son menos), t (relámpagos), g (sustos) }
+  const deFantasma = (cls) => document.querySelector(`#sky .${cls}:not(.se-va)`);
+  function revisarFantasma() {
+    const mirando = !!document.getElementById('sky') && !!document.querySelector('.mirar-capa') && conPersona();
+    const hay = mirando && !sinMovimiento && escena.size >= FANTASMA_MIN;
+    if (hay && !fantasma) { llegaFantasma(); return; }
+    if (!fantasma) return;
+    if (hay) { fantasma.bajo = 0; moverBarco(); marcarSustos(); return; }
+    if (!mirando) { seVaFantasma(true); return; }
+    if (!fantasma.bajo) fantasma.bajo = Date.now();
+    if (Date.now() - fantasma.bajo > 6000) seVaFantasma(); else moverBarco();
+  }
+  function llegaFantasma() {
+    const sky = document.getElementById('sky');
+    fantasma = { desde: Date.now(), bajo: 0 };
+    document.body.classList.add('fantasma');
+    const poner = (cls, html = '') => { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; sky.appendChild(el); return el; };
+    poner('fantasma-oscuro');
+    poner('barco-fantasma', '<span class="giro"><img src="img/mar/fantasma.webp?v=1" alt="" draggable="false"></span>');
+    poner('rayo', '<svg viewBox="0 0 40 100" preserveAspectRatio="none" aria-hidden="true"><path d="M24 0L15 31L25 35L10 66L20 69L6 100"/><path class="rama" d="M18 47L30 58L27 70"/></svg>');
+    poner('nube-negra', '<img src="img/mar/nube-negra.webp?v=1" alt="" draggable="false">');
+    poner('relampago');
+    moverBarco(true);
+    setTimeout(() => ['fantasma-oscuro', 'barco-fantasma', 'nube-negra'].forEach((c) => { const el = deFantasma(c); if (el) el.classList.add('ve'); }), 60);
+    escena.forEach((p) => { if (p.mia) asustar(p); });
+    revisarAgua(); // salen del agua (con el barco fantasma nadie anda en moto ni surfea)
+    marcarSustos();
+    INICIO.fantasma(true);
+    S.contar('mar.fantasmas');
+    relampagos(true);
+    fantasma.g = setTimeout(sustos, 1800);
+  }
+  function seVaFantasma(ya) {
+    if (!fantasma) return;
+    clearTimeout(fantasma.t); clearTimeout(fantasma.g);
+    fantasma = null;
+    document.body.classList.remove('fantasma', 'relampaguea');
+    INICIO.fantasma(false);
+    document.querySelectorAll('#sky .fantasma-oscuro, #sky .barco-fantasma, #sky .nube-negra, #sky .relampago, #sky .rayo').forEach((n) => {
+      if (ya) { n.remove(); return; }
+      n.classList.add('se-va'); n.classList.remove('ve');
+      setTimeout(() => n.remove(), 4200);
+    });
+    document.querySelectorAll('#sky .personita').forEach((el) => { el.classList.remove('asustada'); el.querySelectorAll('.susto, .grito').forEach((s) => s.remove()); });
+    if (!ya) revisarAgua();
+  }
+  // Tu personita (y las de prueba del modo demo): se levanta y se queda parada, mirando el mar.
+  function asustar(p) {
+    clearTimeout(p.fin); p.vaASentarse = false; p.ordenada = false; p.miraBase = '';
+    if (p.sentada) sentar(p, false);
+    mirarA(p, '', 0);
+  }
+  function marcarSustos() {
+    escena.forEach((p) => {
+      p.el.classList.add('asustada');
+      if (!p.el.querySelector('.susto')) { const s = document.createElement('span'); s.className = 'susto'; s.textContent = '❗'; s.setAttribute('aria-hidden', 'true'); p.el.appendChild(s); }
+    });
+  }
+  // El barco va y viene por el horizonte (mirando para donde va); la nube negra lo sigue, unos segundos atrás.
+  function moverBarco(primera) {
+    const b = deFantasma('barco-fantasma'), n = deFantasma('nube-negra'), r = deFantasma('rayo'), t = Date.now();
+    if (!b) return;
+    if (primera) [b, n].forEach((el) => el && (el.style.transition = 'none'));
+    b.style.left = xBarco(t).toFixed(2) + '%';
+    b.classList.toggle('izq', !vaDerecha(t));
+    if (n) n.style.left = xBarco(t - 14000).toFixed(2) + '%';
+    if (r && !r.classList.contains('cae')) r.style.left = (xBarco(t - 9000) + (vaDerecha(t) ? -4 : 4)).toFixed(2) + '%';
+    if (primera) { void b.offsetWidth; [b, n].forEach((el) => el && (el.style.transition = '')); }
+  }
+  // Cada 2 segundos, por turno, una personita tira un susto (el mismo en todos los celus).
+  function sustos() {
+    if (!fantasma) return;
+    const ahora = Date.now(), k = Math.floor(ahora / 2000);
+    fantasma.g = setTimeout(sustos, 2000 - (ahora % 2000) + 15);
+    const ids = [...escena.keys()].sort();
+    if (ids.length) tirarSusto(escena.get(ids[k % ids.length]), SUSTOS[hash('susto' + k) % SUSTOS.length]);
+  }
+  function tirarSusto(p, e) {
+    if (!p || !p.el.isConnected) return;
+    p.el.querySelectorAll('.grito').forEach((g) => g.remove());
+    const g = document.createElement('span');
+    g.className = 'grito'; g.textContent = e; g.setAttribute('aria-hidden', 'true');
+    p.el.appendChild(g);
+    setTimeout(() => g.remove(), 1000);
+  }
+  // Relámpagos cada 7 a 16 segundos (el primero enseguida): la luz, a veces el rayo cerca del barco, y el trueno, que
+  // llega antes cuanto más cerca cae. Con "reducir movimiento" no hay barco fantasma (ni luces).
+  function relampagos(primero) {
+    if (!fantasma) return;
+    clearTimeout(fantasma.t);
+    fantasma.t = setTimeout(() => { relampago(); relampagos(false); }, primero ? 2600 : 7000 + Math.random() * 9000);
+  }
+  function relampago() {
+    const f = deFantasma('relampago'), r = deFantasma('rayo');
+    if (!fantasma || !f) return;
+    const cerca = Math.random() < 0.6;
+    f.classList.remove('flash'); void f.offsetWidth; f.classList.add('flash');
+    document.body.classList.add('relampaguea');
+    setTimeout(() => document.body.classList.remove('relampaguea'), 650);
+    if (cerca && r) {
+      r.classList.remove('cae'); r.classList.toggle('espejo', Math.random() < 0.5); void r.offsetWidth; r.classList.add('cae');
+      setTimeout(() => r.classList.remove('cae'), 700);
+    }
+    INICIO.trueno(cerca ? 0.12 + Math.random() * 0.25 : 0.9 + Math.random() * 1.2, cerca ? 1 : 0.55);
+  }
+
   if (PROTO) window.__personitas = { PERSONITAS, personitaSVG, paletaPersonita }; // para armar muestras en el modo demo
 
   // A quien le desaprueban una foto (o la recupera) le llega el aviso con lo que perdió o volvió.
