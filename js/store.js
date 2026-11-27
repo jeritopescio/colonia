@@ -617,10 +617,10 @@ window.STORE = (function () {
       const ach = !pid || pid === s.me ? s.ach : live ? (((s.cache.players[pid] || {}).datos || {}).ach || {}) : {};
       return !!ach['barcoPerdio:' + window.SKY.arDate()];
     },
-    // El nivel del Holandés: cuántos días ya apareció antes de hoy (lo hayan hundido o se haya escapado), con los datos de todos.
+    // El nivel del Holandés: en cuántos días distintos lo hundieron antes de hoy, con los datos de todos (si se escapa, no sube).
     nivelBarco() {
       const hoy = window.SKY.arDate(), dias = new Set();
-      const mirar = (ach) => Object.keys(ach || {}).forEach((k) => { const m = k.match(/^barco(?:Perdio)?:(\d{4}-\d{2}-\d{2})$/); if (m && m[1] < hoy) dias.add(m[1]); });
+      const mirar = (ach) => Object.keys(ach || {}).forEach((k) => { const m = k.match(/^barco:(\d{4}-\d{2}-\d{2})$/); if (m && m[1] < hoy) dias.add(m[1]); });
       mirar(s.ach);
       if (live) Object.values(s.cache.players).forEach((r) => mirar(((r || {}).datos || {}).ach));
       return dias.size;
@@ -645,17 +645,20 @@ window.STORE = (function () {
       save(); pushMe();
       return { items, c };
     },
-    hundirBarco() {
+    // El premio crece con el nivel: 50 monedas más 10 por nivel, y un sobre.
+    hundirBarco(nv = 0) {
       if (!s.me) return null;
       const hoy = window.SKY.arDate();
       if (s.ach['barco:' + hoy]) return null;
+      const c = D.BARCO.c + D.BARCO.porNivel * nv;
       s.ach['barco:' + hoy] = 1; s.ach.barcos = (s.ach.barcos || 0) + 1;
-      s.coins += D.BARCO.c; s.sobres = (s.sobres || 0) + D.BARCO.s;
+      s.ach.barcoNivelMax = Math.max(s.ach.barcoNivelMax || 0, nv);
+      s.coins += c; s.sobres = (s.sobres || 0) + D.BARCO.s;
       const primero = !s.ach['barco:primero'];
       if (primero) { s.ach['barco:primero'] = hoy; s.owned.push(D.BARCO.item); }
       api.contar('mar.hundidos');
       save(); pushMe();
-      return { c: D.BARCO.c, s: D.BARCO.s, primero };
+      return { c, s: D.BARCO.s, primero };
     },
     // La cola de sirena: una por día.
     sirenaHoy() { return !!s.ach['sirena:' + window.SKY.arDate()]; },
@@ -776,6 +779,7 @@ window.STORE = (function () {
       if (id === 'visitas') return (s.visitas || []).filter((p) => p !== s.me).length;
       if (id === 'juntos') return Object.keys(s.ach).filter((k) => k.startsWith('juntos:')).length;
       if (id === 'barcos') return s.ach.barcos || 0;
+      if (id === 'nivelBarco') return s.ach.barcoNivelMax || 0;
       return 0;
     },
     // 'todo': todos los altarcitos de los demás, o todo el kiosco (sin la sombrilla ni la carpa, que no se pueden tener juntas).
