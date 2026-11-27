@@ -245,6 +245,7 @@
     return `<div class="altar${editable ? ' edit' : ''}${ARTE.pintado ? ' pintado' : ''}${K > 1 ? ' ancho' : ''}" data-pid="${pid}" data-k="${K}"><div class="mundo" style="width:${K * 100}%${fondo}">
       ${ARTE.pintado ? '' : '<i class="nube" style="left:10%;top:7%;width:22%"></i><i class="nube" style="left:64%;top:14%;width:15%"></i>'}
       ${ref}
+      ${a.items.some((it) => it.id === 'avioneta') ? `<div class="avioneta-altar" aria-hidden="true"><span class="cartel-avioneta">${esc(cartelAvioneta(pid))}</span><i class="soga"></i><span class="cuerpo">${ARTE.item('avioneta', colorOf(a.items.find((it) => it.id === 'avioneta'), a.place[a.items.find((it) => it.id === 'avioneta').k]))}</span></div>` : ''}
       <div class="it fixed cartel" style="left:${((K - 0.14) / K * 100).toFixed(2)}%;top:57%;width:${(cw / K).toFixed(2)}%;z-index:3">${ARTE.cartel(esc(name))}</div>
       ${placed.map(({ it, p }, i) => itHTML(pid, it, p, i, K)).join('')}
       ${editable && pid === S.me ? ['botella', 'galleta'].map((t) => hallazgoHoy(t, K)).filter(Boolean).map(hallazgoHTML).join('') + botellaAmigoHTML(K) : ''}
@@ -1643,6 +1644,7 @@
         <div class="spread"><h1 class="on-sky" style="font-size:1.7rem">Tu altarcito playero</h1><a class="btn" href="#kiosco" style="--c:var(--butter);text-decoration:none">Kiosco</a></div>
         <div class="card">${altarHTML(S.me, true)}
           <p class="small muted" style="margin:0">Mantené apretada una cosa para moverla. Tocala para verla, pintarla o guardarla. ${S.loteAncho() > 1 ? 'Con dos dedos te acercás y te alejás; acercado, deslizá para recorrer tu playa.' : 'Con dos dedos te acercás.'}${D.LOTES[S.lote()] ? ' ¿Te queda chica? En el kiosco hay lotes de playa.' : ''}</p>${bolsaHTML()}
+          ${S.altar().items.some((it) => it.id === 'avioneta') ? `<button class="btn ghost" id="cartelAvioneta">✏️ Cartel de la avioneta: «${esc(cartelAvioneta(S.me))}»</button>` : ''}
           ${nHallazgos() ? `<button class="btn ghost hallados-btn" id="misHallazgos">Lo que trajo el mar (${nHallazgos()})</button>` : ''}</div>
         <div class="card"><div class="eyebrow">Altarcitos de la colonia</div>
           <div class="faces visit">${D.PEOPLE.filter((p) => p.id !== S.me).map((p) => `<button class="pick" data-v="${p.id}"><img class="face" src="${face(p.id)}" alt=""><span class="small">${esc(p.n)}</span></button>`).join('')}</div></div>`;
@@ -1654,6 +1656,12 @@
       }));
       screen.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => visit(b.dataset.v)));
       const mh = $('#misHallazgos'); if (mh) mh.addEventListener('click', misHallazgos);
+      const ca = $('#cartelAvioneta');
+      if (ca) ca.addEventListener('click', () => sheet(`<div style="display:grid;gap:12px"><h2>El cartel de tu avioneta</h2>
+        <p class="small muted" style="margin:0">Lo ven todos cuando cruza el cielo en Mirar el mar y en tu altarcito. Hasta 40 letras.</p>
+        <input id="cartel-t" maxlength="40" value="${esc(S.achDe(S.me).avioneta || '')}" placeholder="${esc(cartelAvioneta(S.me))}" style="font:inherit;padding:10px;border-radius:10px;border:2px solid var(--ink)">
+        <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Cancelar</button><button class="btn" id="cartel-ok">Guardar</button></div></div>`,
+      (bg) => bg.querySelector('#cartel-ok').addEventListener('click', () => { S.setCartelAvioneta(bg.querySelector('#cartel-t').value); bg.remove(); SONIDO.plop(); render(); })));
     },
 
     kiosco() {
@@ -2056,8 +2064,11 @@
     const alto = (e) => 1 - e.clientY / innerHeight, lado = (e) => (e.clientX / innerWidth) * 2 - 1, equis = (e) => e.clientX / innerWidth;
     capa.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button')) return;
-      if (tocarSirena(e.clientX, e.clientY) || tocarBarco(e.clientX, e.clientY) || tocarPelota(e.clientX, e.clientY) || tocarHeladerita(e.clientX, e.clientY) || tocarMascota(e.clientX, e.clientY)) return; // la cola de sirena, el barco con el aro o una mascota
+      if (tocarSirena(e.clientX, e.clientY) || tocarBarco(e.clientX, e.clientY) || tocarPelota(e.clientX, e.clientY) || tocarHeladerita(e.clientX, e.clientY) || tocarMascota(e.clientX, e.clientY)
+        || tocarPaquete(e.clientX, e.clientY) || tocarCatalejo(e.clientX, e.clientY) || tocarChozita(e.clientX, e.clientY) || tocarCofre(e.clientX, e.clientY)
+        || tocarCastillo(e.clientX, e.clientY) || tocarPaleta(e.clientX, e.clientY) || tocarBanana(e.clientX, e.clientY)) return; // la cola de sirena, el barco con el aro o una mascota
       if (tocarPersonita(e.clientX, e.clientY)) return; // a una personita se la toca para sentarse o saludar, no suena
+      bengala(e.clientX, e.clientY);
       chispas(e.clientX, e.clientY);
       INICIO.toque(lado(e), alto(e));
       S.contar('mar.notas');
@@ -2434,7 +2445,10 @@
     terminaSolo();
     clearTimeout(mimosT); mimosT = null;
     if (pelota) { cancelAnimationFrame(pelota.raf); pelota = null; }
-    INICIO.guitarra(false);
+    if (rally) { cancelAnimationFrame(rally.raf); rally = null; }
+    bananeros.clear(); bananaLider = null;
+    INICIO.guitarra(false); INICIO.fiesta(false); document.body.classList.remove('fiesta');
+    document.querySelectorAll('#sky .lujo-mar, #sky .paquete-mar, #sky .hilos-mar, #sky .luces-fiesta, #sky .paleta-pelota, .lente').forEach((n) => n.remove());
     document.querySelectorAll('#sky .delfin-mar, #sky .cola-sirena, #sky .varada, #sky .mascota-mar, #sky .antorcha-mar, #sky .heladerita-mar, #sky .pelota-mar').forEach((n) => n.remove());
     escena.forEach((p) => clearTimeout(p.t));
     escena.clear();
@@ -2524,6 +2538,12 @@
     const r = Math.random(), casa = casas()[p.pid], lado = () => (Math.random() < 0.5 ? 'mira-i' : 'mira-d');
     if (p.falsa && p.sentada) { if (r < 0.3) levantarse(p); else if (r < 0.55) mirarA(p, lado(), 1800 + Math.random() * 1500); return despues(8000 + Math.random() * 6000); }
     if (p.ordenada || p.vaASentarse) { if (r < 0.35) mirarA(p, lado(), 1800 + Math.random() * 1500); return despues(7000 + Math.random() * 6000); }
+    if ((p.mia || p.falsa) && r > 0.8 && hace28() && duenioDe('pelopincho') && !p.sentada) {
+      const px = 27 + (Math.random() - 0.5) * 5;
+      p.vaASentarse = true;
+      andarA(p, px, 80.6, () => { p.vaASentarse = false; sentar(p, true); });
+      return despues(14000 + Math.random() * 8000);
+    }
     if (r < 0.45) mirarA(p, lado(), 1600 + Math.random() * 1800);
     else if (r < 0.7 && casa) {
       const cerca = { x: clamp(p.x + (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 3), casa.x - 5, casa.x + 5), y: clamp(p.y + (Math.random() - 0.5) * 3, casa.y - 2, casa.y + 2) };
@@ -2579,6 +2599,11 @@
     if (m.t === 'hola') { publicar(escena.get(yoEnElMar())); return; }
     // el barco fantasma: cuándo arrancó la pelea, los golpes de cada uno (su total) y si alguien vio que se hundió
     if (m.t === 'brindis') { brindar(m.de, false); return; }
+    if (m.t === 'paquete') { paqueteDeOtro(m.de, m.c); return; }
+    if (m.t === 'bengala') { if (diaAhora() < 0.5) fuegos(m.x * innerWidth, m.y * innerHeight); return; }
+    if (m.t === 'pala') { paladasVivas[m.de] = Math.max(paladasVivas[m.de] || 0, m.n); revisarCastillo(document.getElementById('sky'), duenioDe('balde'), 165 * PX_CM); return; }
+    if (m.t === 'paleta') { golpePaleta(m.n, m.de, m.a, m.t0, m.dur); return; }
+    if (m.t === 'banana') { bananaDeOtro(m.de, m.si); return; }
     if (m.t === 'pelota') { pase(m.n, m.a, m.t0); return; }
     if (m.t === 'pelea') { adoptarPelea(m.pi, m.vm, m.nv, m.pe, m.ga); return; }
     if (m.t === 'golpes') { golpesDe(m.de, m.pi, m.vm, m.n); return; }
@@ -2699,6 +2724,7 @@
     const st = SKY.state(), m = st.minute, sol = st.sun;
     if (/tormenta/.test(st.kind) || fantasma) return null;
     const dia = m >= sol.rise && m <= sol.set, conLuz = m >= sol.rise && m <= sol.set + 15;
+    if (bananeros.has(pid) && duenioDe('banana') && [...escena.values()].some((q) => q.agua === 'moto')) return 'banana';
     const puede = [dia && tieneCosa(pid, 'moto') && 'moto', conLuz && tieneCosa(pid, 'kayak') && 'kayak', conLuz && tieneCosa(pid, 'tabla') && 'surf'].filter(Boolean);
     return puede.length ? puede[Math.floor(Date.now() / 6e5) % puede.length] : null;
   }
@@ -2710,7 +2736,7 @@
     const sky = document.getElementById('sky');
     const w = document.createElement('div');
     w.className = 'agua ' + tipo;
-    w.innerHTML = tipo === 'kayak'
+    w.innerHTML = tipo === 'banana' ? '<span class="nave"></span>' : tipo === 'kayak'
       ? `<span class="nave">${kayakSVG(colorCosa(p.pid, 'kayak') || '#ffe39a')}</span><i class="remo">${REMO}</i>`
       : `<span class="nave">${tipo === 'moto' ? ARTE.item('moto', colorCosa(p.pid, 'moto')) : tablaSVG(colorCosa(p.pid, 'tabla') || '#f7b3c6')}</span><i class="estela" aria-hidden="true"></i>`;
     sky.appendChild(w);
@@ -2720,7 +2746,7 @@
     p.el.style.left = ''; p.el.style.top = ''; p.el.style.zIndex = '';
     w.appendChild(p.el);
     p.agua = tipo; p.w = w;
-    if (tipo === 'moto' || tipo === 'kayak') p.el.classList.add('sentada');
+    if (tipo === 'moto' || tipo === 'kayak' || tipo === 'banana') p.el.classList.add('sentada');
     pintarPersonita(p);
     if (!rafAgua) rafAgua = requestAnimationFrame(moverAgua);
   }
@@ -2745,6 +2771,7 @@
     revisarVaradas();
     revisarMascotas();
     revisarRonda();
+    revisarLujos();
   }
   // Lo que no está en el agua queda varado en la orilla (de noche, con tormenta, con el barco fantasma o mientras surfea con
   // la otra cosa): la moto, el kayak o la tabla de quien la tiene. Una por persona, en los costados, para no tapar a nadie.
@@ -2846,7 +2873,16 @@
       // a la par: el segundo de cada pareja va por el carril de al lado (más cerca) y apenas atrás, para que se vean los dos
       const atras = (i % 2) * (ida ? -3 : 3), x = 10 + 80 * k + atras, y = 60.6 - par * 1.9 + (i % 2) * 2.6 + Math.sin(ahora / 520 + i) * 0.12;
       ponerEnAgua(p, x, y, !ida, 1, Math.abs(Math.sin(u * Math.PI * 2)) > 0.15);
+      if (i === 0) bananaLider = { x, y, izq: !ida };
     });
+    // la banana va atrás de la primera moto, y los que se subieron, sentados encima
+    const ban = document.querySelector('#sky .banana-mar');
+    if (ban && bananaLider) {
+      const { x, y, izq } = bananaLider, bx = x + (izq ? 9 : -9), by = y + 0.5, hb = 165 * PX_CM * escalaY(by);
+      ban.style.cssText = `left:${bx.toFixed(2)}%;top:${by.toFixed(2)}%;width:${(hb * 2.4).toFixed(1)}px;z-index:${capaY(by) - 1}`;
+      ban.classList.toggle('izq', izq);
+      en.filter((p) => p.agua === 'banana').sort((a, b) => a.pid.localeCompare(b.pid)).forEach((p, i) => ponerEnAgua(p, bx + (izq ? 1 : -1) * (i * 3.2 - 4.8), by - 0.3, izq, 1, false));
+    }
     // Surf: espera la ola sentado, se para y la corre hacia la orilla, se cae y vuelve a salir. Cada uno a su ritmo.
     surfers.forEach((p, i) => {
       const T = 24000, fase = (ahora / T + i * 0.43), u = fase % 1, vuelta = Math.floor(fase);
@@ -3006,6 +3042,375 @@
     } else pelota.el.querySelector('.cuenta').textContent = '';
     pelota.n = 0; pelota.yoToque = false;
   }
+
+  // ---------- los juegos y los lujos nuevos en Mirar el mar ----------
+  // Cada cosa aparece si su dueño está mirando el mar (una de cada una). En el cielo y el horizonte: la isla, el velero (con
+  // el color de su vela), el faro (de noche barre el mar), el helicóptero (cada 3 minutos cruza y tira un paquete: el primero
+  // que lo toca cobra 15 monedas), los barriletes (arriba de su dueño; con viento suben más y si hay tres se enredan), la
+  // avioneta con el cartel de su dueño (si hay varias se turnan), las bengalas (de noche, tocar el cielo tira fuegos; en las
+  // fechas especiales, todos) y el catalejo maldito (tocarlo muestra qué hay lejos). En la arena: el sillón, la chozita (si
+  // golpeás, contestan), las estatuas doradas de las mascotas (brillan al atardecer), el pelopincho (con más de 28° la gente
+  // se mete), el parlante (de noche, luces, bajo y baile), el cofre maldito (su dueño lo abre una vez por día), el castillo
+  // de arena de todos, las paletas y la banana inflable que tira la moto de agua.
+  const CALOR_PRUEBA = PROTO && /[?&]calor/.test(location.search);
+  const hace28 = () => CALOR_PRUEBA || !!(SKY.weather && SKY.weather.temp >= 28);
+  const fechaEspecial = () => ['12-08', '12-24', '12-25', '12-31', '01-01'].includes(SKY.arDate().slice(5));
+  function lujo(sky, cls, id, x, y, ancho, col, extra = '') {
+    let el = sky.querySelector('.' + cls);
+    if (!el) { el = document.createElement('div'); el.className = 'lujo-mar ' + cls; el.innerHTML = `<span class="cuerpo">${ARTE.item(id, col)}</span>${extra}`; sky.appendChild(el); }
+    const css = `left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;width:${ancho.toFixed(1)}px;z-index:${capaY(y)}`;
+    if (el.style.cssText !== css) el.style.cssText = css;
+    return el;
+  }
+  const quitarLujo = (cls) => document.querySelectorAll('#sky .' + cls).forEach((n) => n.remove());
+  const enSky = (el) => { const r = el.getBoundingClientRect(), s = skyRect(); return [((r.left + r.width / 2 - s.left) / s.width) * 100, ((r.top - s.top) / s.height) * 100]; };
+  const skyRect = () => document.getElementById('sky').getBoundingClientRect();
+  const dentro = (el, x, y, m = 10) => { if (!el) return false; const r = el.getBoundingClientRect(); return x > r.left - m && x < r.right + m && y > r.top - m && y < r.bottom + m; };
+  function revisarLujos() {
+    const sky = document.getElementById('sky');
+    if (!sky) return;
+    const hay = conPersona() && !!document.querySelector('.mirar-capa'), noche = diaAhora() < 0.5, h = 165 * PX_CM, ahora = Date.now();
+    const de = (id) => (hay ? duenioDe(id) : null), cs = casas();
+    // la isla y el velero, en el horizonte
+    if (de('isla')) lujo(sky, 'isla-mar', 'isla', 80, 57.6, 56); else quitarLujo('isla-mar');
+    const velero = de('velero');
+    if (velero) {
+      const T = 180000, fase = (hash(velero) % 1000) / 1000, u = (ahora / T + fase) * 2 * Math.PI;
+      const el = lujo(sky, 'velero-mar', 'velero', 50 + 36 * Math.sin(u), 57.9, 30, colorCosa(velero, 'velero'));
+      el.classList.toggle('izq', Math.cos(u) < 0);
+    } else quitarLujo('velero-mar');
+    // el faro, a la derecha del horizonte; de noche barre el mar
+    if (de('faro')) { const el = lujo(sky, 'faro-mar', 'faro', 95, 59, 24, null, '<i class="haz" aria-hidden="true"></i>'); el.classList.toggle('noche', noche); } else quitarLujo('faro-mar');
+    revisarHelicoptero(sky, de('helicoptero'), ahora);
+    revisarBarriletes(sky, hay);
+    revisarAvioneta(sky, hay, ahora);
+    // el catalejo maldito, en la orilla a la izquierda
+    if (de('catalejo')) lujo(sky, 'catalejo-mar', 'catalejo', 14, 77.2, h * 0.95); else quitarLujo('catalejo-mar');
+    // en la arena: la chozita al fondo, el sillón y el cofre al lado de su dueño, las estatuas, el pelopincho, el parlante y el castillo
+    if (de('chozita')) lujo(sky, 'chozita-mar', 'chozita', 6.5, 71, h * 1.6); else quitarLujo('chozita-mar');
+    if (de('sillon')) lujo(sky, 'sillon-mar', 'sillon', 71, 72.8, h * 1.05); else quitarLujo('sillon-mar');
+    if (de('cofre')) lujo(sky, 'cofre-mar', 'cofre', 86, 78.4, h * 0.85); else quitarLujo('cofre-mar');
+    revisarEstatuas(sky, de('estatuas'));
+    if (de('pelopincho')) { const el = lujo(sky, 'pelopincho-mar', 'pelopincho', 27, 81.4, h * 1.7); el.classList.toggle('calor', hace28()); } else quitarLujo('pelopincho-mar');
+    const parlante = de('parlante'), fiesta = !!parlante && noche && !fantasmaPeleando();
+    if (parlante) lujo(sky, 'parlante-mar', 'parlante', 58, 74.4, h * 0.62); else quitarLujo('parlante-mar');
+    let luces = sky.querySelector('.luces-fiesta');
+    if (fiesta && !luces) { luces = document.createElement('div'); luces.className = 'luces-fiesta'; luces.innerHTML = '<i></i><i></i><i></i><i></i>'; sky.appendChild(luces); }
+    if (!fiesta && luces) luces.remove();
+    document.body.classList.toggle('fiesta', fiesta);
+    INICIO.fiesta(fiesta);
+    revisarCastillo(sky, de('balde'), h);
+    revisarPaletas(sky, de('paletas'));
+    revisarBanana(sky, de('banana'));
+    // la maldición del cofre: una gaviota parada en la cabeza
+    escena.forEach((p) => {
+      const g = p.el.querySelector('.gaviota-cabeza'), maldito = (S.achDe(p.pid).maldicion || 0) > ahora;
+      if (maldito && !g) { const e = document.createElement('span'); e.className = 'gaviota-cabeza'; e.textContent = '🐦'; e.setAttribute('aria-hidden', 'true'); p.el.appendChild(e); }
+      if (!maldito && g) g.remove();
+    });
+  }
+
+  // El helicóptero: cada 3 minutos (la misma hora en todos los celus) cruza el cielo en 14 s y a la mitad tira un paquete con
+  // paracaídas. Cae en la arena y queda un rato: el primero que lo toca cobra 15 monedas.
+  const HELI = 180000, CRUCE = 14000;
+  let paqueteAgarrado = new Set();
+  function revisarHelicoptero(sky, duenio, ahora) {
+    const c = Math.floor(ahora / HELI), t = ahora - c * HELI;
+    const heli = sky.querySelector('.heli-mar');
+    if (duenio && t < CRUCE) {
+      if (!heli || +heli.dataset.c !== c) {
+        if (heli) heli.remove();
+        const el = document.createElement('div');
+        el.className = 'lujo-mar heli-mar'; el.dataset.c = c;
+        el.innerHTML = `<span class="cuerpo">${ARTE.item('helicoptero')}</span>`;
+        el.style.animationDelay = `-${(t / 1000).toFixed(2)}s`;
+        sky.appendChild(el);
+      }
+    } else if (heli) heli.remove();
+    const paq = sky.querySelector('.paquete-mar'), activo = duenio && t >= CRUCE / 2 && t < CRUCE / 2 + 30000 && !paqueteAgarrado.has(c);
+    if (activo && (!paq || +paq.dataset.c !== c)) {
+      if (paq) paq.remove();
+      const el = document.createElement('div');
+      el.className = 'paquete-mar'; el.dataset.c = c;
+      el.innerHTML = '<span class="paracaidas" aria-hidden="true"></span><span class="caja" aria-hidden="true">📦</span>';
+      el.style.animationDelay = `-${((t - CRUCE / 2) / 1000).toFixed(2)}s`;
+      sky.appendChild(el);
+    } else if (!activo && paq) paq.remove();
+  }
+  function tocarPaquete(x, y) {
+    const el = document.querySelector('#sky .paquete-mar');
+    if (!dentro(el, x, y, 22)) return false;
+    const c = +el.dataset.c;
+    paqueteAgarrado.add(c); el.remove();
+    const m = S.agarrarPaquete(c);
+    S.enviarMar({ t: 'paquete', c });
+    chispas(x, y, 16, ['#ffe39a', '#fff2c8', '#f6a38f']);
+    if (m) { SONIDO.monedas(m); toast(`<span style="font-size:1.5rem">📦</span><span>¡Agarraste el paquete del helicóptero! <b>+${m}</b> monedas.</span>`, 3500); }
+    return true;
+  }
+  function paqueteDeOtro(pid, c) {
+    paqueteAgarrado.add(c);
+    const el = document.querySelector(`#sky .paquete-mar[data-c="${c}"]`);
+    if (el) { el.remove(); const p = escena.get(pid); if (p && p.el.isConnected) tirarSusto(p, '📦'); }
+  }
+
+  // Los barriletes: uno arriba de cada dueño, con su hilo hasta la mano. Con viento de verdad suben más; si hay tres o más,
+  // se enredan en el medio.
+  function revisarBarriletes(sky, hay) {
+    const duenios = hay ? [...escena.keys()].sort().filter((pid) => tieneCosa(pid, 'barrilete')) : [];
+    sky.querySelectorAll('.barrilete-mar').forEach((el) => { if (!duenios.includes(el.dataset.pid)) el.remove(); });
+    let hilos = sky.querySelector('.hilos-mar');
+    if (!duenios.length) { if (hilos) hilos.remove(); return; }
+    if (!hilos) { hilos = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); hilos.setAttribute('class', 'hilos-mar'); hilos.setAttribute('viewBox', '0 0 100 100'); hilos.setAttribute('preserveAspectRatio', 'none'); sky.appendChild(hilos); }
+    const viento = SKY.weather && SKY.weather.wind >= 25, enredados = duenios.length >= 3;
+    let lineas = '';
+    duenios.forEach((pid, i) => {
+      const p = escena.get(pid);
+      if (!p || !p.el.isConnected) return;
+      const [mx, my] = enSky(p.el), manoY = my + 2.2;
+      const kx = enredados ? 50 + (i - (duenios.length - 1) / 2) * 3.5 : clamp(mx + (i % 2 ? -7 : 7), 8, 92), ky = (viento ? 17 : 27) + (i % 3) * 2;
+      let el = sky.querySelector(`.barrilete-mar[data-pid="${pid}"]`);
+      if (!el) { el = document.createElement('div'); el.className = 'lujo-mar barrilete-mar'; el.dataset.pid = pid; el.innerHTML = `<span class="cuerpo">${ARTE.item('barrilete', colorCosa(pid, 'barrilete'))}</span>`; sky.appendChild(el); }
+      el.style.left = kx.toFixed(2) + '%'; el.style.top = ky.toFixed(2) + '%';
+      el.classList.toggle('enredado', enredados);
+      lineas += `<path d="M${mx.toFixed(2)} ${manoY.toFixed(2)} Q${((mx + kx) / 2 + (enredados ? (i - 1) * 6 : 0)).toFixed(2)} ${((manoY + ky) / 2 + 8).toFixed(2)} ${kx.toFixed(2)} ${(ky + 4).toFixed(2)}"/>`;
+    });
+    hilos.innerHTML = lineas;
+  }
+
+  // La avioneta: cruza el cielo con el cartel de su dueño. Si hay varias, se turnan: una cada 40 s.
+  const cartelAvioneta = (pid) => S.achDe(pid).avioneta || `¡Saludos de ${(person(pid) || { n: pid }).n}!`;
+  function revisarAvioneta(sky, hay, ahora) {
+    const duenios = hay ? [...escena.keys()].sort().filter((pid) => tieneCosa(pid, 'avioneta')) : [];
+    const k = Math.floor(ahora / 40000), t = ahora - k * 40000, pid = duenios.length ? duenios[k % duenios.length] : null;
+    const el = sky.querySelector('.avioneta-mar');
+    if (!pid || t >= 16000) { if (el) el.remove(); return; }
+    if (el && +el.dataset.k === k) return;
+    if (el) el.remove();
+    const a = document.createElement('div');
+    a.className = 'lujo-mar avioneta-mar' + (k % 2 ? ' izq' : ''); a.dataset.k = k;
+    a.innerHTML = `<span class="cartel-avioneta">${esc(cartelAvioneta(pid))}</span><i class="soga" aria-hidden="true"></i><span class="cuerpo">${ARTE.item('avioneta', colorCosa(pid, 'avioneta'))}</span>`;
+    a.style.animationDelay = `-${(t / 1000).toFixed(2)}s`;
+    sky.appendChild(a);
+  }
+
+  // Las bengalas: de noche, si alguien que las tiene está mirando (o en una fecha especial), tocar el cielo tira fuegos.
+  let ultimaBengala = 0;
+  const COLORES_FUEGO = ['#ffe39a', '#f7b3c6', '#a9d6f0', '#b6e5cd', '#cfc0f0', '#ffffff', '#f6a38f'];
+  function bengala(x, y) {
+    if (y > innerHeight * 0.52 || diaAhora() >= 0.5 || Date.now() - ultimaBengala < 800) return;
+    if (!fechaEspecial() && !duenioDe('bengalas')) return;
+    ultimaBengala = Date.now();
+    fuegos(x, y);
+    S.enviarMar({ t: 'bengala', x: +(x / innerWidth).toFixed(3), y: +(y / innerHeight).toFixed(3) });
+    S.contar('mar.bengalas');
+  }
+  function fuegos(x, y) {
+    const color = COLORES_FUEGO[Math.floor(Math.random() * COLORES_FUEGO.length)], color2 = COLORES_FUEGO[Math.floor(Math.random() * COLORES_FUEGO.length)];
+    for (let i = 0; i < 26; i++) {
+      const d = document.createElement('i'), a = (i / 26) * Math.PI * 2 + Math.random() * 0.2, r = 50 + Math.random() * 45;
+      d.className = 'chispa-fuego'; d.style.background = i % 3 ? color : color2;
+      document.body.appendChild(d);
+      d.animate([
+        { transform: `translate(${x}px, ${y}px) scale(1)`, opacity: 1 },
+        { transform: `translate(${x + Math.cos(a) * r}px, ${y + Math.sin(a) * r}px) scale(.9)`, opacity: 1, offset: 0.55 },
+        { transform: `translate(${x + Math.cos(a) * r * 1.1}px, ${y + Math.sin(a) * r * 1.1 + 34}px) scale(.3)`, opacity: 0 },
+      ], { duration: 1300 + Math.random() * 400, easing: 'cubic-bezier(.15,.7,.3,1)' }).onfinish = () => d.remove();
+    }
+    INICIO.fuego();
+  }
+
+  // El catalejo maldito: tocarlo muestra qué hay lejos, por unos segundos. A veces, algo te mira de vuelta.
+  let ultimoCatalejo = 0;
+  function tocarCatalejo(x, y) {
+    const el = document.querySelector('#sky .catalejo-mar');
+    if (!dentro(el, x, y, 12)) return false;
+    if (Date.now() - ultimoCatalejo < 8000 || document.querySelector('.lente')) return true;
+    ultimoCatalejo = Date.now();
+    const holandes = !fantasma && ![...escena.keys()].some((pid) => S.hundioHoy(pid));
+    const vistas = [['ballena', 'Una ballena, lejos, lejos.'], ['lobo', 'Un lobo marino tomando sol en una boya.'], ['delfin', 'Delfines, saltando en fila.'],
+      ['botella', 'Una botella flotando. ¿Para quién será?'], ['sirena', '¿Eso fue una cola de sirena?'], ['nada', 'Mar. Solo mar.'],
+      ['ojo', 'Algo te está mirando.', true], ...(holandes ? [['barco', 'El Holandés, en el horizonte. Viene.', true]] : [])];
+    const [que, txt, maldito] = vistas[Math.floor(Math.random() * vistas.length)];
+    const dibujo = que === 'barco' ? '<img class="vista-barco" src="img/mar/fantasma.webp?v=1" alt="">' : que === 'ojo' ? '<span class="ojo">👁️</span>' : que === 'nada' ? '' : `<span class="vista-cosa">${ARTE.item(que)}</span>`;
+    const lente = document.createElement('div');
+    lente.className = 'lente' + (maldito ? ' maldita' : '');
+    lente.innerHTML = `<div class="circulo">${dibujo}</div><p>${esc(txt)}</p>`;
+    document.querySelector('.mirar-capa').appendChild(lente);
+    if (maldito) INICIO.trueno(0.1, 0.45); else INICIO.aviso();
+    setTimeout(() => lente.classList.add('fuera'), 4200); setTimeout(() => lente.remove(), 5000);
+    S.contar('mar.catalejo');
+    return true;
+  }
+
+  // La chozita: si golpeás, contestan.
+  function tocarChozita(x, y) {
+    const el = document.querySelector('#sky .chozita-mar');
+    if (!dentro(el, x, y, 6)) return false;
+    INICIO.golpe(); setTimeout(() => INICIO.golpe(), 180);
+    el.querySelectorAll('.respuesta').forEach((n) => n.remove());
+    const r = document.createElement('span');
+    r.className = 'respuesta'; r.textContent = ['¡Ocupado!', '🙋', '😴', '🦀', '¿Quién es?', 'Shhh', '🍻'][Math.floor(Math.random() * 7)];
+    el.appendChild(r); setTimeout(() => r.remove(), 1800);
+    return true;
+  }
+
+  // El cofre maldito: lo abre su dueño, una vez por día.
+  function tocarCofre(x, y) {
+    const el = document.querySelector('#sky .cofre-mar');
+    if (!dentro(el, x, y, 8)) return false;
+    const duenio = duenioDe('cofre');
+    if (duenio !== yoEnElMar()) { toast(`<span>🗝️ El cofre es de ${esc((person(duenio) || { n: '' }).n)}: solo lo abre su dueño.</span>`); INICIO.trueno(0.05, 0.3); return true; }
+    const r = S.abrirCofre();
+    if (!r) { toast('<span>🗝️ Hoy ya abriste el cofre. Mañana vuelve a estar lleno… o maldito.</span>'); return true; }
+    const b = el.getBoundingClientRect();
+    if (r.c) { chispas(b.left + b.width / 2, b.top, 20, ['#ffe39a', '#fff2c8', '#f9d27a']); SONIDO.monedas(r.c); toast(`<span style="font-size:1.5rem">💰</span><span>El cofre tenía <b>+${r.c}</b> monedas.</span>`, 3500); }
+    else { chispas(b.left + b.width / 2, b.top, 20, ['#7ef3c6', '#b9f8de', '#3fbf95']); INICIO.trueno(0.1, 0.6); toast('<span style="font-size:1.5rem">🐦</span><span>¡Maldición! Una gaviota se te paró en la cabeza. Se va en una hora.</span>', 4500); }
+    revisarLujos();
+    return true;
+  }
+
+  // Las estatuas doradas: las mascotas de su dueño en oro sobre un pedestal (si no tiene mascotas, las del kiosco). Al
+  // atardecer brillan.
+  function revisarEstatuas(sky, duenio) {
+    const el = sky.querySelector('.estatuas-mar');
+    if (!duenio) { if (el) el.remove(); return; }
+    const mascotas = Object.keys(D.MASCOTAS).filter((id) => tieneCosa(duenio, id)).slice(0, 2), clave = duenio + ':' + mascotas.join(',');
+    let e = el;
+    if (!e || e.dataset.k !== clave) {
+      if (e) e.remove();
+      e = document.createElement('div'); e.className = 'lujo-mar estatuas-mar'; e.dataset.k = clave;
+      e.innerHTML = mascotas.length ? mascotas.map((id) => `<span class="estatua"><span class="oro">${ARTE.item(id)}</span><i class="pedestal"></i></span>`).join('') : `<span class="cuerpo">${ARTE.item('estatuas')}</span>`;
+      sky.appendChild(e);
+    }
+    const y = 72.2, st = SKY.state(), m = st.minute, sol = st.sun;
+    e.style.cssText = `left:89%;top:${y}%;width:${(165 * PX_CM * (mascotas.length > 1 ? 1.6 : 1)).toFixed(1)}px;z-index:${capaY(y)}`;
+    e.classList.toggle('brilla', Math.abs(m - sol.set) < 50);
+  }
+
+  // El castillo de arena de todos (balde y pala): cada toque es una palada y crece durante el día; a la noche se lo lleva
+  // la marea. Las paladas de cada uno se guardan en sus cuentas del día, así que en todos los celus se ve el mismo.
+  const ETAPAS_CASTILLO = [0, 6, 18, 40, 75, 120];
+  let paladasVivas = {};
+  function paladasHoy() {
+    const k = 'castillo.' + SKY.arDate();
+    return D.PEOPLE.reduce((t, p) => t + Math.max(S.cuentaDe(p.id, k), paladasVivas[p.id] || 0), 0);
+  }
+  const mareaAlta = () => { const st = SKY.state(); return st.minute > st.sun.set + 60 || st.minute < st.sun.rise; };
+  function castilloSVG(etapa) {
+    const A = '#e9d3a8', B = '#d9bf8c', L = 'stroke="#43365a" stroke-width="1.6" stroke-linejoin="round"';
+    const torre = (x, w, h, y0 = 30) => `<path d="M${x} ${y0}V${y0 - h}h${w / 4}v-3h${w / 4}v3h${w / 4}v-3h${w / 4}v3V${y0}Z" fill="${A}" ${L}/>`;
+    const partes = [`<path d="M4 30Q30 ${etapa ? 20 : 24} 56 30Z" fill="${B}" ${L}/>`];
+    if (etapa >= 1) partes.push(torre(22, 14, 9));
+    if (etapa >= 2) partes.push(torre(9, 11, 7), torre(40, 11, 7));
+    if (etapa >= 3) partes.push(`<path d="M14 30V23H46V30" fill="${A}" ${L}/>`, torre(22, 14, 13));
+    if (etapa >= 4) partes.push(torre(25, 9, 20), torre(5, 9, 10), torre(46, 9, 10));
+    if (etapa >= 5) partes.push('<path d="M29.5 10V4l6 1.8-6 1.8" fill="#f7b3c6" stroke="#43365a" stroke-width="1.2"/>', '<path d="M9.5 20v-5l4 1.4-4 1.4M50.5 20v-5l4 1.4-4 1.4" fill="#a9d6f0" stroke="#43365a" stroke-width="1"/>');
+    return `<svg viewBox="0 0 60 32" aria-hidden="true">${partes.join('')}</svg>`;
+  }
+  function revisarCastillo(sky, duenio, h) {
+    let el = sky.querySelector('.castillo-mar');
+    if (!duenio) { if (el) el.remove(); return; }
+    const n = mareaAlta() ? 0 : paladasHoy(), etapa = ETAPAS_CASTILLO.filter((u) => n >= u).length - 1;
+    if (!el) { el = document.createElement('div'); el.className = 'lujo-mar castillo-mar'; sky.appendChild(el); }
+    if (+el.dataset.etapa !== etapa) { el.dataset.etapa = etapa; el.innerHTML = castilloSVG(etapa) + '<b class="cuenta"></b>'; }
+    el.querySelector('.cuenta').textContent = n && !mareaAlta() ? `${n} paladas` : '';
+    const y = 82.4; el.style.cssText = `left:37%;top:${y}%;width:${(h * 1.45).toFixed(1)}px;z-index:${capaY(y)}`;
+  }
+  function tocarCastillo(x, y) {
+    const el = document.querySelector('#sky .castillo-mar');
+    if (!dentro(el, x, y, 10)) return false;
+    if (mareaAlta()) { toast('<span>🌊 La marea se llevó el castillo. Mañana se empieza de nuevo.</span>'); return true; }
+    const n = S.palada();
+    paladasVivas[S.me] = n;
+    S.enviarMar({ t: 'pala', n });
+    const b = el.getBoundingClientRect();
+    chispas(b.left + b.width / 2, b.bottom - 6, 8, ['#e9d3a8', '#d9bf8c', '#fffaf0']);
+    SONIDO.trtss();
+    revisarCastillo(document.getElementById('sky'), duenioDe('balde'), 165 * PX_CM);
+    return true;
+  }
+
+  // Las paletas: su dueño pelotea con otra personita. Hay que tocar la pelotita justo cuando está por llegar (en el último
+  // tramo); cada golpe la acelera un poco. Si nadie la toca a tiempo, cae. El récord de golpes seguidos es de toda la colonia.
+  let rally = null; // { el, n, de, a, t0, dur, cae, yo }
+  function revisarPaletas(sky, duenio) {
+    const otro = duenio ? [...escena.keys()].sort().find((pid) => pid !== duenio) : null;
+    if (!duenio || !otro) { if (rally) { rally.el.remove(); cancelAnimationFrame(rally.raf); rally = null; } return; }
+    if (rally && (rally.de === duenio || rally.a === duenio) && (rally.de === otro || rally.a === otro)) return;
+    if (rally) rally.el.remove();
+    const el = document.createElement('div');
+    el.className = 'paleta-pelota'; el.innerHTML = '<i></i><b class="cuenta"></b>';
+    sky.appendChild(el);
+    rally = { el, n: 0, de: otro, a: duenio, t0: 0, dur: 900, cae: true, yo: false };
+    const [x, y] = pies(duenio); el.style.transform = `translate(${x}px, ${y}px)`; rally.x = x; rally.y = y;
+  }
+  function tocarPaleta(x, y) {
+    if (!rally) return false;
+    const s = skyRect(), dx = x - s.left - rally.x, dy = y - s.top - rally.y;
+    if (dx * dx + dy * dy > 40 * 40) return false;
+    const k = rally.cae ? 1 : (Date.now() - rally.t0) / rally.dur;
+    if (!rally.cae && k < 0.6) return true; // todavía lejos: no cuenta
+    rally.yo = true;
+    golpePaleta(rally.cae ? 1 : rally.n + 1, rally.a, rally.de, Date.now(), rally.cae ? 900 : Math.max(450, rally.dur * 0.96));
+    S.enviarMar({ t: 'paleta', n: rally.n, de: rally.de, a: rally.a, t0: rally.t0, dur: rally.dur });
+    return true;
+  }
+  function golpePaleta(n, de, a, t0, dur) {
+    if (!rally || !escena.has(a) || !escena.has(de)) return;
+    if (!rally.cae && n <= rally.n) return;
+    Object.assign(rally, { n, de, a, t0, dur, cae: false });
+    rally.el.querySelector('.cuenta').textContent = n > 1 ? n : '';
+    INICIO.golpe();
+    if (!rally.raf) rally.raf = requestAnimationFrame(volarPaleta);
+  }
+  function volarPaleta() {
+    if (!rally) return;
+    rally.raf = 0;
+    const k = (Date.now() - rally.t0) / rally.dur, [x0, y0] = cabeza(rally.de), [x1, y1] = cabeza(rally.a);
+    if (k < 1.12) {
+      const u = Math.min(1, Math.max(0, k)), x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u - 26 * 4 * u * (1 - u) + 10;
+      rally.x = x; rally.y = y; rally.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      rally.el.classList.toggle('justo', k >= 0.6);
+      rally.raf = requestAnimationFrame(volarPaleta);
+      return;
+    }
+    const n = rally.n;
+    rally.cae = true; rally.el.classList.remove('justo');
+    const [x, y] = pies(rally.a); rally.x = x; rally.y = y; rally.el.style.transform = `translate(${x}px, ${y}px)`;
+    if (n > 1) {
+      if (rally.yo) S.record('paletas.max', n);
+      rally.el.querySelector('.cuenta').textContent = `${n} golpes · récord ${Math.max(S.maxDeTodos('paletas.max'), n)}`;
+      setTimeout(() => { if (rally && rally.cae) rally.el.querySelector('.cuenta').textContent = ''; }, 3000);
+    } else rally.el.querySelector('.cuenta').textContent = '';
+    rally.n = 0; rally.yo = false;
+  }
+
+  // La banana inflable: la tira la moto de agua del que la tenga (la primera). Tocarla te sube (hasta 4, por 2 minutos);
+  // tocarla de nuevo te baja.
+  const bananeros = new Map(); // pid → hasta cuándo
+  let bananaLider = null; // { x, y, izq } de la moto que la tira
+  function revisarBanana(sky, duenio) {
+    const hayMoto = [...escena.values()].some((p) => p.agua === 'moto');
+    let el = sky.querySelector('.banana-mar');
+    if (!duenio || !hayMoto) { if (el) el.remove(); bananaLider = null; return; }
+    if (!el) { el = document.createElement('div'); el.className = 'lujo-mar banana-mar'; el.innerHTML = `<span class="cuerpo">${ARTE.item('banana')}</span>`; sky.appendChild(el); }
+    const ahora = Date.now();
+    bananeros.forEach((hasta, pid) => { if (hasta < ahora || !escena.has(pid)) bananeros.delete(pid); });
+  }
+  function tocarBanana(x, y) {
+    const el = document.querySelector('#sky .banana-mar');
+    if (!dentro(el, x, y, 10)) return false;
+    const yo = yoEnElMar(), p = escena.get(yo);
+    if (!p) return true;
+    if (bananeros.has(yo)) { bananeros.delete(yo); S.enviarMar({ t: 'banana', si: 0 }); }
+    else if (p.agua && p.agua !== 'banana') { toast('<span>Ya estás en el agua.</span>'); return true; }
+    else if (bananeros.size >= 4) { toast('<span>🍌 La banana está llena (entran 4).</span>'); return true; }
+    else { bananeros.set(yo, Date.now() + 120000); S.enviarMar({ t: 'banana', si: 1 }); S.contar('mar.banana'); }
+    revisarAgua();
+    return true;
+  }
+  function bananaDeOtro(pid, si) { if (si) bananeros.set(pid, Date.now() + 120000); else bananeros.delete(pid); revisarAgua(); }
 
   // ---------- el barco fantasma ----------
   // Con más de 5 mirando el mar aparece en el horizonte un barco fantasma todo roto, que va y viene despacio con una nube

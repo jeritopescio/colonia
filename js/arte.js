@@ -284,7 +284,9 @@ window.ARTE = (function () {
   Object.entries({ heineken: 46, marihuana: 104, lobo: 116, estudiantes: 116, reposeraarg: 100, guitarra: 104, buzo: 78, tejos: 72,
     moto: 130, ps5: 70, fogata: 84, caipirinha: 86, salvavidas: 66, mangrullo: 172, kayak: 138, yate: 150, ballena: 112, sirena: 70,
     delfin: 80, delfinrosa: 80, sombrero: 64, rabas: 70, papas: 64, neoprene: 100, antorchas: 112,
-    pure: 72, kuky: 100, botella: 54, galleta: 40, mellis: 118, holandes: 122 })
+    pure: 72, kuky: 100, botella: 54, galleta: 40, mellis: 118, holandes: 122,
+    balde: 64, paletas: 72, bengalas: 70, banana: 130, catalejo: 96, avioneta: 120, barrilete: 100, pelopincho: 120, parlante: 90,
+    cofre: 96, sillon: 104, velero: 130, chozita: 150, estatuas: 120, faro: 150, helicoptero: 124, isla: 150 })
     .forEach(([id, m]) => { ITEMS[id] = [m, m, null]; });
   // Con el arte nuevo cambian las proporciones: estos usan otro lado mayor que su dibujo viejo.
   const LADO = { carpa: 172, sombrilla: 140, tony: 88, feluchis: 84 };

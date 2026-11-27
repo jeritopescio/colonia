@@ -454,6 +454,25 @@ window.DATA = (function () {
     { id: 'moto', n: 'Moto de agua', p: 320, lv: 6, col: '#e8735a', d: 'Ruido, nafta y envidia. Cara, como todo lo que no necesitás.' },
     { id: 'ps5', n: 'PS5', p: 400, lv: 6, d: 'En la playa no hay enchufe. Igual la trajiste.' },
 
+    // Cosas que cobran vida en Mirar el mar (27/11): juegos para la ronda y, al final, los lujos que eligió Jero.
+    { id: 'balde', n: 'Balde y pala', p: 40, lv: 2, col: '#ffe39a', d: 'Para el castillo de todos en la orilla. La marea lo borra cada noche y se vuelve a empezar.' },
+    { id: 'paletas', n: 'Paletas', p: 60, lv: 3, col: '#a9d6f0', d: 'Toc, toc, toc, se fue al agua. Se juega de a dos y el récord es de todos.' },
+    { id: 'bengalas', n: 'Bengalas', p: 90, lv: 5, d: 'De noche tocás el cielo y explota. En las fechas especiales tiran todos.' },
+    { id: 'banana', n: 'Banana inflable', p: 220, lv: 7, d: 'La tira la moto de agua de alguien. Entran cuatro, se caen cuatro.' },
+    { id: 'catalejo', n: 'Catalejo maldito', p: 260, lv: 8, d: 'Se ve lejos. Demasiado lejos. A veces algo te mira de vuelta.' },
+    { id: 'barrilete', n: 'Barrilete', p: 300, lv: 9, col: '#f7b3c6', d: 'Vuela arriba tuyo. Con viento de verdad sube más; si hay tres, se enredan.' },
+    { id: 'avioneta', n: 'Avioneta con cartel', p: 350, lv: 9, col: '#f6a38f', d: 'Cruza el cielo con tu mensaje, como las de la costa. Si hay varias, se turnan.' },
+    { id: 'pelopincho', n: 'Pelopincho', p: 350, lv: 10, d: 'Cuando hace más de 28° de verdad, la colonia se mete.' },
+    { id: 'parlante', n: 'Parlante con luces', p: 450, lv: 11, d: 'De noche pone luces en la arena y un bajo en la música. Se baila.' },
+    { id: 'cofre', n: 'Cofre maldito', p: 500, lv: 11, d: 'Se abre una vez por día: monedas o una maldición tierna.' },
+    { id: 'sillon', n: 'Sillón verde inglés', p: 550, lv: 12, d: 'En la arena. Con té. Sin explicaciones.' },
+    { id: 'velero', n: 'Velero', p: 600, lv: 12, col: '#fffaf1', d: 'Navega por el horizonte con tu color en la vela.' },
+    { id: 'chozita', n: 'Chozita con tablas', p: 650, lv: 13, d: 'Tu refugio en la playa. Si golpeás, contestan.' },
+    { id: 'estatuas', n: 'Estatuas doradas', p: 700, lv: 13, d: 'Tus mascotas en oro, sobre pedestal. Brillan al atardecer.' },
+    { id: 'faro', n: 'Faro', p: 750, lv: 14, d: 'De noche barre el mar con su luz. A veces ilumina lo que no tenía que verse.' },
+    { id: 'helicoptero', n: 'Helicóptero', p: 900, lv: 15, d: 'Cruza el cielo cada tanto y tira un paquete: el primero que lo toca se lo queda.' },
+    { id: 'isla', n: 'Isla con palmera', p: 1200, lv: 16, d: 'Tu isla en el horizonte. Nadie sabe cómo llegaste.' },
+
     // Únicas (unico: true): no se venden en el kiosco, llegan solo de regalo (cumpleaños y fechas así).
     // venta = cuánto te dan si lo vendés (sin venta, el 80% del precio).
     { id: 'mellis', n: 'Cartel de mellis sueltas', p: 0, venta: 100, lv: 1, unico: true, d: 'Señalización oficial de la Costa: por esta playa andan dos mellis sueltas. Del cumple de las mellis, 26/11/2026.' },

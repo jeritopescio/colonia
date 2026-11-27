@@ -274,6 +274,38 @@ window.INICIO = (function () {
       sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(0.5, t + 0.002); sg.gain.exponentialRampToValueAtTime(0.001, t + 0.04); sg.gain.linearRampToValueAtTime(0, t + 0.045);
       s.connect(fl); fl.connect(sg); sg.connect(out); vive(s, [t, t + 0.05]);
     }
+    // Una bengala que explota: un estallido corto y un chisporroteo que se apaga.
+    function fuego() {
+      const t = ctx.currentTime + 0.01, out = ctx.createGain(); out.gain.value = 0.45; enviar(out, 0.85, 0.35);
+      const ruidito = (ts, dur, pico, frec) => {
+        const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        s.buffer = ruido; f.type = 'bandpass'; f.frequency.value = frec; f.Q.value = 0.8;
+        g.gain.setValueAtTime(0, ts); g.gain.linearRampToValueAtTime(pico, ts + 0.004); g.gain.exponentialRampToValueAtTime(0.001, ts + dur); g.gain.linearRampToValueAtTime(0, ts + dur + 0.01);
+        s.connect(f); f.connect(g); g.connect(out); vive(s, [ts, ts + dur + 0.02]);
+      };
+      ruidito(t, 0.32, 0.9, 900);
+      for (let k = 0; k < 14; k++) ruidito(t + 0.12 + Math.random() * 0.7, 0.03, 0.25 + Math.random() * 0.3, 3000 + Math.random() * 3000);
+    }
+    // La fiesta del parlante: un bombo en cada pulso, un platillo cerrado a contratiempo y el bajo en la nota del acorde.
+    let conFiesta = false, tFiesta = 0, kFiesta = 0;
+    function golpeFiesta(t, k) {
+      const out = capa[modo].col;
+      if (k % 2 === 0) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.16);
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9, t + 0.005); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); g.gain.linearRampToValueAtTime(0, t + 0.31);
+        o.connect(g); g.connect(out); vive(o, [t, t + 0.32]);
+        const a = acordesDe(modo)[(iAcorde + ACORDES.length - 1) % ACORDES.length], b = ctx.createOscillator(), bg = ctx.createGain(), bf = ctx.createBiquadFilter();
+        b.type = 'sawtooth'; b.frequency.value = hz(a.bajo); bf.type = 'lowpass'; bf.frequency.value = 300;
+        bg.gain.setValueAtTime(0, t); bg.gain.linearRampToValueAtTime(0.16, t + 0.01); bg.gain.exponentialRampToValueAtTime(0.001, t + PULSO * 0.45); bg.gain.linearRampToValueAtTime(0, t + PULSO * 0.46);
+        b.connect(bf); bf.connect(bg); bg.connect(out); vive(b, [t, t + PULSO * 0.47]);
+      } else {
+        const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        s.buffer = ruido; f.type = 'highpass'; f.frequency.value = 7000;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.18, t + 0.002); g.gain.exponentialRampToValueAtTime(0.001, t + 0.06); g.gain.linearRampToValueAtTime(0, t + 0.065);
+        s.connect(f); f.connect(g); g.connect(out); vive(s, [t, t + 0.07]);
+      }
+    }
     // Hundido: un arpegio de fa mayor que sube y el acorde.
     function fanfarria() {
       const t = ctx.currentTime + 0.05;
@@ -390,6 +422,7 @@ window.INICIO = (function () {
       while (tFrase < T) frase();
       while (tOla < T) { const d = azar(8, 13); ola(tOla, d); tOla += d * azar(0.96, 1.05); }
       if (modo === 'fantasma') { tViento = Math.max(tViento, ahora); while (tViento < T) { const d = azar(3.5, 7.5); rafaga(tViento, d); tViento += d; } }
+      if (conFiesta) { tFiesta = Math.max(tFiesta, ahora); while (tFiesta < T) { golpeFiesta(tFiesta, kFiesta++); tFiesta += PULSO / 2; } }
     }
     function nivel(v, seg) {
       const t = ctx.currentTime, g = master.gain;
@@ -402,12 +435,12 @@ window.INICIO = (function () {
       vivos.clear();
       master.disconnect(); comp.disconnect(); rev.disconnect();
     }
-    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia, trueno, aviso, canon, fanfarria, golpe, modo: cambiarModo, guitarra: (si) => { conGuitarra = !!si; } };
+    return { hasta, nivel, gaviota, cerrar, master, toque, sostener, melodia, trueno, aviso, canon, fanfarria, golpe, fuego, modo: cambiarModo, guitarra: (si) => { conGuitarra = !!si; }, fiesta: (si) => { conFiesta = !!si; } };
   }
 
   // ---------- encendido y apagado ----------
   const CLAVE = 'colonia.musica';
-  let enPortada = false, motor = null, reloj = null, corte = null, modoQuiere = 'normal', guitarraQuiere = false;
+  let enPortada = false, motor = null, reloj = null, corte = null, modoQuiere = 'normal', guitarraQuiere = false, fiestaQuiere = false;
   const quiere = () => { try { return localStorage.getItem(CLAVE) !== '0'; } catch (e) { return true; } };
   const ctx = () => (window.SONIDO && SONIDO.audio ? SONIDO.audio() : null);
   let escuchando = false;
@@ -421,7 +454,7 @@ window.INICIO = (function () {
     if (!motor) {
       tocadas = 0; callada = false;
       motor = crearMotor(c, c.destination);
-      motor.modo(modoQuiere); motor.guitarra(guitarraQuiere);
+      motor.modo(modoQuiere); motor.guitarra(guitarraQuiere); motor.fiesta(fiestaQuiere);
       motor.hasta(c.currentTime + 5);
       reloj = setInterval(() => motor && motor.hasta(c.currentTime + 5), 800);
     }
@@ -555,6 +588,9 @@ window.INICIO = (function () {
     golpe() { if (motor && !corte) motor.golpe(); },
     // La guitarra del fogón (cuando alguien que la tiene está en la ronda de noche).
     guitarra(si) { guitarraQuiere = !!si; if (motor) motor.guitarra(guitarraQuiere); },
+    // El parlante con luces (de noche): bombo, platillo y bajo. Y una bengala que explota.
+    fiesta(si) { fiestaQuiere = !!si; if (motor) motor.fiesta(fiestaQuiere); },
+    fuego() { if (motor && !corte) motor.fuego(); },
     sonando: () => !!motor && !corte,
     _motor: crearMotor, // para medir la música sin parlantes
   };

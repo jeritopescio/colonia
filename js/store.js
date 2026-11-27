@@ -672,6 +672,24 @@ window.STORE = (function () {
       save(); pushMe();
       return { c, s: D.BARCO.s, primero };
     },
+    // Lujos de Mirar el mar.
+    achDe(pid) { return !pid || pid === s.me ? s.ach : live ? (((s.cache.players[pid] || {}).datos || {}).ach || {}) : {}; },
+    cuentaDe(pid, k) { const c = !pid || pid === s.me ? s.cuentas : live ? (((s.cache.players[pid] || {}).datos || {}).cuentas || {}) : {}; return c[k] || 0; },
+    setCartelAvioneta(t) { t = String(t || '').trim().slice(0, 40); if (t) s.ach.avioneta = t; else delete s.ach.avioneta; save(); pushMe(); },
+    // el paquete del helicóptero: el primero que lo toca cobra 15 monedas (una vez por paquete)
+    agarrarPaquete(c) { if (!s.me || s.ach['paquete:' + c]) return 0; s.ach['paquete:' + c] = 1; s.coins += 15; api.contar('mar.paquetes'); save(); pushMe(); return 15; },
+    // el cofre maldito: una vez por día; monedas (10 a 40) o una gaviota en la cabeza por una hora
+    abrirCofre() {
+      const k = 'cofre:' + window.SKY.arDate();
+      if (!s.me || s.ach[k]) return null;
+      s.ach[k] = 1; api.contar('mar.cofres');
+      let r;
+      if (Math.random() < 0.6) { const c = 10 + Math.floor(Math.random() * 31); s.coins += c; r = { c }; } else { s.ach.maldicion = Date.now() + 3600e3; r = { maldicion: s.ach.maldicion }; }
+      save(); pushMe();
+      return r;
+    },
+    // el castillo de arena de todos: cuántas paladas puso cada uno hoy
+    palada() { const k = 'castillo.' + window.SKY.arDate(); api.contar(k); return s.cuentas[k] || 0; },
     salvavidas() { return s.ach.salvavidas || 0; },
     comprarSalvavidas() {
       if (!s.me || (s.ach.salvavidas || 0) >= D.SALVAVIDAS.max || s.coins < D.SALVAVIDAS.p) return false;
