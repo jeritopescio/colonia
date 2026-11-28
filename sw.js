@@ -2,7 +2,7 @@
    GitHub Pages manda los archivos con "guardalo 10 minutos": por eso se pide con no-cache (pregunta al servidor si cambió).
    Las imágenes van aparte: se guardan en el celu y se muestran al instante (Supabase las manda con no-cache,
    así que sin esto se vuelven a pedir cada vez que aparecen en pantalla). */
-const CACHE = 'colonia-v51';
+const CACHE = 'colonia-v52';
 const IMGS = 'colonia-img-1'; // fotos y arte: sobreviven a las actualizaciones de la app
 const MAX_IMGS = 700;
 // Los bordes de crayón se usan en todas las pantallas: quedan guardados desde que se instala la versión.

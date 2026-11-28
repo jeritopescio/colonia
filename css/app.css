@@ -632,10 +632,10 @@ body.fantasma #sky .varada { filter: brightness(.42); }
 .altar.zoom { touch-action: none; }
 /* la playa entera va adentro de .mundo: el zoom la escala y la corre sin tocar las posiciones de las cosas */
 .mundo { position: absolute; inset: 0; isolation: isolate; transform-origin: 0 0;
-  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 18%, var(--sky-hor) 33%, var(--sea) 33%, color-mix(in srgb, var(--sea) 62%, #fff) 45%); }
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) calc(18% / var(--v, 1)), var(--sky-hor) calc(33% / var(--v, 1)), var(--sea) calc(33% / var(--v, 1)), color-mix(in srgb, var(--sea) 62%, #fff) calc(45% / var(--v, 1))); }
 .mundo.suave { transition: transform .2s ease-out; }
-.mundo::before { content: ""; position: absolute; left: 0; right: 0; top: 45%; bottom: 0; background: radial-gradient(color-mix(in srgb, var(--ink) 13%, transparent) 1px, transparent 1.6px) 0 0 / 13px 13px, var(--sand); }
-.mundo::after { content: ""; position: absolute; left: -4%; right: -4%; top: calc(45% - 6px); height: 12px; background: radial-gradient(circle at 9px 0, #fff 6px, transparent 6.5px) 0 0 / 18px 12px repeat-x; opacity: .9; filter: url(#crayon); }
+.mundo::before { content: ""; position: absolute; left: 0; right: 0; top: calc(45% / var(--v, 1)); bottom: 0; background: radial-gradient(color-mix(in srgb, var(--ink) 13%, transparent) 1px, transparent 1.6px) 0 0 / 13px 13px, var(--sand); }
+.mundo::after { content: ""; position: absolute; left: -4%; right: -4%; top: calc(45% / var(--v, 1) - 6px); height: 12px; background: radial-gradient(circle at 9px 0, #fff 6px, transparent 6.5px) 0 0 / 18px 12px repeat-x; opacity: .9; filter: url(#crayon); }
 .zoombar { position: absolute; right: 8px; bottom: 8px; z-index: 2; display: flex; gap: 6px; }
 .zoombar button { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 2.5px solid var(--ink); background: var(--paper); color: var(--ink); font-family: var(--display); font-weight: 600; font-size: 1.3rem; line-height: 1; cursor: pointer; }
 .altar .nube { position: absolute; aspect-ratio: 3 / 1; background: #fff; border-radius: 999px; opacity: .9; filter: url(#crayon); }
@@ -677,9 +677,10 @@ body.fantasma #sky .varada { filter: brightness(.42); }
 .bolsa .ai { inset: 6px; }
 .cartelito b { position: absolute; left: 7%; right: 7%; top: 13%; height: 34%; display: grid; place-items: center; font-family: "Patrick Hand", sans-serif; font-weight: 400; color: var(--ink); line-height: 1; white-space: nowrap; overflow: hidden; }
 .altar.pintado .mundo { background: none; }
-.altar.pintado .mundo::before { top: 0; background: var(--fondo, url(../img/altar/fondo.webp?v=2)) center / cover no-repeat; }
+/* El dibujo de fondo va arriba con su alto de siempre; con lotes, abajo sigue la arena (el color del borde del dibujo, con puntitos). */
+.altar.pintado .mundo::before { top: 0; background: var(--fondo, url(../img/altar/fondo.webp?v=2)) top center / 100% auto no-repeat, radial-gradient(rgba(67, 54, 90, .1) 1px, transparent 1.6px) 0 0 / 13px 13px, #f5dfc2; }
 .altar.pintado .mundo::after { display: none; }
-[data-sky-dark="1"] .altar.pintado .mundo::before { background: linear-gradient(#8089c4, #8089c4), var(--fondo, url(../img/altar/fondo.webp?v=2)) center / cover no-repeat; background-blend-mode: multiply; }
+[data-sky-dark="1"] .altar.pintado .mundo::before { background: linear-gradient(#8089c4, #8089c4), var(--fondo, url(../img/altar/fondo.webp?v=2)) top center / 100% auto no-repeat, #f5dfc2; background-blend-mode: multiply; }
 /* Con lotes la playa es más ancha que el cuadro: alejada, arriba sigue el cielo y abajo la arena (los colores del borde del dibujo). */
 .altar.ancho { background: linear-gradient(var(--sky-top) 50%, var(--sand) 50%); }
 .altar.pintado.ancho { background: linear-gradient(#c6e7f1 50%, #f5dfc2 50%); }

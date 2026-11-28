@@ -120,16 +120,19 @@
   const vistas = {};       // zoom de cada altarcito: sobrevive a los redibujos
   let dragging = false;
 
-  // Con lotes, la playa mide K pantallas de ancho. Lo guardado (place.x) va en pantallas (0 a K): lo que ya estaba acomodado no se mueve.
-  // En la página, .mundo mide K veces el ancho y las posiciones y anchos van en fracción del mundo (x / K).
+  // Con lotes, la playa mide K pantallas de ancho y también K de alto: el cielo y el mar quedan arriba como siempre y la
+  // arena sigue para abajo (alejada, la playa llena el cuadro entero). Lo guardado va en pantallas: x de 0 a K, y de 0 a K
+  // (lo que ya estaba acomodado no se mueve). En la página, .mundo mide K × K y las posiciones van en fracción del mundo
+  // (x / K, y / K).
+  const zonaY = (zona, K = 1) => { const [a, b] = ZONAS[zona]; return zona === 'arena' ? [a, b + K - 1] : [a, b]; };
   function spot(pid, it, place, K = 1) {
     const p = place[it.k];
     if (p && p.x != null) return p;
-    const r = rnd(pid + it.k), zona = zonaDe(it.id), [a, b] = ZONAS[zona];
+    const r = rnd(pid + it.k), zona = zonaDe(it.id), [a, b] = zonaY(zona, K);
     return Object.assign({}, p, { x: 0.12 + r() * (K - 0.24), y: zona === 'arena' ? a + 0.1 + r() * (b - a - 0.12) : a + r() * (b - a) });
   }
   const itWidth = (id, y, K = 1) => ((y == null ? ARTE.size(id).w / 4 : ARTE.size(id).w / 4 * ESCALA * escala(id, y)) / K).toFixed(2) + '%';
-  const itStyle = (id, x, y, z, flat, K = 1) => `left:${(x * 100).toFixed(2)}%;top:${(y * 100).toFixed(2)}%;width:${itWidth(id, flat ? null : y, K)};z-index:${z}`;
+  const itStyle = (id, x, y, z, flat, K = 1) => `left:${(x * 100).toFixed(2)}%;top:${(y / K * 100).toFixed(2)}%;width:${itWidth(id, flat ? null : y, K)};z-index:${z}`;
   const FONDO_LOTE = { 1.5: 'fondo-15', 2: 'fondo-2', 3: 'fondo-3' };
   const colorOf = (it, p) => (p && p.c) || shopItem(it.id).col || null;
   const ordenIt = (a, b) => RANGO[zonaDe(a.id)] - RANGO[zonaDe(b.id)] || area(b.id) - area(a.id) || a.y - b.y;
@@ -149,13 +152,13 @@
     if (!S.me || dia < HZ.desde || S.hallado(tipo, dia)) return null;
     const r = rnd(tipo + S.me + dia), sale = r() < h.prob, hora = h.de + r() * (h.a - h.de);
     if (!forzado[tipo] && (!sale || SKY.arMinute() < hora)) return null;
-    return { tipo, K, x: 0.16 + r() * (K - 0.32), y: tipo === 'botella' ? 0.47 + r() * 0.025 : 0.64 + r() * 0.26 };
+    return { tipo, K, x: 0.16 + r() * (K - 0.32), y: tipo === 'botella' ? 0.47 + r() * 0.025 : 0.64 + r() * (0.26 + K - 1) };
   }
   function hallazgoHTML(h) {
     const K = h.K || 1, w = (ARTE.size(h.tipo).w / 4 * ESCALA * (h.tipo === 'botella' ? 0.9 : persp(h.y)) / K).toFixed(2);
     const que = h.tipo === 'botella' ? 'Una botella llegó del mar' : 'Hay algo enterrado en la arena';
     return `<div class="it hallazgo ${h.tipo}${h.tipo === 'botella' ? ' mar flota' : ''}" data-hallazgo="${h.tipo}" role="button" tabindex="0" aria-label="${que}"
-      style="left:${(h.x / K * 100).toFixed(2)}%;top:${(h.y * 100).toFixed(2)}%;width:${w}%;z-index:60">${ARTE.item(h.tipo)}<i class="brillo" aria-hidden="true">✦</i></div>`;
+      style="left:${(h.x / K * 100).toFixed(2)}%;top:${(h.y / K * 100).toFixed(2)}%;width:${w}%;z-index:60">${ARTE.item(h.tipo)}<i class="brillo" aria-hidden="true">✦</i></div>`;
   }
   const SIN_TILDE = { á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u', Á: 'A', É: 'E', Í: 'I', Ó: 'O', Ú: 'U' };
   const sinTilde = (t) => t.replace(/[áéíóúüÁÉÍÓÚ]/g, (c) => SIN_TILDE[c]);
@@ -242,11 +245,11 @@
     const cw = ARTE.cartelIA ? 23 : (Math.max(60, Math.min(110, 14 + name.length * 7.2)) + 4) / 4;
     // Dirección completa: un url() relativo dentro de una variable se resolvería desde css/, no desde la página.
     const fondo = K > 1 && FONDO_LOTE[K] ? `;--fondo:url(${new URL(`img/altar/${FONDO_LOTE[K]}.webp?v=1`, location.href).href})` : '';
-    return `<div class="altar${editable ? ' edit' : ''}${ARTE.pintado ? ' pintado' : ''}${K > 1 ? ' ancho' : ''}" data-pid="${pid}" data-k="${K}"><div class="mundo" style="width:${K * 100}%${fondo}">
-      ${ARTE.pintado ? '' : '<i class="nube" style="left:10%;top:7%;width:22%"></i><i class="nube" style="left:64%;top:14%;width:15%"></i>'}
+    return `<div class="altar${editable ? ' edit' : ''}${ARTE.pintado ? ' pintado' : ''}${K > 1 ? ' ancho' : ''}" data-pid="${pid}" data-k="${K}"><div class="mundo" style="width:${K * 100}%;height:${K * 100}%;bottom:auto;--v:${K}${fondo}">
+      ${ARTE.pintado ? '' : `<i class="nube" style="left:10%;top:${(7 / K).toFixed(2)}%;width:22%"></i><i class="nube" style="left:64%;top:${(14 / K).toFixed(2)}%;width:15%"></i>`}
       ${ref}
-      ${a.items.some((it) => it.id === 'avioneta') ? `<div class="avioneta-altar" aria-hidden="true"><span class="cartel-avioneta">${esc(cartelAvioneta(pid))}</span><i class="soga"></i><span class="cuerpo">${ARTE.item('avioneta', colorOf(a.items.find((it) => it.id === 'avioneta'), a.place[a.items.find((it) => it.id === 'avioneta').k]))}</span></div>` : ''}
-      <div class="it fixed cartel" style="left:${((K - 0.14) / K * 100).toFixed(2)}%;top:57%;width:${(cw / K).toFixed(2)}%;z-index:3">${ARTE.cartel(esc(name))}</div>
+      ${a.items.some((it) => it.id === 'avioneta') ? `<div class="avioneta-altar" aria-hidden="true" style="top:${(9 / K).toFixed(2)}%"><span class="cartel-avioneta">${esc(cartelAvioneta(pid))}</span><i class="soga"></i><span class="cuerpo">${ARTE.item('avioneta', colorOf(a.items.find((it) => it.id === 'avioneta'), a.place[a.items.find((it) => it.id === 'avioneta').k]))}</span></div>` : ''}
+      <div class="it fixed cartel" style="left:${((K - 0.14) / K * 100).toFixed(2)}%;top:${(57 / K).toFixed(2)}%;width:${(cw / K).toFixed(2)}%;z-index:3">${ARTE.cartel(esc(name))}</div>
       ${placed.map(({ it, p }, i) => itHTML(pid, it, p, i, K)).join('')}
       ${editable && pid === S.me ? ['botella', 'galleta'].map((t) => hallazgoHoy(t, K)).filter(Boolean).map(hallazgoHTML).join('') + botellaAmigoHTML(K) : ''}
       ${!a.items.length && !R ? `<div class="vacio">${editable ? 'Tu playa está vacía.<br>Pasá por el kiosco.' : 'Todavía está vacía.'}</div>` : ''}
@@ -261,9 +264,10 @@
   // Cae desde h (fracción del alto del altarcito) hasta donde está parado. Todo con transform: va liso aunque el celu esté ocupado.
   const PIE = 'translate(-50%, -100%)', GRAVEDAD = 6.5;
   function polvo(box, x, y) {
+    const K = +(box.closest('.altar') || { dataset: {} }).dataset.k || 1;
     for (let i = 0; i < 6; i++) {
       const p = document.createElement('i'), a = Math.PI * (1 + i / 5), r = 12 + Math.random() * 14;
-      p.className = 'polvo'; p.style.left = (x * 100) + '%'; p.style.top = (y * 100) + '%';
+      p.className = 'polvo'; p.style.left = (x * 100) + '%'; p.style.top = (y / K * 100) + '%';
       p.style.setProperty('--dx', (Math.cos(a) * r).toFixed(1) + 'px');
       p.style.setProperty('--dy', (Math.sin(a) * (r * 0.55)).toFixed(1) + 'px');
       p.addEventListener('animationend', () => p.remove());
@@ -271,7 +275,7 @@
     }
   }
   function caer(el, box, h, done) {
-    const px = h * box.offsetHeight;
+    const px = h * box.offsetHeight / (+(box.closest('.altar') || { dataset: {} }).dataset.k || 1);
     const ms = clamp(Math.sqrt(2 * h / GRAVEDAD) * 1000, 55, 480);
     let over = false;
     const land = () => {
@@ -312,9 +316,9 @@
 
     const aLocal = (cx, cy) => { const r = altar.getBoundingClientRect(); return [cx - r.left - altar.clientLeft, cy - r.top - altar.clientTop]; };
     // Si la playa queda más chica que el cuadro, se centra (arriba sigue el cielo y abajo la arena); si no, se puede recorrer.
-    const puedeMover = () => v.z > 1.001 || altar.clientWidth * K * v.z > altar.clientWidth + 1;
+    const puedeMover = () => v.z * K > 1.001;
     const aplicar = () => {
-      const W = altar.clientWidth, H = altar.clientHeight, ww = W * K * v.z, hh = H * v.z;
+      const W = altar.clientWidth, H = altar.clientHeight, ww = W * K * v.z, hh = H * K * v.z;
       v.x = ww <= W + 0.5 ? (W - ww) / 2 : clamp(v.x, W - ww, 0);
       v.y = hh <= H + 0.5 ? (H - hh) / 2 : clamp(v.y, H - hh, 0);
       const igual = Math.abs(v.z - 1) < 0.001 && Math.abs(v.x) < 0.5 && Math.abs(v.y) < 0.5;
@@ -333,7 +337,7 @@
 
     function agarrar() {
       const t = g, el = t.el, id = el.dataset.id, x0 = +el.dataset.x, y0 = +el.dataset.y, p0 = escala(id, y0);
-      const [ymin, ymax] = ZONAS[zonaDe(id)], r = box.getBoundingClientRect(), W = box.offsetWidth, H = box.offsetHeight;
+      const [ymin, ymax] = zonaY(zonaDe(id), K), r = box.getBoundingClientRect(), W = box.offsetWidth, H = box.offsetHeight / K;
       const shadow = document.createElement('i'); shadow.className = 'ground';
       shadow.style.width = (ARTE.size(id).w / 4 * ESCALA * 0.7 / K) + '%';
       const d = g = { tipo: 'drag', el, id, pointer: t.pointer, x0, y0, ymin, ymax, rw: r.width, rh: r.height, sx: t.lx, sy: t.ly, gx: x0, gy: y0, fy: y0, moved: false, shadow };
@@ -351,7 +355,7 @@
       const d = g, el = d.el; g = null;
       d.shadow.remove(); el.classList.remove('held'); el.style.transform = '';
       el.dataset.x = d.gx; el.dataset.y = d.gy;
-      el.style.left = (d.gx * 100) + '%'; el.style.top = (d.gy * 100) + '%'; el.style.width = itWidth(d.id, d.gy, K);
+      el.style.left = (d.gx * 100) + '%'; el.style.top = (d.gy / K * 100) + '%'; el.style.width = itWidth(d.id, d.gy, K);
       caer(el, box, Math.max(d.gy - d.fy, 0.03), () => { restack(box); dragging = false; });
       if (d.moved) S.setPlace(el.dataset.k, { x: +(d.gx * K).toFixed(4), y: +d.gy.toFixed(4) });
     }
@@ -383,7 +387,7 @@
         const dx = e.clientX - g.sx, dy = e.clientY - g.sy, dist = Math.hypot(dx, dy);
         if (dist > 6) g.moved = true;
         g.gx = clamp(g.x0 + dx / g.rw, 0.05 / K, 1 - 0.05 / K);
-        const ay = clamp(g.y0 + dy / g.rh, 0.04, 0.99);
+        const ay = clamp(g.y0 + dy / g.rh * K, 0.04, K - 0.01);
         g.gy = clamp(ay, g.ymin, g.ymax);
         g.fy = Math.min(ay, g.gy - LIFT * Math.min(1, dist / 26));
         g.paint();
@@ -2318,7 +2322,7 @@
     if (!b) return '';
     const r = rnd(b.id), x = 0.18 + r() * (K - 0.36), y = 0.47 + r() * 0.02, w = (ARTE.size('botella').w / 4 * ESCALA * 0.9 / K).toFixed(2);
     return `<div class="it hallazgo botella amigo mar flota" data-hallazgo="amigo" data-bid="${esc(b.id)}" role="button" tabindex="0" aria-label="Llegó una botella de alguien de la colonia"
-      style="left:${(x / K * 100).toFixed(2)}%;top:${(y * 100).toFixed(2)}%;width:${w}%;z-index:61">${ARTE.item('botella')}<i class="brillo" aria-hidden="true">♥</i></div>`;
+      style="left:${(x / K * 100).toFixed(2)}%;top:${(y / K * 100).toFixed(2)}%;width:${w}%;z-index:61">${ARTE.item('botella')}<i class="brillo" aria-hidden="true">♥</i></div>`;
   }
   function abrirBotellaAmigo(el) {
     const b = S.botellasParaMi().find((x) => x.id === el.dataset.bid);
